@@ -1,0 +1,69 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Dark background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+    <!-- Crust gradient -->
+    <radialGradient id="crustGrad" cx="50%" cy="50%">
+      <stop offset="80%" style="stop-color:#d4a574;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#a67c52;stop-opacity:1" />
+    </radialGradient>
+    <!-- Cheese gradient -->
+    <radialGradient id="cheeseGrad" cx="50%" cy="50%">
+      <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#daa520;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
+
+  <!-- Main pizza circle (crust) -->
+  <circle cx="256" cy="256" r="190" fill="url(#crustGrad)" stroke="#8b6434" stroke-width="4"/>
+
+  <!-- Cheese base -->
+  <circle cx="256" cy="256" r="170" fill="url(#cheeseGrad)"/>
+
+  <!-- Pizza slices as pie chart (Fat, Carbs, Protein) -->
+  <!-- Fat slice (tan) - 120 degrees (top-left) -->
+  <path d="M 256 256 L 256 86 A 170 170 0 0 1 403.3 168.5 Z"
+        fill="#b8884f" stroke="#9a6f3f" stroke-width="3" opacity="0.85"/>
+
+  <!-- Carbs slice (green) - 120 degrees (top-right) -->
+  <path d="M 256 256 L 403.3 168.5 A 170 170 0 0 1 344.8 396.8 Z"
+        fill="#85b66f" stroke="#6a9354" stroke-width="3" opacity="0.85"/>
+
+  <!-- Protein slice (purple) - 120 degrees (bottom) - PULLED OUT -->
+  <g transform="translate(0, 35)">
+    <path d="M 256 256 L 344.8 396.8 A 170 170 0 0 1 256 86 Z"
+          fill="#a78bbd" stroke="#8b6f99" stroke-width="3" opacity="0.85"/>
+
+    <!-- Pepperoni on pulled-out slice -->
+    <circle cx="280" cy="300" r="16" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+    <circle cx="260" cy="260" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+    <circle cx="240" cy="320" r="15" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  </g>
+
+  <!-- Pepperoni on main pizza -->
+  <!-- Top section -->
+  <circle cx="280" cy="140" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="240" cy="160" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="320" cy="180" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+
+  <!-- Right section -->
+  <circle cx="370" cy="230" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="380" cy="280" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="350" cy="320" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+
+  <!-- Left section -->
+  <circle cx="160" cy="230" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="140" cy="280" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="170" cy="320" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+
+  <!-- Center cluster -->
+  <circle cx="256" cy="220" r="22" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="280" cy="240" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <circle cx="230" cy="235" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+</svg>

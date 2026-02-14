@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="description" content="Track macros, weight, and workouts with AI-powered nutrition estimation">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Fitness Pizza">
+
+    <title>Fitness Pizza - Track Your Macros</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="img/icons/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="img/icons/icon-512.png">
+    <link rel="apple-touch-icon" href="img/icons/icon-192.png">
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="css/charts.css">
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+</head>
+<body>
+    <!-- App Container -->
+    <div id="app">
+        <!-- Header -->
+        <header id="app-header">
+            <div id="offline-indicator" class="hidden">
+                <span class="offline-icon">⚠</span> Offline
+            </div>
+            <div class="date-navigation">
+                <button id="btn-prev-day" class="btn-date-nav" title="Previous day">◀</button>
+                <input type="date" id="current-date" class="date-picker">
+                <button id="btn-next-day" class="btn-date-nav" title="Next day">▶</button>
+                <button id="btn-today" class="btn-date-today" title="Jump to today">Today</button>
+            </div>
+        </header>
+
+        <!-- Error Display (debug from day one) -->
+        <div id="error-display" class="hidden">
+            <div class="error-content">
+                <span class="error-icon">⚠</span>
+                <p id="error-message"></p>
+                <button id="error-dismiss">Dismiss</button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- Dashboard Screen -->
+            <div id="screen-dashboard" class="screen active">
+                <div id="dashboard-content">
+                    <div class="stat-card">
+                        <div id="today-macros-summary">Loading...</div>
+                    </div>
+                    <div class="recent-activity">
+                        <div id="recent-activity-list">No activity today</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Macros Screen -->
+            <div id="screen-macros" class="screen">
+                <div id="macros-content">
+                    <div class="action-buttons">
+                        <button id="btn-add-macro" class="btn-primary">+ Add Macro Entry</button>
+                        <button id="btn-manage-foods" class="btn-secondary">📚 Food Library</button>
+                        <button id="btn-photo-macro" class="btn-secondary">📷 From Photo</button>
+                        <button id="btn-text-ai-macro" class="btn-secondary">🤖 AI from Text</button>
+                    </div>
+                    <div id="macro-form-container" class="hidden"></div>
+                    <div id="macro-list">
+                        <div id="macro-entries">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Measurements Screen -->
+            <div id="screen-measurements" class="screen">
+                <div id="measurements-content">
+                    <div class="action-buttons">
+                        <button id="btn-add-weight" class="btn-primary">+ Add Weight</button>
+                        <button id="btn-add-waist" class="btn-secondary">+ Add Waist</button>
+                    </div>
+                    <div id="measurement-form-container" class="hidden"></div>
+                    <div id="measurement-list">
+                        <div id="measurement-entries">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workouts Screen -->
+            <div id="screen-workouts" class="screen">
+                <div id="workouts-content">
+                    <div class="action-buttons">
+                        <button id="btn-add-workout" class="btn-primary">+ Add Workout</button>
+                        <button id="btn-manage-workouts" class="btn-secondary">📚 Workout Library</button>
+                    </div>
+
+                    <div id="workout-form-container" class="hidden"></div>
+                    <div id="workout-list">
+                        <div id="workout-entries">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trends Screen -->
+            <div id="screen-trends" class="screen">
+                <div id="trends-content">
+                    <div class="date-range-selector">
+                        <button class="btn-range" data-range="7">7 Days</button>
+                        <button class="btn-range active" data-range="30">30 Days</button>
+                        <button class="btn-range" data-range="90">90 Days</button>
+                        <button class="btn-range" data-range="all">All Time</button>
+                    </div>
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <h3>Macro Distribution</h3>
+                            <canvas id="macro-distribution-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Calorie Balance</h3>
+                            <canvas id="calorie-balance-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Weight Trend</h3>
+                            <canvas id="weight-trend-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Workout Volume</h3>
+                            <canvas id="workout-volume-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Screen -->
+            <div id="screen-settings" class="screen">
+                <div id="settings-content">
+                    <div class="settings-section">
+                        <h3>Daily Goals</h3>
+                        <div class="form-group-inline">
+                            <label for="goal-fat">Fat (g)</label>
+                            <input type="number" id="goal-fat" placeholder="70" step="1">
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="goal-carbs">Carbs (g)</label>
+                            <input type="number" id="goal-carbs" placeholder="200" step="1">
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="goal-protein">Protein (g)</label>
+                            <input type="number" id="goal-protein" placeholder="150" step="1">
+                        </div>
+                        <div class="form-group-inline" style="margin-bottom: 8px;">
+                            <label>Calories:</label>
+                            <span id="computed-calories" style="color: var(--text-primary); font-weight: 600;">2000</span>
+                        </div>
+                        <button id="btn-reverse-diet" class="btn-secondary" style="width: 100%; margin-top: 8px;">
+                            📈 Reverse Diet (+20%)
+                        </button>
+                        <p class="help-text" style="margin-top: 4px; font-size: 12px;">Increases all macro goals by 20%</p>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Preferences</h3>
+                        <div class="form-group-inline">
+                            <label for="theme-toggle">Theme</label>
+                            <select id="theme-toggle">
+                                <option value="dark" selected>Dark (Default)</option>
+                                <option value="light">Black on White</option>
+                                <option value="white-on-black">White on Black</option>
+                                <option value="goth-rave">Goth Rave</option>
+                                <option value="psychedelic">Psychedelic</option>
+                                <option value="pink">Pink</option>
+                                <option value="trs-80">TRS-80</option>
+                            </select>
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="units-toggle">Units</label>
+                            <select id="units-toggle">
+                                <option value="imperial" selected>Imperial</option>
+                                <option value="metric">Metric</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Data Management</h3>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button id="btn-export-data" class="btn-secondary" style="flex: 1; min-width: 120px;">Export</button>
+                            <input type="file" id="import-data-file" accept=".json" style="display: none;">
+                            <button id="btn-import-data" class="btn-secondary" style="flex: 1; min-width: 120px;">Import</button>
+                            <button id="btn-clear-cache" class="btn-danger" style="flex: 1; min-width: 120px;">Clear Cache</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>Google Gemini API</h3>
+                        <div class="form-group-inline">
+                            <label for="gemini-api-key">API Key</label>
+                            <input type="text" id="gemini-api-key" placeholder="AIza..." style="font-family: monospace;">
+                        </div>
+                        <button id="btn-test-api-key" class="btn-secondary" style="margin-top: 8px;">Test API Key</button>
+                        <div id="api-key-status" style="margin-top: 8px; display: none;"></div>
+                        <p class="help-text" style="margin-top: 4px; margin-bottom: 0;">Get your API key from <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></p>
+                    </div>
+
+                    <div class="settings-section">
+                        <h3>About</h3>
+                        <p>Fitness Pizza v1.9.1 🍕</p>
+                        <p>Track your macros like slices of pizza</p>
+                        <p>Entirely vibe-coded with Claude Code</p>
+                        <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Floating Action Buttons -->
+        <button id="fab-add-workout" class="fab fab-left" title="Add Workout">💪</button>
+        <button id="fab-add-food" class="fab fab-right" title="Add Food">🍽️</button>
+
+        <!-- Bottom Navigation -->
+        <nav id="bottom-nav">
+            <button class="nav-item active" data-screen="dashboard">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Dashboard</span>
+            </button>
+            <button class="nav-item" data-screen="macros">
+                <span class="nav-icon">🍽️</span>
+                <span class="nav-label">Macros</span>
+            </button>
+            <button class="nav-item" data-screen="measurements">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Measurements</span>
+            </button>
+            <button class="nav-item" data-screen="workouts">
+                <span class="nav-icon">💪</span>
+                <span class="nav-label">Workouts</span>
+            </button>
+            <button class="nav-item" data-screen="trends">
+                <span class="nav-icon">📈</span>
+                <span class="nav-label">Trends</span>
+            </button>
+            <button class="nav-item" data-screen="settings">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <p id="loading-message">Loading...</p>
+    </div>
+
+    <!-- JavaScript Modules (loaded as ES6 modules) -->
+    <script type="module" src="js/app.js"></script>
+
+    <!-- Service Worker Registration -->
+    <script type="module">
+        import * as ui from './js/ui.js';
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered:', registration);
+
+                        // Check for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New service worker installed and ready
+                                    ui.createModal('Update Available', `
+                                        <div style="text-align: center; padding: var(--spacing-md);">
+                                            <p style="font-size: 1.2em; margin-bottom: var(--spacing-sm);">🎉 App Updated!</p>
+                                            <p>A new version is available. Reload to update.</p>
+                                        </div>
+                                    `, [
+                                        { text: 'Later', className: 'btn-secondary' },
+                                        {
+                                            text: 'Reload Now',
+                                            className: 'btn-primary',
+                                            onClick: () => window.location.reload()
+                                        }
+                                    ]);
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

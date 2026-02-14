@@ -1,0 +1,365 @@
+# 🍕 Fitness Pizza
+
+Track your macros like slices of pizza! A lightweight, privacy-focused Progressive Web App for tracking macros, measurements, and workouts. **Entirely vibe-coded** with Claude Code.
+
+## ✨ Features
+
+### 📊 Macro Tracking
+- Log food with detailed macros (protein, carbs, fat, fiber)
+- AI-powered estimation from food photos via Claude API
+- Food library with 130+ imported foods
+- Search and smart macro-match sorting
+- Plan vs. completed meals
+- Adjust servings after logging
+
+### 📈 Body Measurements
+- Track weight and waist measurements
+- Timestamp precision for trends
+- Visual charts for progress
+
+### 💪 Workout Logging
+- Log exercises by type (Cardio, Core, Lifting)
+- Conservative calorie burn estimates
+- Workout library for quick re-logging
+- Star your favorite exercises
+
+### 📉 Dashboard & Trends
+- Real-time macro progress bars
+- Calorie balance (intake - burn)
+- Planned items always shown first
+- Comprehensive trending charts
+
+### 🤖 AI Integration
+- Claude Sonnet 4.5 for food photo analysis
+- Menu text estimation
+- Automatic macro calculations
+
+### 🔒 Data Persistence
+- **Persistent Storage API** - browser won't auto-clear your data
+- **Weekly auto-backup** to Downloads (`fitness-tracker-backup.json`)
+- Overwrites same file - no clutter
+- Full import/export support
+
+## 🎨 Design Philosophy
+
+- **Dark mode by default** - easier on the eyes
+- **Mobile-first** - optimized for thumb-friendly touch targets
+- **Offline-capable** - full PWA with service worker
+- **Privacy-focused** - all data stored locally in IndexedDB
+- **No server required** - pure client-side app
+
+## 🚀 Installation
+
+### On Your Phone (PWA Install):
+
+1. **Android (Chrome/Edge)**:
+   - Visit your hosted URL
+   - Tap menu (⋮) → "Add to Home screen"
+   - App appears on home screen
+
+2. **iPhone (Safari)**:
+   - Visit your hosted URL
+   - Tap Share (□↑) → "Add to Home Screen"
+   - App appears on home screen
+
+### Deployment:
+
+Upload the entire folder to any static web host:
+- GitHub Pages
+- Vercel
+- Netlify
+- Your own domain via SFTP
+
+**Requirements**: HTTPS is required for PWA features (service worker, camera access).
+
+## 📱 Usage
+
+### Quick Start:
+
+1. **Set Daily Goals**: ⚙️ Settings → Daily Goals (Fat, Protein, Carbs)
+2. **Log Food**: 📊 Macros → Food Library or + Add
+3. **Track Measurements**: 📏 Add weight/waist measurements
+4. **Log Workouts**: 💪 Workouts → + Add or Workout Library
+5. **View Progress**: 📈 Dashboard & Trends tabs
+
+### Food Library Tips:
+
+- **Search** to find foods quickly
+- **Sort by Macro Match** to see foods that fit your remaining macros
+- Foods are stored per-100g or per-serving for accuracy
+
+### Data Safety:
+
+- App auto-backs up weekly to `fitness-tracker-backup.json` in Downloads
+- Keep this file safe - it's your data recovery!
+- Import via ⚙️ Settings → Import Data
+
+## 🛠️ Technical Stack
+
+- **Frontend**: Vanilla JavaScript (no frameworks)
+- **Storage**: IndexedDB (client-side)
+- **Charts**: Chart.js
+- **AI**: Claude API (user's API key)
+- **Offline**: Service Worker with cache-first strategy
+- **Mobile**: PWA manifest with standalone display
+
+## 📦 Project Structure
+
+```
+fitness-tracker-pwa/
+├── index.html              # App shell (SPA)
+├── manifest.json           # PWA manifest
+├── sw.js                   # Service worker
+├── css/                    # Styles (dark mode default)
+├── js/
+│   ├── app.js              # Main controller
+│   ├── db.js               # IndexedDB wrapper
+│   ├── api.js              # Claude API integration
+│   ├── ui.js               # UI utilities
+│   ├── components/         # UI components
+│   └── utils/              # Helper functions
+└── img/icons/              # PWA icons
+```
+
+## 🎯 Data Import
+
+Includes `foodyou-import.json` with 413 food entries converted from FoodYou app. Import via Settings to populate your food library with your history.
+
+## 🧪 Vibe-Coded
+
+This entire app was built through conversational coding with **Claude Code** - no traditional planning docs, just vibes and iteration. Features were added organically based on real usage needs:
+
+- Started with basic macro tracking
+- Added measurements when needed
+- Workouts came next
+- AI integration for convenience
+- Search & sorting for usability
+- Data persistence after discovering clearing history wiped everything
+
+The result? A fully-featured fitness PWA built entirely through natural language prompts. No frameworks, no boilerplate, just pure vibe-driven development. ✨
+
+## 📝 Version
+
+**Current**: v1.9.1
+- **Fixed Logo**: Redesigned pizza pie chart with clearly visible pulled-out slice
+  - Removed text from logo (doesn't work with circular icons)
+  - Better cheese/crust layers for realistic pizza look
+  - Dark background matching app theme
+- **App Name**: Changed from "FitPizza" to "Fitness Pizza"
+- **Theme Colors**: Top bar now matches dark theme (#0f172a) instead of red
+- **Smart Remove Buttons**: Remove button only shows for planned items on dashboard
+  - Completed items don't have remove button (prevents accidental deletion)
+  - Can still delete from macro tab
+- **Reverse Diet Feature**: New button in settings to increase all macros by 20%
+  - Useful for gradually increasing calories (reverse dieting)
+  - Updates all goals at once with one click
+- **AI Improvements**:
+  - Photo analysis now shows loading animation immediately
+  - Added labels to macro input boxes (Fat, Carbs, Protein, Fiber)
+  - New text-based AI estimation (🤖 AI from Text button)
+  - Estimate macros from text description without photo
+- **Bug Fixes**:
+  - Fixed calorie overflow red segment not showing
+  - Improved loading feedback timing
+
+**Previous**: v1.9.0
+- **Rebranding: Fitness Pizza 🍕**: Fresh new identity!
+  - Fun pizza pie chart logo with one slice pulled out
+  - Track your macros like slices of a delicious pizza
+  - Pepperoni-themed design with macro colors
+- **UX Improvements**:
+  - Removed duplicate button from macro tab (unused)
+  - Removed delete button from dashboard food entries (use macro tab instead)
+  - Fixed border-radius gaps on segmented calorie progress bar
+- **Bug Fix: Food Library Double-Add**: Fixed clicking "Use" sometimes adding food twice
+  - Event listeners no longer stack on modal re-render
+  - Added preventDefault to avoid double-triggers
+
+**Previous**: v1.8.9
+- **Rebranding: MacroMate**: App renamed from "Fitness Tracker" to "MacroMate"
+  - Friendly, memorable name that's easy to say
+  - Emphasizes the core macro tracking feature
+  - New colorful logo with "MM" design
+- **Bug Fix: Labels Always Visible**: Progress bar labels now show even with 0 progress
+- **Bug Fix: Calorie Overflow Accurate**: Fixed disproportionate red excess on calorie bar
+
+**Previous**: v1.8.8
+- **Dynamic Progress Bar Scaling**: All bars now scale together when any macro exceeds 100%
+  - If any macro goes over (e.g., 150% of fat goal), ALL bars shrink proportionally
+  - Dotted line indicator shows where the original 100% mark was
+  - Excess portion past 100% shown in red for easy identification
+  - Maintains visual consistency across all progress bars
+  - Helps you see relative proportions even when over goals
+- **Workout Deficit Visualization**: Calorie bar now shows workout burn as red ghost
+  - Red transparent portion at the end represents calories burned from workouts
+  - Visually shows the deficit created by exercise
+  - Helps you see total calorie balance at a glance
+  - Positioned after macro composition (fat, carbs, protein)
+
+**Previous**: v1.8.7
+- **Progress Bars Show Over/Under**: Progress bars now indicate when you exceed targets
+  - Shows "+Xg over" in red when you've exceeded a macro goal
+  - Shows "Xg left" in white when under target
+  - Helps you quickly see when you've gone over your daily goals
+- **Max Serving Button**: Added ">>" button next to "+" on food servings
+  - Automatically calculates maximum integer servings before exceeding ANY macro target
+  - Considers remaining fat, carbs, and protein and takes the minimum
+  - Helps optimize serving sizes to stay within macro goals
+  - Green color indicates it's a smart helper button
+
+**Previous**: v1.8.6
+- **Progress Bars Include Planned**: Remaining amounts now account for planned meals
+  - Shows what's left after both completed AND planned food
+  - More accurate planning view
+
+**Previous**: v1.8.5
+- **Enhanced Loading Modal**: Improved photo analysis loading visibility
+  - Larger spinner (60px)
+  - Darker overlay (90% opacity)
+  - Bigger, bolder loading message
+- **Dashboard Simplification**: Progress bars now show remaining amounts only
+  - "80g left" instead of "70/150g"
+  - Cleaner, easier to read at a glance
+  - Calories show remaining after workout burn
+- **Improved Text Contrast**: Better readability on progress bars
+  - Bolder font weight (700)
+  - Stronger text shadow for better visibility
+  - Consistent color usage
+
+**Previous**: v1.8.4
+- **Using gemini-flash-latest**: Changed to user-specified model name
+  - Endpoint: v1beta/models/gemini-flash-latest:generateContent
+  - API key in x-goog-api-key header
+
+**Previous**: v1.8.3
+- **Fixed API Implementation**: Corrected Gemini API format
+  - API key now in header (`x-goog-api-key`) instead of URL query param
+  - Using v1beta endpoint (correct version)
+  - Model: gemini-2.0-flash-exp (stable experimental model)
+  - Matches official Google documentation
+
+**Previous**: v1.8.2
+- **Model Update**: Using gemini-flash-latest
+  - Simplified model name format
+
+**Previous**: v1.8.1
+- **Fixed Model Endpoint**: Changed to v1 API with gemini-1.5-flash-latest
+  - Fixed "model not found" error
+  - Using stable v1 API instead of v1beta
+
+**Previous**: v1.8.0 - **BREAKING CHANGE: Switched to Google Gemini API**
+- **Google Gemini API Integration**: Replaced Claude API with Gemini 1.5 Flash
+  - ✅ **CORS-enabled** - works directly from PWA on mobile!
+  - Free tier: 15 requests/min, 1500 requests/day
+  - Get API key from: https://aistudio.google.com/apikey
+  - Can restrict keys to your domain for security
+  - Better suited for browser-based apps
+- **Settings Updated**: Now asks for Gemini API key instead of Claude
+  - Old Claude keys won't work - you need a new Gemini key
+  - Placeholder updated to show Gemini key format (AIza...)
+  - Help link points to Google AI Studio
+
+**Previous**: v1.7.6
+- **Detailed API Error Messages**: Test button now shows actual error details
+  - Displays HTTP status code (401, 403, 429, etc.)
+  - Shows exact error message from Claude API
+  - Multi-line error display for better readability
+  - No need to check console - error shown directly in UI
+
+**Previous**: v1.7.5
+- **API Key Input Fix**: Changed from password to text input
+  - Fixes issues with copy/paste on mobile
+  - Monospace font for better readability
+  - Shows actual characters being entered
+- **Enhanced API Debugging**: Added detailed console logging
+  - Shows key length and preview (first/last chars)
+  - Logs network request details
+  - Displays response status codes
+  - Check browser console (Settings → inspect) for details
+
+**Previous**: v1.7.4
+- **API Key Test Button**: Added "Test API Key" button in Settings
+  - Validates API key with actual Claude API call
+  - Shows ✅/❌ status with clear error messages
+  - Helps diagnose API connection issues
+  - Auto-saves key before testing
+
+**Previous**: v1.7.3
+- **Photo Context Field**: Added text input to photo upload for user context
+  - Help Claude make better estimates with info like "restaurant meal" or "homemade"
+  - Optional field appears below photo preview
+  - Context included in API prompt for improved accuracy
+- **Improved API Error Messages**: Better diagnostics for photo macro feature failures
+  - Specific messages for 401 (invalid API key), 429 (rate limit), 400 (bad request)
+  - "Failed to fetch" now explains HTTPS requirement and network issues
+  - Clearer guidance for troubleshooting API problems
+
+**Previous**: v1.7.2
+- **Servings Stepper Control**: Macro tab now has [-] [input] [+] buttons for serving adjustments
+  - Plus/minus buttons increment/decrement by exactly 1.0
+  - Text input allows manual decimal entry (e.g., 1.5, 2.75)
+  - Touch-friendly 28x28px buttons with dark mode styling
+- **Dashboard Serving Display**: Activity list now shows serving counts for all entries
+  - Format: "Meal Name - 1.0x", "Meal Name - 2.5x", etc.
+  - Always visible for clarity
+
+**Previous**: v1.7.1
+- **Critical Bugfix**: Fixed syntax error that prevented app from loading
+  - Extra opening parenthesis in dashboard calories display
+  - App now loads correctly
+
+**Previous**: v1.7.0
+- **Servings Text Input**: Macro tab servings now uses text input instead of +/- buttons
+- **Dashboard Calories Precision**: Activity list now shows calories rounded to 2 decimal places
+- **Food Library Auto-Search**: After adding new food, library automatically searches for it
+
+**Previous**: v1.6.9
+- **Fixed Planned Calories Ghost Bar Rendering**: Completely redesigned to match fat/carbs/protein overlay approach
+- **Calories Precision Fix**: Macro tab entries now show calories as whole numbers
+- **Food Library Search Persistence**: Search term and sort option now retained when editing items
+- **Food Library "Use" Button Default**: Items added from food library now default to "planned" status
+  - Better workflow for meal planning
+
+**Previous**: v1.6.8
+- **Fixed Planned Calories Ghost Bar Size**: Removed incorrect scaling that made planned bars too small
+
+**Previous**: v1.6.7
+- **Planned Calories Ghost Bar**: Calories progress bar now shows planned meals broken down by macro
+- **Starred Foods in Library**: Star functionality moved from macro tab to food library
+- **Condensed Food Library**: Food library entries now match simplified macro tab style
+
+**Previous**: v1.6.6
+- **Calorie Bar Stacking Fix**: Fixed horizontal positioning of macro segments in calories progress bar
+- **Chart Smoothing Removed**: Calorie balance chart now uses straight lines (tension: 0) for clearer data reading
+- **Critical Date/Timestamp Fix**: Resolved inconsistency between date field and timestamp
+
+**Previous**: v1.6.5
+- **Stacked Calories Bar**: Calories progress bar now shows macro composition with color-coded segments
+- **Trend Chart Date Range Fix**: Charts now display last N days from today backward, not first N days from oldest data
+- **Today Button Contrast**: Fixed text color to use theme-aware `var(--bg-primary)` instead of hardcoded white
+
+**Previous**: v1.6.4
+- **Critical Color Fix**: Removed all hardcoded progress bar gradient colors (CSS specificity issue)
+- **Dashboard/Trends Consistency**: Progress bars now perfectly match chart colors across all themes
+- **Eliminated Legacy CSS**: Replaced `linear-gradient(90deg, #b8884f, ...)` with `var(--accent-warning)`
+- All progress bars (fat/carbs/protein/calories) now use CSS variables exclusively
+- Colors dynamically adapt to theme: Dark (pale bone), TRS-80 (green shades), Pink (pink), etc.
+
+## 📄 License
+
+Built for personal use. Use, modify, and distribute as you wish. No warranties.
+
+---
+
+**Calorie Calculations**:
+- Protein: 4 cal/g
+- Carbs: 4 cal/g
+- Fat: 9 cal/g
+- Fiber: 2 cal/g (net impact)
+
+**Workout Estimates** (conservative):
+- Cardio: 3 cal/min
+- Core: 0.3 cal/rep
+- Lifting: 0.5 cal/rep
+
+Stay healthy! 💪

@@ -1,0 +1,43 @@
+{
+  "name": "Fitness Pizza",
+  "short_name": "Fitness Pizza",
+  "version": "1.9.1",
+  "description": "Track your macros like slices of pizza - deliciously simple nutrition tracking",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "img/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log Macros",
+      "short_name": "Macros",
+      "description": "Log your food and macros",
+      "url": "/?screen=macros",
+      "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Log Workout",
+      "short_name": "Workout",
+      "description": "Log your workout",
+      "url": "/?screen=workouts",
+      "icons": [{ "src": "img/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle"],
+  "screenshots": []
+}

@@ -1,0 +1,201 @@
+/* Fitness Tracker PWA - Chart Styles */
+
+/* Chart Containers */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.chart-container {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    min-height: 300px;
+}
+
+.chart-container h3 {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-secondary);
+}
+
+.chart-container canvas {
+    max-width: 100%;
+    height: auto !important;
+}
+
+/* Chart Loading State */
+.chart-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    color: var(--text-tertiary);
+}
+
+/* Chart Empty State */
+.chart-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 250px;
+    color: var(--text-tertiary);
+    text-align: center;
+    padding: var(--spacing-lg);
+}
+
+.chart-empty-icon {
+    font-size: 48px;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}
+
+.chart-empty-message {
+    font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-xs);
+}
+
+.chart-empty-hint {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+}
+
+/* Individual Chart Sizes */
+#weight-chart,
+#waist-chart {
+    max-height: 250px;
+    margin-bottom: var(--spacing-lg);
+}
+
+#macro-distribution-chart {
+    max-height: 300px;
+}
+
+#calorie-balance-chart,
+#weight-trend-chart,
+#workout-volume-chart {
+    max-height: 300px;
+}
+
+/* Chart Legends */
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+}
+
+.chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.chart-legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: var(--radius-sm);
+}
+
+/* Chart Tooltips (enhanced by Chart.js) */
+.chartjs-tooltip {
+    background-color: var(--bg-card) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--text-primary) !important;
+    padding: var(--spacing-sm) !important;
+    font-family: var(--font-family) !important;
+    font-size: var(--font-size-sm) !important;
+    box-shadow: 0 4px 12px var(--shadow-color) !important;
+}
+
+/* Chart Colors - Dark Mode Optimized */
+.chart-color-protein {
+    background-color: #3b82f6;
+}
+
+.chart-color-carbs {
+    background-color: #10b981;
+}
+
+.chart-color-fat {
+    background-color: #f59e0b;
+}
+
+.chart-color-fiber {
+    background-color: #8b5cf6;
+}
+
+.chart-color-calories-in {
+    background-color: #3b82f6;
+}
+
+.chart-color-calories-out {
+    background-color: #ef4444;
+}
+
+.chart-color-weight {
+    background-color: #06b6d4;
+}
+
+.chart-color-waist {
+    background-color: #ec4899;
+}
+
+/* Responsive Chart Adjustments */
+@media (max-width: 768px) {
+    .chart-container {
+        padding: var(--spacing-sm);
+        min-height: 250px;
+    }
+
+    #weight-chart,
+    #waist-chart {
+        max-height: 200px;
+    }
+
+    #macro-distribution-chart,
+    #calorie-balance-chart,
+    #weight-trend-chart,
+    #workout-volume-chart {
+        max-height: 250px;
+    }
+
+    .chart-legend {
+        gap: var(--spacing-sm);
+    }
+
+    .chart-legend-item {
+        font-size: 12px;
+    }
+
+    .chart-legend-color {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+/* Chart Animation */
+@keyframes chartFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chart-container.loaded {
+    animation: chartFadeIn var(--transition-normal);
+}

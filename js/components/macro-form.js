@@ -1,0 +1,722 @@
+/**
+ * Fitness Tracker PWA - Macro Entry Form Component
+ * Handles manual macro entry with fiber support and auto-calculated calories
+ */
+
+import { db } from '../db.js';
+import { calculateMacroCalories } from '../utils/calorie-calc.js';
+import { validateMacros, showFieldError, clearFieldError, clearFormErrors } from '../utils/validation.js';
+import * as ui from '../ui.js';
+import { formatDateTime, getTodayDate } from '../utils/date-utils.js';
+
+/**
+ * Initialize the macro form component
+ */
+export function initMacroForm() {
+    const btnAddMacro = document.getElementById('btn-add-macro');
+    const btnPhotoMacro = document.getElementById('btn-photo-macro');
+    const btnTextAIMacro = document.getElementById('btn-text-ai-macro');
+    const formContainer = document.getElementById('macro-form-container');
+
+    if (btnAddMacro) {
+        btnAddMacro.addEventListener('click', () => {
+            showMacroForm();
+        });
+    }
+
+    if (btnPhotoMacro) {
+        btnPhotoMacro.addEventListener('click', async () => {
+            const { showPhotoUploadModal } = await import('./photo-upload.js');
+            showPhotoUploadModal();
+        });
+    }
+
+    if (btnTextAIMacro) {
+        btnTextAIMacro.addEventListener('click', () => {
+            showTextAIModal();
+        });
+    }
+}
+
+/**
+ * Show the macro entry form
+ * @param {Object} existingEntry - Existing entry to edit (optional)
+ */
+export function showMacroForm(existingEntry = null) {
+    const formContainer = document.getElementById('macro-form-container');
+    if (!formContainer) return;
+
+    const isEdit = existingEntry !== null;
+    const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+    const entry = existingEntry || {
+        protein: '',
+        carbs: '',
+        fat: '',
+        fiber: '',
+        meal_name: '',
+        food_description: '',
+        date: currentDate
+    };
+
+    formContainer.innerHTML = `
+        <div class="macro-form-card">
+            <form id="macro-entry-form">
+                <div class="form-actions" style="margin-bottom: 8px;">
+                    <button type="submit" class="btn-primary">
+                        ${isEdit ? 'Update' : 'Save'} Entry
+                    </button>
+                    <button type="button" id="btn-cancel-macro" class="btn-secondary">Cancel</button>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 4px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="meal-planned" ${entry.status === 'planned' ? 'checked' : ''}>
+                        <span>Mark as planned (not yet eaten)</span>
+                    </label>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 4px;">
+                    <input type="text" id="meal-name" placeholder="Meal Name"
+                           value="${entry.meal_name}">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 4px;">
+                    <textarea id="food-description" placeholder="Food Description (optional)"
+                    >${entry.food_description}</textarea>
+                </div>
+
+                <div class="macros-grid" style="gap: 4px; margin-bottom: 4px;">
+                    <div class="form-group-inline" style="margin-bottom: 0;">
+                        <label for="fat" style="min-width: 60px;">Fat (g)</label>
+                        <input type="number" id="fat" step="0.001" min="0" required
+                               value="${entry.fat}">
+                    </div>
+
+                    <div class="form-group-inline" style="margin-bottom: 0;">
+                        <label for="carbs" style="min-width: 60px;">Carbs (g)</label>
+                        <input type="number" id="carbs" step="0.001" min="0" required
+                               value="${entry.carbs}">
+                    </div>
+
+                    <div class="form-group-inline" style="margin-bottom: 0;">
+                        <label for="protein" style="min-width: 60px;">Protein (g)</label>
+                        <input type="number" id="protein" step="0.001" min="0" required
+                               value="${entry.protein}">
+                    </div>
+
+                    <div class="form-group-inline" style="margin-bottom: 0;">
+                        <label for="fiber" style="min-width: 60px;">Fiber (g)</label>
+                        <input type="number" id="fiber" step="0.001" min="0"
+                               value="${entry.fiber}">
+                    </div>
+                </div>
+
+                <div class="calories-display">
+                    <div class="calories-label">Calculated Calories:</div>
+                    <div class="calories-value" id="calculated-calories">0 cal</div>
+                </div>
+            </form>
+        </div>
+    `;
+
+    formContainer.classList.remove('hidden');
+
+    // Set up event listeners
+    setupMacroFormListeners(isEdit, existingEntry);
+
+    // Calculate initial calories
+    updateCalculatedCalories();
+
+    // Scroll to form
+    formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Hide the macro entry form
+ */
+export function hideMacroForm() {
+    const formContainer = document.getElementById('macro-form-container');
+    if (formContainer) {
+        formContainer.classList.add('hidden');
+        formContainer.innerHTML = '';
+    }
+}
+
+/**
+ * Set up form event listeners
+ * @param {boolean} isEdit - Whether this is an edit operation
+ * @param {Object} existingEntry - Existing entry being edited
+ */
+function setupMacroFormListeners(isEdit, existingEntry) {
+    const form = document.getElementById('macro-entry-form');
+    const cancelBtn = document.getElementById('btn-cancel-macro');
+
+    // Input listeners for auto-calculating calories
+    const proteinInput = document.getElementById('protein');
+    const carbsInput = document.getElementById('carbs');
+    const fatInput = document.getElementById('fat');
+    const fiberInput = document.getElementById('fiber');
+
+    [proteinInput, carbsInput, fatInput, fiberInput].forEach(input => {
+        if (input) {
+            input.addEventListener('input', updateCalculatedCalories);
+            input.addEventListener('input', () => clearFieldError(input));
+        }
+    });
+
+    // Cancel button
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideMacroForm();
+        });
+    }
+
+    // Form submission
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await handleMacroFormSubmit(isEdit, existingEntry);
+        });
+    }
+}
+
+/**
+ * Update the calculated calories display
+ */
+function updateCalculatedCalories() {
+    const protein = parseFloat(document.getElementById('protein')?.value || 0);
+    const carbs = parseFloat(document.getElementById('carbs')?.value || 0);
+    const fat = parseFloat(document.getElementById('fat')?.value || 0);
+    const fiber = parseFloat(document.getElementById('fiber')?.value || 0);
+
+    const calories = calculateMacroCalories(protein, carbs, fat, fiber);
+
+    const caloriesDisplay = document.getElementById('calculated-calories');
+    if (caloriesDisplay) {
+        caloriesDisplay.textContent = `${calories} cal`;
+    }
+}
+
+/**
+ * Handle form submission
+ * @param {boolean} isEdit - Whether this is an edit operation
+ * @param {Object} existingEntry - Existing entry being edited
+ */
+async function handleMacroFormSubmit(isEdit, existingEntry) {
+    try {
+        // Clear previous errors
+        const form = document.getElementById('macro-entry-form');
+        clearFormErrors(form);
+
+        // Get form values
+        const protein = parseFloat(document.getElementById('protein').value || 0);
+        const carbs = parseFloat(document.getElementById('carbs').value || 0);
+        const fat = parseFloat(document.getElementById('fat').value || 0);
+        const fiber = parseFloat(document.getElementById('fiber').value || 0);
+        const mealName = document.getElementById('meal-name').value.trim();
+        const foodDescription = document.getElementById('food-description').value.trim();
+        const isPlanned = document.getElementById('meal-planned').checked;
+
+        // Validate macros
+        const validation = validateMacros({ protein, carbs, fat, fiber });
+        if (!validation.valid) {
+            // Show validation errors
+            Object.keys(validation.errors).forEach(field => {
+                const input = document.getElementById(field);
+                if (input) {
+                    showFieldError(input, validation.errors[field]);
+                }
+            });
+            return;
+        }
+
+        // Calculate calories
+        const calories = calculateMacroCalories(protein, carbs, fat, fiber);
+
+        // Prepare entry data
+        const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+        const entryData = {
+            protein,
+            carbs,
+            fat,
+            fiber,
+            calories,
+            meal_name: mealName,
+            food_description: foodDescription,
+            servings: 1, // Default to 1 serving for manual entries
+            date: currentDate,
+            // timestamp will be derived from date in db.addMacroEntry
+            status: isPlanned ? 'planned' : 'completed'
+        };
+
+        // Save to database
+        ui.showLoading(isEdit ? 'Updating entry...' : 'Saving entry...');
+
+        if (isEdit && existingEntry) {
+            // Update existing entry
+            entryData.id = existingEntry.id;
+            // Preserve servings if editing
+            if (existingEntry.servings) {
+                entryData.servings = existingEntry.servings;
+            }
+            await db.updateMacroEntry(entryData);
+        } else {
+            // Add new entry
+            const entryId = await db.addMacroEntry(entryData);
+
+            // Auto-add to food library if it has a name
+            if (mealName) {
+                const existingFoods = await db.getAllNamedFoods();
+                const foodExists = existingFoods.some(f =>
+                    f.name.toLowerCase() === mealName.toLowerCase()
+                );
+
+                if (!foodExists) {
+                    await db.addNamedFood({
+                        name: mealName,
+                        format_type: 'per_serving',
+                        protein,
+                        carbs,
+                        fat,
+                        fiber,
+                        calories,
+                        serving_size: '1 serving',
+                        notes: foodDescription
+                    });
+                }
+            }
+        }
+
+        ui.hideLoading();
+
+        // Hide form
+        hideMacroForm();
+
+        // Reload macro list
+        await loadTodaysMacros();
+
+    } catch (error) {
+        console.error('Error saving macro entry:', error);
+        ui.hideLoading();
+        ui.showError('Failed to save entry: ' + error.message);
+    }
+}
+
+/**
+ * Load and display today's macro entries
+ */
+export async function loadTodaysMacros() {
+    try {
+        const today = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+        const macros = await db.getMacrosByDate(today);
+        const starred = await db.getStarredMacros();
+
+        const macroEntries = document.getElementById('macro-entries');
+        if (!macroEntries) return;
+
+        let html = '';
+
+        // Show today's entries
+
+        if (macros.length === 0) {
+            html += '<p class="text-muted">Add your first meal!</p>';
+        } else {
+            // Sort by timestamp (most recent first)
+            macros.sort((a, b) => b.timestamp - a.timestamp);
+
+            html += macros.map(macro => `
+                <div class="entry-item ${macro.status === 'planned' ? 'planned' : ''}" data-id="${macro.id}">
+                    <div class="entry-item-header">
+                        <label class="checkbox-inline">
+                            <input type="checkbox" class="entry-checkbox" data-id="${macro.id}"
+                                   ${macro.status === 'completed' ? 'checked' : ''}>
+                            <span class="entry-item-title">
+                                ${macro.starred ? '⭐ ' : ''}${macro.meal_name || 'Meal'}
+                            </span>
+                        </label>
+                        <div class="entry-item-actions">
+                            <button class="btn-star-macro ${macro.starred ? 'starred' : ''}" data-id="${macro.id}" title="${macro.starred ? 'Unstar' : 'Star'}">
+                                ${macro.starred ? '⭐' : '☆'}
+                            </button>
+                            <button class="btn-edit-macro btn-secondary btn-small" data-id="${macro.id}">Edit</button>
+                            <button class="btn-delete-macro btn-danger btn-small" data-id="${macro.id}">×</button>
+                        </div>
+                    </div>
+                    <div class="entry-item-content">
+                        <div class="entry-macros">
+                            F: ${macro.fat.toFixed(1)}g | C: ${macro.carbs.toFixed(1)}g | P: ${macro.protein.toFixed(1)}g | ${macro.calories.toFixed(0)} cal
+                            <span class="servings-stepper">
+                                <button class="servings-btn-minus" data-id="${macro.id}">−</button>
+                                <input type="number" class="servings-input" data-id="${macro.id}" value="${(macro.servings || 1).toFixed(1)}" step="0.1" min="0.1">
+                                <button class="servings-btn-plus" data-id="${macro.id}">+</button>
+                                <button class="servings-btn-max" data-id="${macro.id}" title="Max servings before exceeding any macro">>></button>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        macroEntries.innerHTML = html;
+
+        // Set up button handlers
+        const allMacros = [...starred, ...macros];
+
+        // Completion checkboxes
+        document.querySelectorAll('.entry-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', async (e) => {
+                const id = parseInt(e.target.dataset.id);
+                await handleToggleCompletion(id, e.target.checked);
+            });
+        });
+
+        // Star buttons
+        document.querySelectorAll('.btn-star-macro').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = parseInt(e.target.dataset.id);
+                await handleStarMacro(id);
+            });
+        });
+
+        // Edit buttons
+        document.querySelectorAll('.btn-edit-macro').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = parseInt(e.target.dataset.id);
+                const entry = allMacros.find(m => m.id === id);
+                if (entry) {
+                    showMacroForm(entry);
+                }
+            });
+        });
+
+        // Delete buttons
+        document.querySelectorAll('.btn-delete-macro').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = parseInt(e.target.dataset.id);
+                await handleDeleteMacro(id);
+            });
+        });
+
+        // Servings input fields
+        document.querySelectorAll('.servings-input').forEach(input => {
+            input.addEventListener('change', async (e) => {
+                const id = parseInt(e.target.dataset.id);
+                const newServings = parseFloat(e.target.value);
+                if (!isNaN(newServings) && newServings > 0) {
+                    await handleSetServings(id, newServings);
+                }
+            });
+        });
+
+        // Servings plus buttons
+        document.querySelectorAll('.servings-btn-plus').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const id = parseInt(e.target.dataset.id);
+                const input = document.querySelector(`.servings-input[data-id="${id}"]`);
+                if (input) {
+                    const currentServings = parseFloat(input.value) || 1;
+                    const newServings = currentServings + 1.0;
+                    await handleSetServings(id, newServings);
+                }
+            });
+        });
+
+        // Servings minus buttons
+        document.querySelectorAll('.servings-btn-minus').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const id = parseInt(e.target.dataset.id);
+                const input = document.querySelector(`.servings-input[data-id="${id}"]`);
+                if (input) {
+                    const currentServings = parseFloat(input.value) || 1;
+                    const newServings = Math.max(0.1, currentServings - 1.0);
+                    await handleSetServings(id, newServings);
+                }
+            });
+        });
+
+        // Servings max buttons
+        document.querySelectorAll('.servings-btn-max').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const id = parseInt(e.target.dataset.id);
+                await handleMaxServings(id);
+            });
+        });
+
+    } catch (error) {
+        console.error('Error loading macros:', error);
+        const macroEntries = document.getElementById('macro-entries');
+        if (macroEntries) {
+            macroEntries.innerHTML = '<p class="text-danger">Error loading entries</p>';
+        }
+    }
+}
+
+/**
+ * Handle toggling completion status
+ * @param {number} id - Entry ID
+ * @param {boolean} completed - New completion status
+ */
+async function handleToggleCompletion(id, completed) {
+    try {
+        const entry = await db.get('macros', id);
+        if (entry) {
+            entry.status = completed ? 'completed' : 'planned';
+            await db.updateMacroEntry(entry);
+            await loadTodaysMacros();
+        }
+    } catch (error) {
+        console.error('Error toggling completion:', error);
+        ui.showError('Failed to update status: ' + error.message);
+    }
+}
+
+/**
+ * Handle starring/unstarring a macro entry
+ * @param {number} id - Entry ID
+ */
+async function handleStarMacro(id) {
+    try {
+        const entry = await db.get('macros', id);
+        if (entry) {
+            entry.starred = !entry.starred;
+            entry.starred_at = entry.starred ? Date.now() : null;
+            await db.updateMacroEntry(entry);
+            await loadTodaysMacros();
+        }
+    } catch (error) {
+        console.error('Error starring macro:', error);
+        ui.showError('Failed to star entry: ' + error.message);
+    }
+}
+
+/**
+ * Handle duplicating a macro entry
+ * @param {number} id - Entry ID
+ * @param {Array} allMacros - All macro entries
+ */
+async function handleDuplicateMacro(id, allMacros) {
+    try {
+        const original = allMacros.find(m => m.id === id);
+        if (!original) return;
+
+        ui.showLoading('Duplicating entry...');
+
+        const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+        const duplicateData = {
+            protein: original.protein,
+            carbs: original.carbs,
+            fat: original.fat,
+            fiber: original.fiber,
+            calories: original.calories,
+            meal_name: original.meal_name,
+            food_description: original.food_description,
+            food_id: original.food_id,
+            servings: original.servings,
+            date: currentDate,
+            // timestamp will be derived from date in db.addMacroEntry
+            starred: original.starred
+        };
+
+        await db.addMacroEntry(duplicateData);
+        ui.hideLoading();
+        await loadTodaysMacros();
+    } catch (error) {
+        console.error('Error duplicating macro:', error);
+        ui.hideLoading();
+        ui.showError('Failed to duplicate entry: ' + error.message);
+    }
+}
+
+/**
+ * Handle deleting a macro entry
+ * @param {number} id - Entry ID
+ */
+async function handleDeleteMacro(id) {
+    ui.confirm(
+        'Are you sure you want to delete this entry?',
+        async () => {
+            try {
+                ui.showLoading('Deleting entry...');
+                await db.deleteMacroEntry(id);
+                ui.hideLoading();
+                await loadTodaysMacros();
+            } catch (error) {
+                console.error('Error deleting entry:', error);
+                ui.hideLoading();
+                ui.showError('Failed to delete entry: ' + error.message);
+            }
+        }
+    );
+}
+
+/**
+ * Handle setting servings to a specific value for a macro entry
+ * @param {number} id - Entry ID
+ * @param {number} newServings - New servings value
+ */
+async function handleSetServings(id, newServings) {
+    try {
+        const entry = await db.get('macros', id);
+        if (!entry) return;
+
+        const currentServings = entry.servings || 1;
+
+        if (newServings === currentServings) return;
+
+        // Calculate the multiplier
+        const multiplier = newServings / currentServings;
+
+        // Update all macro values proportionally
+        entry.servings = newServings;
+        entry.fat = entry.fat * multiplier;
+        entry.protein = entry.protein * multiplier;
+        entry.carbs = entry.carbs * multiplier;
+        if (entry.fiber) entry.fiber = entry.fiber * multiplier;
+
+        // Recalculate calories
+        const { calculateMacroCalories } = await import('../utils/calorie-calc.js');
+        entry.calories = calculateMacroCalories(entry.protein, entry.carbs, entry.fat, entry.fiber || 0);
+
+        await db.updateMacroEntry(entry);
+        await loadTodaysMacros();
+
+        // Update dashboard if visible
+        if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
+            await window.fitnessApp.loadDashboard();
+        }
+
+    } catch (error) {
+        console.error('Error setting servings:', error);
+        ui.showError('Failed to adjust servings');
+    }
+}
+
+/**
+ * Handle setting servings to maximum before exceeding any macro target
+ * @param {number} id - Entry ID
+ */
+async function handleMaxServings(id) {
+    try {
+        const entry = await db.get('macros', id);
+        if (!entry) return;
+
+        const currentServings = entry.servings || 1;
+
+        // Calculate per-serving macros
+        const perServingFat = entry.fat / currentServings;
+        const perServingCarbs = entry.carbs / currentServings;
+        const perServingProtein = entry.protein / currentServings;
+
+        // Get goals from settings
+        const settings = await db.getAllSettings();
+        const goalFat = parseFloat(settings.goal_fat?.value || 70);
+        const goalCarbs = parseFloat(settings.goal_carbs?.value || 200);
+        const goalProtein = parseFloat(settings.goal_protein?.value || 150);
+
+        // Get today's macros (excluding this entry)
+        const today = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+        const allMacros = await db.getMacrosByDate(today);
+        const otherMacros = allMacros.filter(m => m.id !== id && m.status === 'completed');
+
+        // Calculate current totals (excluding this entry)
+        const totalFat = otherMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
+        const totalCarbs = otherMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
+        const totalProtein = otherMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
+
+        // Calculate remaining for each macro
+        const remainingFat = goalFat - totalFat;
+        const remainingCarbs = goalCarbs - totalCarbs;
+        const remainingProtein = goalProtein - totalProtein;
+
+        // Calculate max servings for each macro
+        const maxServingsFat = perServingFat > 0 ? remainingFat / perServingFat : Infinity;
+        const maxServingsCarbs = perServingCarbs > 0 ? remainingCarbs / perServingCarbs : Infinity;
+        const maxServingsProtein = perServingProtein > 0 ? remainingProtein / perServingProtein : Infinity;
+
+        // Take the minimum and floor to integer
+        const maxServings = Math.floor(Math.min(maxServingsFat, maxServingsCarbs, maxServingsProtein));
+
+        // Ensure at least 1 serving
+        const finalServings = Math.max(1, maxServings);
+
+        await handleSetServings(id, finalServings);
+
+    } catch (error) {
+        console.error('Error calculating max servings:', error);
+        ui.showError('Failed to calculate max servings');
+    }
+}
+
+/**
+ * Show text-based AI macro estimation modal
+ */
+function showTextAIModal() {
+    const modal = ui.showModal('AI Macro Estimation', `
+        <div class="photo-upload-container">
+            <p class="help-text" style="margin-bottom: 12px;">Describe what you ate and AI will estimate the macros:</p>
+
+            <div class="form-group">
+                <label for="food-description-ai" style="display: block; margin-bottom: 4px;">Food Description</label>
+                <textarea id="food-description-ai"
+                          placeholder="e.g., Large chicken breast with broccoli and rice, glass of milk"
+                          rows="4"
+                          style="width: 100%; resize: vertical;"></textarea>
+            </div>
+
+            <div class="button-group" style="margin-top: 12px;">
+                <button id="btn-analyze-text" class="btn-primary">Analyze</button>
+                <button id="btn-cancel-text" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    `, []);
+
+    const textArea = modal.querySelector('#food-description-ai');
+    const analyzeBtn = modal.querySelector('#btn-analyze-text');
+    const cancelBtn = modal.querySelector('#btn-cancel-text');
+
+    // Cancel button
+    cancelBtn.addEventListener('click', () => {
+        ui.closeModal(modal);
+    });
+
+    // Analyze button
+    analyzeBtn.addEventListener('click', async () => {
+        const description = textArea.value.trim();
+        if (!description) {
+            ui.showError('Please enter a food description');
+            return;
+        }
+
+        try {
+            // Show loading immediately
+            ui.showLoading('Analyzing food description...');
+
+            // Use setTimeout to ensure loading UI renders
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            const { estimateMacrosFromText } = await import('../api.js');
+            const estimates = await estimateMacrosFromText(description);
+
+            ui.hideLoading();
+
+            // Close modal
+            ui.closeModal(modal);
+
+            // Open macro form with AI estimates pre-filled
+            showMacroForm({
+                ...estimates,
+                food_description: description,
+                status: 'completed'
+            });
+
+        } catch (error) {
+            ui.hideLoading();
+            console.error('Analysis error:', error);
+            ui.showError(error.message);
+        }
+    });
+}

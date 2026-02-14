@@ -1,0 +1,719 @@
+/**
+ * Fitness Tracker PWA - IndexedDB Wrapper
+ * Manages all database operations with 5 object stores:
+ * - macros: Macro tracking entries
+ * - measurements: Weight and waist measurements
+ * - workouts: Workout sessions
+ * - named_foods: Reusable food items with flexible formats
+ * - settings: User preferences
+ */
+
+class DatabaseManager {
+    constructor() {
+        this.db = null;
+        this.DB_NAME = 'fitness-tracker-db';
+        this.DB_VERSION = 1;
+    }
+
+    /**
+     * Initialize the database and create object stores
+     */
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.DB_NAME, this.DB_VERSION);
+
+            request.onerror = () => {
+                console.error('Database failed to open:', request.error);
+                reject(new Error('Failed to open database: ' + request.error));
+            };
+
+            request.onsuccess = () => {
+                this.db = request.result;
+                console.log('Database opened successfully');
+                resolve(this.db);
+            };
+
+            request.onupgradeneeded = (event) => {
+                console.log('Database upgrade needed');
+                const db = event.target.result;
+
+                // 1. Macros Object Store
+                if (!db.objectStoreNames.contains('macros')) {
+                    const macrosStore = db.createObjectStore('macros', {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+                    macrosStore.createIndex('date', 'date', { unique: false });
+                    macrosStore.createIndex('timestamp', 'timestamp', { unique: false });
+                    macrosStore.createIndex('food_id', 'food_id', { unique: false });
+                    console.log('Created macros object store');
+                }
+
+                // 2. Measurements Object Store
+                if (!db.objectStoreNames.contains('measurements')) {
+                    const measurementsStore = db.createObjectStore('measurements', {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+                    measurementsStore.createIndex('date', 'date', { unique: false });
+                    measurementsStore.createIndex('type', 'type', { unique: false });
+                    console.log('Created measurements object store');
+                }
+
+                // 3. Workouts Object Store
+                if (!db.objectStoreNames.contains('workouts')) {
+                    const workoutsStore = db.createObjectStore('workouts', {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+                    workoutsStore.createIndex('date', 'date', { unique: false });
+                    workoutsStore.createIndex('exercise_name', 'exercise_name', { unique: false });
+                    console.log('Created workouts object store');
+                }
+
+                // 4. Named Foods Object Store
+                if (!db.objectStoreNames.contains('named_foods')) {
+                    const namedFoodsStore = db.createObjectStore('named_foods', {
+                        keyPath: 'id',
+                        autoIncrement: true
+                    });
+                    namedFoodsStore.createIndex('name', 'name', { unique: false });
+                    namedFoodsStore.createIndex('created_at', 'created_at', { unique: false });
+                    console.log('Created named_foods object store');
+                }
+
+                // 5. Settings Object Store
+                if (!db.objectStoreNames.contains('settings')) {
+                    db.createObjectStore('settings', { keyPath: 'key' });
+                    console.log('Created settings object store');
+                }
+            };
+        });
+    }
+
+    /**
+     * Generic add operation
+     */
+    async add(storeName, data) {
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.add(data);
+
+                request.onsuccess = () => {
+                    resolve(request.result); // Returns the new ID
+                };
+
+                request.onerror = () => {
+                    console.error(`Error adding to ${storeName}:`, request.error);
+                    reject(request.error);
+                };
+            } catch (error) {
+                console.error(`Error in add operation for ${storeName}:`, error);
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Generic get operation by ID
+     */
+    async get(storeName, id) {
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.get(id);
+
+                request.onsuccess = () => {
+                    resolve(request.result);
+                };
+
+                request.onerror = () => {
+                    console.error(`Error getting from ${storeName}:`, request.error);
+                    reject(request.error);
+                };
+            } catch (error) {
+                console.error(`Error in get operation for ${storeName}:`, error);
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Generic get all operation
+     */
+    async getAll(storeName) {
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.getAll();
+
+                request.onsuccess = () => {
+                    resolve(request.result);
+                };
+
+                request.onerror = () => {
+                    console.error(`Error getting all from ${storeName}:`, request.error);
+                    reject(request.error);
+                };
+            } catch (error) {
+                console.error(`Error in getAll operation for ${storeName}:`, error);
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Generic update operation
+     */
+    async update(storeName, data) {
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.put(data);
+
+                request.onsuccess = () => {
+                    resolve(request.result);
+                };
+
+                request.onerror = () => {
+                    console.error(`Error updating ${storeName}:`, request.error);
+                    reject(request.error);
+                };
+            } catch (error) {
+                console.error(`Error in update operation for ${storeName}:`, error);
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Generic delete operation
+     */
+    async delete(storeName, id) {
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.delete(id);
+
+                request.onsuccess = () => {
+                    resolve();
+                };
+
+                request.onerror = () => {
+                    console.error(`Error deleting from ${storeName}:`, request.error);
+                    reject(request.error);
+                };
+            } catch (error) {
+                console.error(`Error in delete operation for ${storeName}:`, error);
+                reject(error);
+            }
+        });
+    }
+
+    /**
+     * Query by index
+     */
+    async getByIndex(storeName, indexName, value) {
+        return new Promise((resolve, reject) => {
+            try {
+                const transaction = this.db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const index = store.index(indexName);
+                const request = index.getAll(value);
+
+                request.onsuccess = () => {
+                    resolve(request.result);
+                };
+
+                request.onerror = () => {
+                    console.error(`Error querying ${storeName} by ${indexName}:`, request.error);
+                    reject(request.error);
+                };
+            } catch (error) {
+                console.error(`Error in getByIndex for ${storeName}:`, error);
+                reject(error);
+            }
+        });
+    }
+
+    // ==================== MACROS OPERATIONS ====================
+
+    /**
+     * Add a macro entry
+     */
+    async addMacroEntry(data) {
+        // Ensure date and timestamp are consistent
+        let date, timestamp;
+        if (data.date && !data.timestamp) {
+            // Date provided, derive timestamp (use noon to avoid timezone issues)
+            date = data.date;
+            timestamp = new Date(date + 'T12:00:00').getTime();
+        } else if (data.timestamp && !data.date) {
+            // Timestamp provided, derive date
+            timestamp = data.timestamp;
+            date = new Date(timestamp).toISOString().split('T')[0];
+        } else if (data.date && data.timestamp) {
+            // Both provided, use as-is
+            date = data.date;
+            timestamp = data.timestamp;
+        } else {
+            // Neither provided, use current date/time
+            const now = new Date();
+            date = now.toISOString().split('T')[0];
+            timestamp = now.getTime();
+        }
+
+        const entry = {
+            date,
+            timestamp,
+            protein: data.protein || 0,
+            carbs: data.carbs || 0,
+            fat: data.fat || 0,
+            fiber: data.fiber || 0,
+            calories: data.calories || 0,
+            meal_name: data.meal_name || '',
+            food_description: data.food_description || '',
+            food_id: data.food_id || null,
+            servings: data.servings || null,
+            photo_dataurl: data.photo_dataurl || null,
+            ai_estimated: data.ai_estimated || false,
+            starred: data.starred || false,
+            status: data.status || 'completed', // 'planned' or 'completed'
+            synced: data.synced || false
+        };
+        return this.add('macros', entry);
+    }
+
+    /**
+     * Get all starred macro entries
+     */
+    async getStarredMacros() {
+        const allMacros = await this.getAll('macros');
+        return allMacros.filter(m => m.starred);
+    }
+
+    /**
+     * Get all macro entries for a specific date
+     */
+    async getMacrosByDate(date) {
+        return this.getByIndex('macros', 'date', date);
+    }
+
+    /**
+     * Get all macro entries
+     */
+    async getAllMacros() {
+        return this.getAll('macros');
+    }
+
+    /**
+     * Update a macro entry
+     */
+    async updateMacroEntry(data) {
+        return this.update('macros', data);
+    }
+
+    /**
+     * Delete a macro entry
+     */
+    async deleteMacroEntry(id) {
+        return this.delete('macros', id);
+    }
+
+    // ==================== MEASUREMENTS OPERATIONS ====================
+
+    /**
+     * Add a measurement
+     */
+    async addMeasurement(data) {
+        // Ensure date and timestamp are consistent
+        let date, timestamp;
+        if (data.date && !data.timestamp) {
+            date = data.date;
+            timestamp = new Date(date + 'T12:00:00').getTime();
+        } else if (data.timestamp && !data.date) {
+            timestamp = data.timestamp;
+            date = new Date(timestamp).toISOString().split('T')[0];
+        } else if (data.date && data.timestamp) {
+            date = data.date;
+            timestamp = data.timestamp;
+        } else {
+            const now = new Date();
+            date = now.toISOString().split('T')[0];
+            timestamp = now.getTime();
+        }
+
+        const entry = {
+            date,
+            timestamp,
+            type: data.type, // 'weight' or 'waist'
+            value: data.value,
+            unit: data.unit || 'lbs',
+            notes: data.notes || ''
+        };
+        return this.add('measurements', entry);
+    }
+
+    /**
+     * Get measurements by type
+     */
+    async getMeasurementsByType(type) {
+        return this.getByIndex('measurements', 'type', type);
+    }
+
+    /**
+     * Get all measurements
+     */
+    async getAllMeasurements() {
+        return this.getAll('measurements');
+    }
+
+    /**
+     * Update a measurement
+     */
+    async updateMeasurement(data) {
+        return this.update('measurements', data);
+    }
+
+    /**
+     * Delete a measurement
+     */
+    async deleteMeasurement(id) {
+        return this.delete('measurements', id);
+    }
+
+    // ==================== WORKOUTS OPERATIONS ====================
+
+    /**
+     * Add a workout
+     */
+    async addWorkout(data) {
+        // Ensure date and timestamp are consistent
+        let date, timestamp;
+        if (data.date && !data.timestamp) {
+            date = data.date;
+            timestamp = new Date(date + 'T12:00:00').getTime();
+        } else if (data.timestamp && !data.date) {
+            timestamp = data.timestamp;
+            date = new Date(timestamp).toISOString().split('T')[0];
+        } else if (data.date && data.timestamp) {
+            date = data.date;
+            timestamp = data.timestamp;
+        } else {
+            const now = new Date();
+            date = now.toISOString().split('T')[0];
+            timestamp = now.getTime();
+        }
+
+        const entry = {
+            date,
+            timestamp,
+            exercise_name: data.exercise_name,
+            sets: data.sets || [], // Array of {set_number, reps, weight, unit, rpe, notes}
+            workout_notes: data.workout_notes || '',
+            duration_minutes: data.duration_minutes || 0,
+            estimated_calories_burned: data.estimated_calories_burned || 0,
+            status: data.status || 'completed', // 'planned' or 'completed'
+            starred: data.starred || false,
+            exercise_type: data.exercise_type || '',
+            reps: data.reps || 0,
+            pace: data.pace || null
+        };
+        return this.add('workouts', entry);
+    }
+
+    /**
+     * Get workouts by date
+     */
+    async getWorkoutsByDate(date) {
+        return this.getByIndex('workouts', 'date', date);
+    }
+
+    /**
+     * Get all workouts
+     */
+    async getAllWorkouts() {
+        return this.getAll('workouts');
+    }
+
+    /**
+     * Update a workout
+     */
+    async updateWorkout(data) {
+        return this.update('workouts', data);
+    }
+
+    /**
+     * Delete a workout
+     */
+    async deleteWorkout(id) {
+        return this.delete('workouts', id);
+    }
+
+    /**
+     * Get latest weight from measurements (for workout calorie calculations)
+     * @returns {number} Latest weight in lbs, or 150 as default
+     */
+    async getLatestWeight() {
+        const measurements = await this.getAllMeasurements();
+        const weightMeasurements = measurements
+            .filter(m => m.type === 'weight')
+            .sort((a, b) => b.timestamp - a.timestamp);
+
+        if (weightMeasurements.length === 0) {
+            return 150; // Default weight if no measurements
+        }
+
+        const latest = weightMeasurements[0];
+        // Convert to lbs if needed
+        if (latest.unit === 'kg') {
+            return latest.value * 2.20462;
+        }
+        return latest.value;
+    }
+
+    // ==================== NAMED FOODS OPERATIONS ====================
+
+    /**
+     * Add a named food
+     */
+    async addNamedFood(data) {
+        const entry = {
+            name: data.name,
+            format_type: data.format_type, // 'per_serving' | 'per_gram' | 'per_batch'
+            protein: data.protein || 0,
+            carbs: data.carbs || 0,
+            fat: data.fat || 0,
+            fiber: data.fiber || 0,
+            calories: data.calories || 0,
+            serving_size: data.serving_size || null, // For per_serving
+            grams: data.grams || null, // For per_gram
+            batch_servings: data.batch_servings || null, // For per_batch
+            notes: data.notes || '',
+            starred: data.starred || false,
+            starred_at: data.starred_at || null,
+            created_at: data.created_at || Date.now(),
+            updated_at: data.updated_at || Date.now()
+        };
+        return this.add('named_foods', entry);
+    }
+
+    /**
+     * Get all named foods
+     */
+    async getAllNamedFoods() {
+        const foods = await this.getAll('named_foods');
+        // Sort alphabetically by name
+        return foods.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    /**
+     * Get a named food by ID
+     */
+    async getNamedFood(id) {
+        return this.get('named_foods', id);
+    }
+
+    /**
+     * Update a named food
+     */
+    async updateNamedFood(data) {
+        data.updated_at = Date.now();
+        return this.update('named_foods', data);
+    }
+
+    /**
+     * Delete a named food
+     */
+    async deleteNamedFood(id) {
+        return this.delete('named_foods', id);
+    }
+
+    /**
+     * Calculate macros from named food based on quantity
+     */
+    calculateMacrosFromNamedFood(food, quantity) {
+        let multiplier = 1;
+
+        switch (food.format_type) {
+            case 'per_serving':
+                // quantity = number of servings
+                multiplier = quantity;
+                break;
+            case 'per_gram':
+                // Food values are per 100g, quantity is in grams
+                multiplier = quantity / 100;
+                break;
+            case 'per_batch':
+                // quantity = number of servings from batch
+                // Total batch macros divided by batch_servings, then multiplied by quantity
+                multiplier = quantity / food.batch_servings;
+                break;
+        }
+
+        return {
+            protein: food.protein * multiplier,
+            carbs: food.carbs * multiplier,
+            fat: food.fat * multiplier,
+            fiber: food.fiber * multiplier,
+            calories: food.calories * multiplier
+        };
+    }
+
+    // ==================== SETTINGS OPERATIONS ====================
+
+    /**
+     * Set a setting
+     */
+    async setSetting(key, value) {
+        const setting = {
+            key: key,
+            value: value,
+            updated_at: Date.now()
+        };
+        return this.update('settings', setting);
+    }
+
+    /**
+     * Get a setting
+     */
+    async getSetting(key) {
+        const result = await this.get('settings', key);
+        return result ? result.value : null;
+    }
+
+    /**
+     * Get all settings
+     */
+    async getAllSettings() {
+        return this.getAll('settings');
+    }
+
+    /**
+     * Delete a setting
+     */
+    async deleteSetting(key) {
+        return this.delete('settings', key);
+    }
+
+    // ==================== UTILITY OPERATIONS ====================
+
+    /**
+     * Get today's date in YYYY-MM-DD format
+     */
+    getTodayDate() {
+        return new Date().toISOString().split('T')[0];
+    }
+
+    /**
+     * Get date range for queries
+     */
+    getDateRange(days) {
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - days);
+        return {
+            start: start.toISOString().split('T')[0],
+            end: end.toISOString().split('T')[0]
+        };
+    }
+
+    /**
+     * Clear all data (for testing or reset)
+     */
+    async clearAllData() {
+        const stores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings'];
+        const promises = stores.map(storeName => {
+            return new Promise((resolve, reject) => {
+                const transaction = this.db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.clear();
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        });
+
+        return Promise.all(promises);
+    }
+
+    /**
+     * Export all data to JSON
+     */
+    async exportAllData() {
+        const data = {
+            version: this.DB_VERSION,
+            exported_at: new Date().toISOString(),
+            macros: await this.getAllMacros(),
+            measurements: await this.getAllMeasurements(),
+            workouts: await this.getAllWorkouts(),
+            named_foods: await this.getAllNamedFoods(),
+            settings: await this.getAllSettings()
+        };
+        return data;
+    }
+
+    /**
+     * Import data from JSON
+     */
+    async importData(data) {
+        try {
+            // Import each store
+            if (data.macros) {
+                for (const entry of data.macros) {
+                    delete entry.id; // Remove old ID to let autoIncrement assign new one
+                    await this.addMacroEntry(entry);
+                }
+            }
+
+            if (data.measurements) {
+                for (const entry of data.measurements) {
+                    delete entry.id;
+                    await this.addMeasurement(entry);
+                }
+            }
+
+            if (data.workouts) {
+                for (const entry of data.workouts) {
+                    delete entry.id;
+                    await this.addWorkout(entry);
+                }
+            }
+
+            if (data.named_foods) {
+                for (const entry of data.named_foods) {
+                    delete entry.id;
+                    await this.addNamedFood(entry);
+                }
+            }
+
+            if (data.settings) {
+                // Handle settings as object or array
+                if (Array.isArray(data.settings)) {
+                    for (const entry of data.settings) {
+                        await this.setSetting(entry.key, entry.value);
+                    }
+                } else if (typeof data.settings === 'object') {
+                    for (const [key, value] of Object.entries(data.settings)) {
+                        await this.setSetting(key, value);
+                    }
+                }
+            }
+
+            console.log('Data import completed successfully');
+            return true;
+        } catch (error) {
+            console.error('Error importing data:', error);
+            throw error;
+        }
+    }
+}
+
+// Create and export singleton instance
+export const db = new DatabaseManager();

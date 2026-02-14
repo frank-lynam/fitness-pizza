@@ -1,0 +1,262 @@
+/* Fitness Tracker PWA - Mobile-Specific Styles */
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    /* Header adjustments for mobile */
+    #app-header {
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    #screen-title {
+        font-size: var(--font-size-base);
+        width: 100%;
+        order: 1;
+    }
+
+    .date-navigation {
+        order: 2;
+        flex: 1;
+    }
+
+    #offline-indicator {
+        order: 3;
+    }
+
+    /* Larger touch targets on mobile */
+    button {
+        min-height: 52px;
+        font-size: var(--font-size-lg);
+    }
+
+    .btn-small {
+        min-height: 40px;
+        font-size: var(--font-size-base);
+    }
+
+    .btn-date-nav,
+    .btn-date-today,
+    .date-picker {
+        min-height: 36px;
+        height: 36px;
+    }
+
+    /* Prevent zoom on input focus (iOS) */
+    input,
+    select,
+    textarea {
+        font-size: 16px !important;
+    }
+
+    /* Full-width buttons on mobile */
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .action-buttons button {
+        width: 100%;
+    }
+
+    /* Single column grid on mobile */
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Adjusted header for mobile */
+    #screen-title {
+        font-size: var(--font-size-xl);
+    }
+
+    /* Bottom nav labels smaller on mobile */
+    .nav-label {
+        font-size: 10px;
+    }
+
+    /* Reduce padding on mobile */
+    #main-content {
+        padding: var(--spacing-sm);
+        /* Extra padding to prevent FAB buttons from blocking content */
+        padding-bottom: calc(var(--bottom-nav-height) + 80px);
+    }
+
+    .stat-card,
+    .chart-container,
+    .settings-section {
+        padding: var(--spacing-sm);
+    }
+
+    /* Error display full width on mobile */
+    #error-display {
+        left: var(--spacing-sm);
+        right: var(--spacing-sm);
+        top: var(--spacing-sm);
+    }
+
+    /* Date range selector scroll on mobile */
+    .date-range-selector {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Quick actions on mobile */
+    .quick-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .btn-quick-action {
+        font-size: var(--font-size-xl);
+        min-height: 80px;
+    }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .charts-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .quick-actions {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Desktop Optimizations */
+@media (min-width: 1025px) {
+    /* Center content on large screens */
+    #app {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .charts-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Bottom nav becomes side nav on desktop */
+    #bottom-nav {
+        left: 0;
+        right: auto;
+        top: 0;
+        bottom: 0;
+        width: 200px;
+        height: auto;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: var(--spacing-lg) 0;
+    }
+
+    .nav-item {
+        flex-direction: row;
+        justify-content: flex-start;
+        padding: var(--spacing-md);
+        width: 100%;
+        min-height: 56px;
+    }
+
+    .nav-icon {
+        margin-bottom: 0;
+        margin-right: var(--spacing-sm);
+    }
+
+    .nav-label {
+        font-size: var(--font-size-base);
+    }
+
+    #main-content {
+        margin-left: 200px;
+        padding-bottom: var(--spacing-md);
+    }
+
+    #app-header {
+        margin-left: 200px;
+    }
+}
+
+/* Landscape Orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+    /* Reduce vertical padding in landscape */
+    #main-content {
+        padding-top: var(--spacing-xs);
+        /* Extra padding to prevent FAB buttons from blocking content */
+        padding-bottom: calc(var(--bottom-nav-height) + 80px);
+    }
+
+    .screen h2 {
+        font-size: var(--font-size-xl);
+        margin-bottom: var(--spacing-md);
+    }
+
+    .stat-card,
+    .chart-container {
+        margin-bottom: var(--spacing-xs);
+    }
+}
+
+/* Safe Area Insets (iPhone X+) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    #bottom-nav {
+        padding-bottom: calc(var(--spacing-xs) + env(safe-area-inset-bottom));
+        height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
+    }
+
+    #main-content {
+        /* Extra padding to prevent FAB buttons from blocking content */
+        padding-bottom: calc(var(--bottom-nav-height) + 80px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Prevent horizontal scrolling */
+html,
+body {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
+#app {
+    overflow-x: hidden;
+    max-width: 100vw;
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+    /* Remove hover effects on touch devices */
+    button:hover {
+        background-color: inherit;
+    }
+
+    .btn-primary:hover {
+        background-color: var(--accent-primary);
+    }
+
+    .btn-secondary:hover {
+        background-color: var(--bg-tertiary);
+    }
+
+    .btn-danger:hover {
+        background-color: var(--accent-danger);
+    }
+
+    .nav-item:hover {
+        color: inherit;
+    }
+
+    .nav-item.active {
+        color: var(--accent-primary);
+    }
+
+    /* Active state feedback for touch */
+    button:active {
+        transform: scale(0.97);
+        opacity: 0.9;
+    }
+}

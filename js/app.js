@@ -152,6 +152,84 @@ class FitnessTrackerApp {
     }
 
     /**
+     * Calculate effective goals for a given date
+     * Applies reverse diet and running average adjustments
+     * @param {string} date - Date in YYYY-MM-DD format
+     * @returns {Object} Effective goals {fat, protein, carbs, calories}
+     */
+    async calculateEffectiveGoals(date) {
+        // Get base goals from settings
+        let goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
+        let goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+        let goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+
+        // Check if reverse diet is enabled for this date
+        const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+        const isReverseDiet = reverseDietDates[date] === true;
+
+        if (isReverseDiet) {
+            goalFat *= 1.2;
+            goalProtein *= 1.2;
+            goalCarbs *= 1.2;
+        }
+
+        // Check if running average mode is enabled
+        const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
+
+        if (runningAvgEnabled) {
+            // Get past 6 days of consumption (not including today)
+            const allMacros = await db.getAllMacros();
+            const dateObj = new Date(date);
+            const past6Days = [];
+
+            for (let i = 1; i <= 6; i++) {
+                const pastDate = new Date(dateObj);
+                pastDate.setDate(pastDate.getDate() - i);
+                const pastDateStr = pastDate.toISOString().split('T')[0];
+                past6Days.push(pastDateStr);
+            }
+
+            // Calculate totals for past 6 days (completed only)
+            let totalPastFat = 0;
+            let totalPastProtein = 0;
+            let totalPastCarbs = 0;
+
+            for (const pastDate of past6Days) {
+                const dayMacros = allMacros.filter(m =>
+                    m.date === pastDate && m.status === 'completed'
+                );
+                totalPastFat += dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
+                totalPastProtein += dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
+                totalPastCarbs += dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
+            }
+
+            // Calculate what we'd need today to make the week average to the base goal
+            // Base goals (without reverse diet) for the calculation
+            const baseFat = parseFloat(await db.getSetting('goal_fat') || 70);
+            const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+            const baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+
+            const compensationFat = (baseFat * 7) - totalPastFat;
+            const compensationProtein = (baseProtein * 7) - totalPastProtein;
+            const compensationCarbs = (baseCarbs * 7) - totalPastCarbs;
+
+            // Running average target = halfway between goal and compensation
+            goalFat = (goalFat + compensationFat) / 2;
+            goalProtein = (goalProtein + compensationProtein) / 2;
+            goalCarbs = (goalCarbs + compensationCarbs) / 2;
+        }
+
+        const goalCalories = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
+
+        return {
+            fat: goalFat,
+            protein: goalProtein,
+            carbs: goalCarbs,
+            calories: goalCalories
+        };
+    }
+
+    /**
      * Load dashboard screen
      */
     async loadDashboard() {
@@ -182,11 +260,12 @@ class FitnessTrackerApp {
             // Calculate calorie balance
             const calorieBalance = totalCalories - totalCaloriesBurned;
 
-            // Get daily goals from settings or use defaults
-            const goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
-            const goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-            const goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
-            const goalCalories = parseFloat(await db.getSetting('goal_calories') || 2000);
+            // Get daily goals with reverse diet and running average adjustments
+            const goals = await this.calculateEffectiveGoals(today);
+            const goalFat = goals.fat;
+            const goalProtein = goals.protein;
+            const goalCarbs = goals.carbs;
+            const goalCalories = goals.calories;
 
             // Calculate RAW percentages for completed (can exceed 100%)
             const fatPercent = (totalFat / goalFat) * 100;
@@ -763,26 +842,20 @@ class FitnessTrackerApp {
         if (proteinInput) proteinInput.addEventListener('change', autoSaveGoals);
         if (carbsInput) carbsInput.addEventListener('change', autoSaveGoals);
 
-        // Reverse diet button - increase all macros by 20%
-        const reverseDietBtn = document.getElementById('btn-reverse-diet');
-        if (reverseDietBtn) {
-            reverseDietBtn.addEventListener('click', async () => {
-                const currentFat = parseFloat(fatInput.value) || 70;
-                const currentProtein = parseFloat(proteinInput.value) || 150;
-                const currentCarbs = parseFloat(carbsInput.value) || 200;
-
-                const newFat = Math.round(currentFat * 1.2);
-                const newProtein = Math.round(currentProtein * 1.2);
-                const newCarbs = Math.round(currentCarbs * 1.2);
-
-                fatInput.value = newFat;
-                proteinInput.value = newProtein;
-                carbsInput.value = newCarbs;
-
-                updateComputedCalories();
-                await autoSaveGoals();
-
-                ui.showSuccess('Macro goals increased by 20%! 📈');
+        // Running average mode toggle
+        const runningAvgCheckbox = document.getElementById('running-average-mode');
+        const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
+        if (runningAvgCheckbox) {
+            runningAvgCheckbox.checked = runningAvgEnabled;
+            runningAvgCheckbox.addEventListener('change', async () => {
+                await db.setSetting('running_average_mode', runningAvgCheckbox.checked ? 'true' : 'false');
+                // Reload dashboard if visible to update targets
+                if (this.currentScreen === 'dashboard') {
+                    await this.loadDashboard();
+                }
+                ui.showSuccess(runningAvgCheckbox.checked ?
+                    'Running Average Mode enabled' :
+                    'Running Average Mode disabled');
             });
         }
 

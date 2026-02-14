@@ -75,6 +75,12 @@
                         <button id="btn-photo-macro" class="btn-secondary">📷 From Photo</button>
                         <button id="btn-text-ai-macro" class="btn-secondary">🤖 AI from Text</button>
                     </div>
+                    <div style="margin: 12px 0; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-md);">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="reverse-diet-toggle">
+                            <span>📈 Reverse Diet Today (+20% macros for this day only)</span>
+                        </label>
+                    </div>
                     <div id="macro-form-container" class="hidden"></div>
                     <div id="macro-list">
                         <div id="macro-entries">Loading...</div>
@@ -162,10 +168,15 @@
                             <label>Calories:</label>
                             <span id="computed-calories" style="color: var(--text-primary); font-weight: 600;">2000</span>
                         </div>
-                        <button id="btn-reverse-diet" class="btn-secondary" style="width: 100%; margin-top: 8px;">
-                            📈 Reverse Diet (+20%)
-                        </button>
-                        <p class="help-text" style="margin-top: 4px; font-size: 12px;">Increases all macro goals by 20%</p>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="running-average-mode">
+                                <span>Running Average Mode</span>
+                            </label>
+                            <p class="help-text" style="margin-top: 4px; font-size: 12px;">
+                                Adjusts daily targets to help you average exactly at your goals over the past week
+                            </p>
+                        </div>
                     </div>
 
                     <div class="settings-section">
@@ -214,7 +225,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p>Fitness Pizza v1.9.1 🍕</p>
+                        <p>Fitness Pizza v1.9.2 🍕</p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

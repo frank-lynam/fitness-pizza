@@ -16,6 +16,7 @@ export function initMacroForm() {
     const btnAddMacro = document.getElementById('btn-add-macro');
     const btnPhotoMacro = document.getElementById('btn-photo-macro');
     const btnTextAIMacro = document.getElementById('btn-text-ai-macro');
+    const reverseDietToggle = document.getElementById('reverse-diet-toggle');
     const formContainer = document.getElementById('macro-form-container');
 
     if (btnAddMacro) {
@@ -35,6 +36,59 @@ export function initMacroForm() {
         btnTextAIMacro.addEventListener('click', () => {
             showTextAIModal();
         });
+    }
+
+    // Load and setup reverse diet toggle for current day
+    if (reverseDietToggle) {
+        setupReverseDietToggle(reverseDietToggle);
+    }
+}
+
+/**
+ * Setup reverse diet toggle for current day
+ */
+async function setupReverseDietToggle(toggle) {
+    const { getTodayDate } = await import('../utils/date-utils.js');
+    const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+
+    // Load current state from settings (stored per date)
+    const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+    toggle.checked = reverseDietDates[currentDate] === true;
+
+    toggle.addEventListener('change', async () => {
+        // Update state for this date
+        const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+        if (toggle.checked) {
+            reverseDietDates[currentDate] = true;
+        } else {
+            delete reverseDietDates[currentDate];
+        }
+        await db.setSetting('reverse_diet_dates', JSON.stringify(reverseDietDates));
+
+        // Reload dashboard if visible to update targets
+        if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
+            await window.fitnessApp.loadDashboard();
+        }
+
+        ui.showSuccess(toggle.checked ?
+            '📈 Reverse Diet enabled for today (+20%)' :
+            'Reverse Diet disabled for today');
+    });
+
+    // Re-check state when date changes (if fitnessApp is available)
+    if (window.fitnessApp) {
+        const originalGetCurrentDate = window.fitnessApp.getCurrentDate;
+        let lastDate = currentDate;
+
+        // Poll for date changes
+        setInterval(async () => {
+            const newDate = window.fitnessApp.getCurrentDate();
+            if (newDate !== lastDate) {
+                lastDate = newDate;
+                const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+                toggle.checked = reverseDietDates[newDate] === true;
+            }
+        }, 1000);
     }
 }
 

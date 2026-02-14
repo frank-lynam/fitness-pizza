@@ -140,7 +140,21 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.1
+**Current**: v1.9.2
+- **Reverse Diet Redesign**: Moved from permanent setting to per-day toggle
+  - Now a toggle on the Macro tab that applies to single day only
+  - Increases macros by 20% for that specific day
+  - State saved per date, so you can enable it different days
+  - Removed the button from settings (was applying permanently, which was wrong)
+- **Running Average Mode**: New intelligent macro targeting system
+  - Toggle in Settings > Daily Goals section
+  - Adjusts daily targets to help you average exactly at your goals over time
+  - Calculates: target = (goal + compensation) / 2
+  - Where compensation = what you'd need to make past week average to goal
+  - Helps you stay on track even after occasional over/under days
+  - Works alongside reverse diet (if both enabled, reverse diet applies first, then running average)
+
+**Previous**: v1.9.1
 - **Fixed Logo**: Redesigned pizza pie chart with clearly visible pulled-out slice
   - Removed text from logo (doesn't work with circular icons)
   - Better cheese/crust layers for realistic pizza look

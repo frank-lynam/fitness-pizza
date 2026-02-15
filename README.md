@@ -140,7 +140,15 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.4
+**Current**: v1.9.5
+- **Calorie Trend Chart Date Range Fixed**: Chart now shows correct date range for selected period
+  - "7 Days" now shows exactly 7 days from today backward, not from first data point
+  - "30 Days" shows exactly 30 days from today backward
+  - Each period shows all dates in range, even dates without data (displayed as 0)
+  - "All Time" still uses actual data range
+  - Fixes issue where chart showed wrong values for past days and today
+
+**Previous**: v1.9.4
 - **Starred Foods Show First**: Food library now sorts starred items to the top
   - Makes frequently used foods easier to find
   - Starred items appear first, then alphabetically by name

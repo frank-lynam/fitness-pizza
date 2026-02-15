@@ -59,7 +59,7 @@ async function renderCharts(days) {
 
         // Render individual charts
         await renderMacroDistribution(filteredMacros);
-        await renderCalorieBalance(filteredMacros, filteredWorkouts);
+        await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderWeightTrend(filteredMeasurements);
         await renderWorkoutVolume(filteredWorkouts);
 
@@ -147,25 +147,37 @@ async function renderMacroDistribution(macros) {
 
 /**
  * Render calorie balance line chart
+ * @param {Array} macros - Filtered macro entries
+ * @param {Array} workouts - Filtered workout entries
+ * @param {number|null} days - Number of days to show, or null for all time
  */
-async function renderCalorieBalance(macros, workouts) {
+async function renderCalorieBalance(macros, workouts, days) {
     const ctx = document.getElementById('calorie-balance-chart');
     if (!ctx) return;
 
-    // Determine date range from the filtered data
-    let minDate = null;
-    let maxDate = null;
+    // Determine date range based on days parameter
+    let minDate, maxDate;
 
-    // Find earliest and latest dates from macros and workouts
-    [...macros, ...workouts].forEach(item => {
-        if (!minDate || item.date < minDate) minDate = item.date;
-        if (!maxDate || item.date > maxDate) maxDate = item.date;
-    });
+    if (days) {
+        // For specific day ranges, calculate from today backward
+        const today = new Date();
+        maxDate = today.toISOString().split('T')[0];
 
-    // If no data, use today
-    if (!minDate || !maxDate) {
-        const today = new Date().toISOString().split('T')[0];
-        minDate = maxDate = today;
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - (days - 1));
+        minDate = startDate.toISOString().split('T')[0];
+    } else {
+        // For "All Time", use date range from the data
+        [...macros, ...workouts].forEach(item => {
+            if (!minDate || item.date < minDate) minDate = item.date;
+            if (!maxDate || item.date > maxDate) maxDate = item.date;
+        });
+
+        // If no data, use today
+        if (!minDate || !maxDate) {
+            const today = new Date().toISOString().split('T')[0];
+            minDate = maxDate = today;
+        }
     }
 
     // Initialize dates object with all dates in range

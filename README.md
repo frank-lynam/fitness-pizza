@@ -140,7 +140,18 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.2
+**Current**: v1.9.3
+- **Progress Bar Labels Enhanced**: Now show consumed values on the left
+  - Fat: XXg, Carbs: XXg, Protein: XXg, Calories: XXXX
+  - Remainder/overage values stay on the right as before
+  - Better visibility of actual consumption at a glance
+- **Running Average Calculation Fixed**: Properly accounts for reverse diet days
+  - Reverse diet day consumption is discounted by 20% of target
+  - Formula: `discounted = consumed - (target × 0.2)`
+  - Prevents reverse diet days from skewing running average upward
+  - Ensures running average mode works correctly with reverse dieting
+
+**Previous**: v1.9.2
 - **Reverse Diet Redesign**: Moved from permanent setting to per-day toggle
   - Now a toggle on the Macro tab that applies to single day only
   - Increases macros by 20% for that specific day

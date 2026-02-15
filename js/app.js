@@ -189,7 +189,16 @@ class FitnessTrackerApp {
                 past6Days.push(pastDateStr);
             }
 
+            // Base goals (without reverse diet) for the calculation
+            const baseFat = parseFloat(await db.getSetting('goal_fat') || 70);
+            const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+            const baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+
+            // Get reverse diet dates to discount them in running average
+            const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+
             // Calculate totals for past 6 days (completed only)
+            // Discount consumption on reverse diet days by 20% of target
             let totalPastFat = 0;
             let totalPastProtein = 0;
             let totalPastCarbs = 0;
@@ -198,16 +207,21 @@ class FitnessTrackerApp {
                 const dayMacros = allMacros.filter(m =>
                     m.date === pastDate && m.status === 'completed'
                 );
-                totalPastFat += dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
-                totalPastProtein += dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
-                totalPastCarbs += dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
-            }
+                let dayFat = dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
+                let dayProtein = dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
+                let dayCarbs = dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
 
-            // Calculate what we'd need today to make the week average to the base goal
-            // Base goals (without reverse diet) for the calculation
-            const baseFat = parseFloat(await db.getSetting('goal_fat') || 70);
-            const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-            const baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+                // If this was a reverse diet day, discount by 20% of target
+                if (reverseDietDates[pastDate] === true) {
+                    dayFat -= baseFat * 0.2;
+                    dayProtein -= baseProtein * 0.2;
+                    dayCarbs -= baseCarbs * 0.2;
+                }
+
+                totalPastFat += dayFat;
+                totalPastProtein += dayProtein;
+                totalPastCarbs += dayCarbs;
+            }
 
             const compensationFat = (baseFat * 7) - totalPastFat;
             const compensationProtein = (baseProtein * 7) - totalPastProtein;
@@ -394,8 +408,8 @@ class FitnessTrackerApp {
                                 ${fatDim.hasOverflow ? `<div class="progress-fill-overflow fat" style="left: ${marker100Percent}%; width: ${fatDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                                 <!-- 100% marker line -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
-                                <!-- Label (always visible) -->
-                                <span class="progress-label">Fat</span>
+                                <!-- Labels (always visible) -->
+                                <span class="progress-label">Fat: ${(totalFat + plannedFat).toFixed(0)}g</span>
                                 <span class="progress-value ${goalFat - totalFat - plannedFat < 0 ? 'over-target' : ''}">${
                                     goalFat - totalFat - plannedFat >= 0
                                         ? Math.max(0, goalFat - totalFat - plannedFat).toFixed(0) + 'g left'
@@ -414,8 +428,8 @@ class FitnessTrackerApp {
                                 ${carbsDim.hasOverflow ? `<div class="progress-fill-overflow carbs" style="left: ${marker100Percent}%; width: ${carbsDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                                 <!-- 100% marker -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
-                                <!-- Label (always visible) -->
-                                <span class="progress-label">Carbs</span>
+                                <!-- Labels (always visible) -->
+                                <span class="progress-label">Carbs: ${(totalCarbs + plannedCarbs).toFixed(0)}g</span>
                                 <span class="progress-value ${goalCarbs - totalCarbs - plannedCarbs < 0 ? 'over-target' : ''}">${
                                     goalCarbs - totalCarbs - plannedCarbs >= 0
                                         ? Math.max(0, goalCarbs - totalCarbs - plannedCarbs).toFixed(0) + 'g left'
@@ -434,8 +448,8 @@ class FitnessTrackerApp {
                                 ${proteinDim.hasOverflow ? `<div class="progress-fill-overflow protein" style="left: ${marker100Percent}%; width: ${proteinDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                                 <!-- 100% marker -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
-                                <!-- Label (always visible) -->
-                                <span class="progress-label">Protein</span>
+                                <!-- Labels (always visible) -->
+                                <span class="progress-label">Protein: ${(totalProtein + plannedProtein).toFixed(0)}g</span>
                                 <span class="progress-value ${goalProtein - totalProtein - plannedProtein < 0 ? 'over-target' : ''}">${
                                     goalProtein - totalProtein - plannedProtein >= 0
                                         ? Math.max(0, goalProtein - totalProtein - plannedProtein).toFixed(0) + 'g left'
@@ -478,8 +492,8 @@ class FitnessTrackerApp {
                                 })()}
                                 <!-- 100% marker -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
-                                <!-- Label (always visible) -->
-                                <span class="progress-label">Calories</span>
+                                <!-- Labels (always visible) -->
+                                <span class="progress-label">Calories: ${(totalCalories + plannedCalories).toFixed(0)}</span>
                                 <span class="progress-value ${goalCalories - netCalories - plannedCalories < 0 ? 'over-target' : ''}">${
                                     goalCalories - netCalories - plannedCalories >= 0
                                         ? Math.max(0, goalCalories - netCalories - plannedCalories).toFixed(0) + ' left'

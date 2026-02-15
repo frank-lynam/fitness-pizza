@@ -31,6 +31,13 @@ export function initFoodLibrary() {
 export async function showFoodLibrary() {
     const foods = await db.getAllNamedFoods();
 
+    // Sort foods: starred first, then by name
+    foods.sort((a, b) => {
+        if (a.starred && !b.starred) return -1;
+        if (!a.starred && b.starred) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
     const modal = ui.createModal('Food Library', `
         <div class="food-library-content">
             <button id="btn-add-named-food" class="btn-primary" style="width: 100%; margin-bottom: 8px;">

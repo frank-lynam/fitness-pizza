@@ -130,6 +130,13 @@ export function showMacroForm(existingEntry = null) {
                 </div>
 
                 <div class="form-group" style="margin-bottom: 4px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="skip-library-save" ${isEdit ? 'checked' : ''}>
+                        <span>Don't save to food library</span>
+                    </label>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 4px;">
                     <input type="text" id="meal-name" placeholder="Meal Name"
                            value="${entry.meal_name}">
                 </div>
@@ -271,6 +278,7 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
         const mealName = document.getElementById('meal-name').value.trim();
         const foodDescription = document.getElementById('food-description').value.trim();
         const isPlanned = document.getElementById('meal-planned').checked;
+        const skipLibrarySave = document.getElementById('skip-library-save').checked;
 
         // Validate macros
         const validation = validateMacros({ protein, carbs, fat, fiber });
@@ -319,8 +327,8 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             // Add new entry
             const entryId = await db.addMacroEntry(entryData);
 
-            // Auto-add to food library if it has a name
-            if (mealName) {
+            // Auto-add to food library if it has a name and user didn't skip library save
+            if (mealName && !skipLibrarySave) {
                 const existingFoods = await db.getAllNamedFoods();
                 const foodExists = existingFoods.some(f =>
                     f.name.toLowerCase() === mealName.toLowerCase()

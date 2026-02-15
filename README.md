@@ -140,7 +140,22 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.3
+**Current**: v1.9.4
+- **Starred Foods Show First**: Food library now sorts starred items to the top
+  - Makes frequently used foods easier to find
+  - Starred items appear first, then alphabetically by name
+- **Option to Skip Library Save**: New checkbox on macro form
+  - "Don't save to food library"
+  - Allows adding one-off meals without cluttering your food library
+  - Unchecked by default (still saves to library)
+  - Useful for restaurant meals or special occasions
+- **Fixed Calorie Trend Chart**: Chart now shows all dates in range
+  - Previously only showed dates with data (missing days showed as gaps)
+  - Now fills in missing dates with 0 values for accurate visualization
+  - Correctly displays 7-day, 14-day, 30-day ranges
+  - Today's value now matches actual consumption
+
+**Previous**: v1.9.3
 - **Progress Bar Labels Enhanced**: Now show consumed values on the left
   - Fat: XXg, Carbs: XXg, Protein: XXg, Calories: XXXX
   - Remainder/overage values stay on the right as before

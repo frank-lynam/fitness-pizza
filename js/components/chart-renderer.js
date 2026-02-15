@@ -152,24 +152,47 @@ async function renderCalorieBalance(macros, workouts) {
     const ctx = document.getElementById('calorie-balance-chart');
     if (!ctx) return;
 
-    // Group by date
-    const dates = {};
+    // Determine date range from the filtered data
+    let minDate = null;
+    let maxDate = null;
 
+    // Find earliest and latest dates from macros and workouts
+    [...macros, ...workouts].forEach(item => {
+        if (!minDate || item.date < minDate) minDate = item.date;
+        if (!maxDate || item.date > maxDate) maxDate = item.date;
+    });
+
+    // If no data, use today
+    if (!minDate || !maxDate) {
+        const today = new Date().toISOString().split('T')[0];
+        minDate = maxDate = today;
+    }
+
+    // Initialize dates object with all dates in range
+    const dates = {};
+    const currentDate = new Date(minDate);
+    const endDate = new Date(maxDate);
+
+    while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        dates[dateStr] = { intake: 0, burned: 0 };
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Fill in actual data
     macros.forEach(m => {
-        if (!dates[m.date]) {
-            dates[m.date] = { intake: 0, burned: 0 };
+        if (dates[m.date]) {
+            dates[m.date].intake += m.calories || 0;
         }
-        dates[m.date].intake += m.calories || 0;
     });
 
     workouts.forEach(w => {
-        if (!dates[w.date]) {
-            dates[w.date] = { intake: 0, burned: 0 };
+        if (dates[w.date]) {
+            dates[w.date].burned += w.estimated_calories_burned || 0;
         }
-        dates[w.date].burned += w.estimated_calories_burned || 0;
     });
 
-    // Sort dates
+    // Sort dates and prepare chart data
     const sortedDates = Object.keys(dates).sort();
     const labels = sortedDates;
     const intakeData = sortedDates.map(d => dates[d].intake);

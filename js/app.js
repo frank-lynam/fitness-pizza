@@ -902,7 +902,7 @@ class FitnessTrackerApp {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `fitness-tracker-export-${new Date().toISOString()}.json`;
+                    a.download = `fitness-pizza-export-${new Date().toISOString()}.json`;
                     a.click();
                     URL.revokeObjectURL(url);
                 } catch (error) {
@@ -1195,7 +1195,7 @@ class FitnessTrackerApp {
             // Create download with fixed filename
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'fitness-tracker-backup.json'; // Fixed filename - will overwrite
+            a.download = 'fitness-pizza-backup.json'; // Fixed filename - will overwrite
 
             // Trigger download silently
             document.body.appendChild(a);
@@ -1203,7 +1203,7 @@ class FitnessTrackerApp {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            console.log('Auto-backup completed: fitness-tracker-backup.json');
+            console.log('Auto-backup completed: fitness-pizza-backup.json');
         } catch (error) {
             console.error('Auto-backup failed:', error);
         }

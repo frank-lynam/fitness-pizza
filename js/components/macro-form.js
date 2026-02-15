@@ -611,11 +611,34 @@ export async function loadTodaysMacros() {
 async function handleToggleCompletion(id, completed) {
     try {
         const entry = await db.get('macros', id);
-        if (entry) {
+        if (!entry) return;
+
+        if (completed && entry.status === 'planned' && entry.servings > 1) {
+            // Checking off a planned item with multiple servings
+            // Create a new completed entry with 1 serving
+            const completedEntry = {
+                ...entry,
+                servings: 1,
+                status: 'completed',
+                timestamp: Date.now() // Set current time for completed entry
+            };
+            delete completedEntry.id; // Remove id so it creates a new entry
+            await db.addMacroEntry(completedEntry);
+
+            // Reduce the planned entry's servings by 1
+            entry.servings -= 1;
+            await db.updateMacroEntry(entry);
+        } else if (!completed && entry.status === 'completed' && entry.servings === 1) {
+            // Unchecking a completed item with 1 serving - just toggle back to planned
+            entry.status = 'planned';
+            await db.updateMacroEntry(entry);
+        } else {
+            // For all other cases (single serving, or going from completed to planned, etc.)
             entry.status = completed ? 'completed' : 'planned';
             await db.updateMacroEntry(entry);
-            await loadTodaysMacros();
         }
+
+        await loadTodaysMacros();
     } catch (error) {
         console.error('Error toggling completion:', error);
         ui.showError('Failed to update status: ' + error.message);

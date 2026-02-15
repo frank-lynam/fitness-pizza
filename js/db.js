@@ -316,6 +316,12 @@ class DatabaseManager {
      * Update a macro entry
      */
     async updateMacroEntry(data) {
+        // Ensure timestamp is set for entries that might not have one
+        if (!data.timestamp && data.date) {
+            data.timestamp = new Date(data.date + 'T12:00:00').getTime();
+        } else if (!data.timestamp) {
+            data.timestamp = Date.now();
+        }
         return this.update('macros', data);
     }
 

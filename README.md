@@ -140,7 +140,20 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.6
+**Current**: v1.9.7
+- **Smart Planned Servings Checkbox**: Checking off planned items with multiple servings now works properly
+  - Checking off a planned item with 3 servings creates 1 completed serving and leaves 2 planned
+  - Only consumes one serving at a time instead of marking all servings as eaten
+  - Perfect for meal planning when you prep multiple servings
+- **Calorie Chart Fix**: Fixed missing entries in chart caused by missing timestamps
+  - Updated entries now get timestamps assigned if they don't have one
+  - Ensures all completed food entries appear in trend charts
+  - Fixes issue where chart showed wrong total calories
+- **Export Filename Updated**: Export files now named "fitness-pizza" instead of "fitness-tracker"
+  - Manual exports: `fitness-pizza-export-[timestamp].json`
+  - Auto-backups: `fitness-pizza-backup.json`
+
+**Previous**: v1.9.6
 - **Batch Recipe Support**: Macro form now supports batch recipes
   - New checkbox: "This is a batch recipe (I made multiple servings)"
   - Enter total macros for entire batch, specify servings made and servings eaten

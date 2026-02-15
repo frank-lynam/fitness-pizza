@@ -635,18 +635,38 @@ class FitnessTrackerApp {
                         if (entry) {
                             // If planned item with multiple servings, only complete 1 serving
                             if (entry.status === 'planned' && entry.servings > 1) {
+                                // Calculate macros per serving
+                                const perServing = {
+                                    protein: entry.protein / entry.servings,
+                                    carbs: entry.carbs / entry.servings,
+                                    fat: entry.fat / entry.servings,
+                                    fiber: entry.fiber / entry.servings,
+                                    calories: entry.calories / entry.servings
+                                };
+
                                 // Create a new completed entry with 1 serving
                                 const completedEntry = {
                                     ...entry,
                                     servings: 1,
+                                    protein: perServing.protein,
+                                    carbs: perServing.carbs,
+                                    fat: perServing.fat,
+                                    fiber: perServing.fiber,
+                                    calories: perServing.calories,
                                     status: 'completed',
                                     timestamp: Date.now()
                                 };
                                 delete completedEntry.id; // Remove id so it creates a new entry
                                 await db.addMacroEntry(completedEntry);
 
-                                // Reduce the planned entry's servings by 1
-                                entry.servings -= 1;
+                                // Update the planned entry: reduce servings and adjust macros
+                                const remainingServings = entry.servings - 1;
+                                entry.servings = remainingServings;
+                                entry.protein = perServing.protein * remainingServings;
+                                entry.carbs = perServing.carbs * remainingServings;
+                                entry.fat = perServing.fat * remainingServings;
+                                entry.fiber = perServing.fiber * remainingServings;
+                                entry.calories = perServing.calories * remainingServings;
                                 await db.updateMacroEntry(entry);
                             } else {
                                 // For single serving or already completed items, just toggle status

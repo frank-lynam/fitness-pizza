@@ -140,7 +140,14 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.8
+**Current**: v1.9.9
+- **Fix Planned Servings Macro Calculation**: Properly divide macros when checking off multiple servings
+  - Now calculates per-serving macros correctly
+  - Example: 2 servings of 50g protein → checking off creates 1 serving of 25g, leaves 1 serving of 25g
+  - Previously was creating two entries of 50g each (incorrect)
+  - Applies to both dashboard and macros tab
+
+**Previous**: v1.9.8
 - **Dashboard Planned Servings Fix**: Fixed dashboard checkbox to properly handle multiple servings
   - Dashboard now uses same logic as Macros tab
   - Checking off a planned item with multiple servings creates 1 completed serving

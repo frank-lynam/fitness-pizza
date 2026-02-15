@@ -615,18 +615,38 @@ async function handleToggleCompletion(id, completed) {
 
         if (completed && entry.status === 'planned' && entry.servings > 1) {
             // Checking off a planned item with multiple servings
+            // Calculate macros per serving
+            const perServing = {
+                protein: entry.protein / entry.servings,
+                carbs: entry.carbs / entry.servings,
+                fat: entry.fat / entry.servings,
+                fiber: entry.fiber / entry.servings,
+                calories: entry.calories / entry.servings
+            };
+
             // Create a new completed entry with 1 serving
             const completedEntry = {
                 ...entry,
                 servings: 1,
+                protein: perServing.protein,
+                carbs: perServing.carbs,
+                fat: perServing.fat,
+                fiber: perServing.fiber,
+                calories: perServing.calories,
                 status: 'completed',
                 timestamp: Date.now() // Set current time for completed entry
             };
             delete completedEntry.id; // Remove id so it creates a new entry
             await db.addMacroEntry(completedEntry);
 
-            // Reduce the planned entry's servings by 1
-            entry.servings -= 1;
+            // Update the planned entry: reduce servings and adjust macros
+            const remainingServings = entry.servings - 1;
+            entry.servings = remainingServings;
+            entry.protein = perServing.protein * remainingServings;
+            entry.carbs = perServing.carbs * remainingServings;
+            entry.fat = perServing.fat * remainingServings;
+            entry.fiber = perServing.fiber * remainingServings;
+            entry.calories = perServing.calories * remainingServings;
             await db.updateMacroEntry(entry);
         } else if (!completed && entry.status === 'completed' && entry.servings === 1) {
             // Unchecking a completed item with 1 serving - just toggle back to planned

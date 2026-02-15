@@ -140,7 +140,14 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.7
+**Current**: v1.9.8
+- **Dashboard Planned Servings Fix**: Fixed dashboard checkbox to properly handle multiple servings
+  - Dashboard now uses same logic as Macros tab
+  - Checking off a planned item with multiple servings creates 1 completed serving
+  - Reduces planned servings by 1 instead of marking all as complete
+  - Both tabs now work consistently
+
+**Previous**: v1.9.7
 - **Smart Planned Servings Checkbox**: Checking off planned items with multiple servings now works properly
   - Checking off a planned item with 3 servings creates 1 completed serving and leaves 2 planned
   - Only consumes one serving at a time instead of marking all servings as eaten

@@ -633,9 +633,27 @@ class FitnessTrackerApp {
                         const entry = macros.find(m => m.id === id);
 
                         if (entry) {
-                            entry.status = 'completed';
-                            entry.timestamp = Date.now(); // Update timestamp to now
-                            await db.updateMacroEntry(entry);
+                            // If planned item with multiple servings, only complete 1 serving
+                            if (entry.status === 'planned' && entry.servings > 1) {
+                                // Create a new completed entry with 1 serving
+                                const completedEntry = {
+                                    ...entry,
+                                    servings: 1,
+                                    status: 'completed',
+                                    timestamp: Date.now()
+                                };
+                                delete completedEntry.id; // Remove id so it creates a new entry
+                                await db.addMacroEntry(completedEntry);
+
+                                // Reduce the planned entry's servings by 1
+                                entry.servings -= 1;
+                                await db.updateMacroEntry(entry);
+                            } else {
+                                // For single serving or already completed items, just toggle status
+                                entry.status = 'completed';
+                                entry.timestamp = Date.now(); // Update timestamp to now
+                                await db.updateMacroEntry(entry);
+                            }
 
                             // Refresh dashboard
                             await this.loadDashboard();

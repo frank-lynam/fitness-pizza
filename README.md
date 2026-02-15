@@ -140,7 +140,24 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.5
+**Current**: v1.9.6
+- **Batch Recipe Support**: Macro form now supports batch recipes
+  - New checkbox: "This is a batch recipe (I made multiple servings)"
+  - Enter total macros for entire batch, specify servings made and servings eaten
+  - Automatically calculates consumed macros: (total / batch servings) × servings eaten
+  - Perfect for home-cooked meals and meal prep
+- **Starred Foods Always First**: Food library now consistently shows starred items at top
+  - Works with both alphabetical and macro-match sorting
+  - Starred items always appear first, then sorted by selected method
+- **Search Clear Button**: Added X button to food library search field
+  - One-click to clear search text
+  - Shows/hides automatically based on search field content
+- **Calorie Balance Chart Goal Line**: Chart now shows daily calorie goal
+  - Dashed line shows your target calorie intake
+  - Easy to see if you're over or under goal
+  - Helps visualize daily calorie balance vs target
+
+**Previous**: v1.9.5
 - **Calorie Trend Chart Date Range Fixed**: Chart now shows correct date range for selected period
   - "7 Days" now shows exactly 7 days from today backward, not from first data point
   - "30 Days" shows exactly 30 days from today backward

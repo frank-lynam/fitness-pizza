@@ -146,6 +146,29 @@ export function showMacroForm(existingEntry = null) {
                     >${entry.food_description}</textarea>
                 </div>
 
+                <div class="form-group" style="margin-bottom: 4px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="is-batch-recipe" ${entry.is_batch ? 'checked' : ''}>
+                        <span>This is a batch recipe (I made multiple servings)</span>
+                    </label>
+                </div>
+
+                <div id="batch-fields" style="display: ${entry.is_batch ? 'block' : 'none'}; margin-bottom: 8px; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-md);">
+                    <p style="font-size: 0.9em; color: var(--text-secondary); margin-bottom: 8px;">
+                        Enter the <strong>total macros for the entire batch</strong> below, then specify how many servings the batch makes and how many you ate.
+                    </p>
+                    <div class="form-group-inline" style="margin-bottom: 4px;">
+                        <label for="batch-servings">Batch makes:</label>
+                        <input type="number" id="batch-servings" step="1" min="1" value="${entry.batch_servings || 1}">
+                        <span>servings</span>
+                    </div>
+                    <div class="form-group-inline" style="margin-bottom: 0;">
+                        <label for="servings-eaten">I ate:</label>
+                        <input type="number" id="servings-eaten" step="0.1" min="0.1" value="${entry.servings_eaten || 1}">
+                        <span>servings</span>
+                    </div>
+                </div>
+
                 <div class="macros-grid" style="gap: 4px; margin-bottom: 4px;">
                     <div class="form-group-inline" style="margin-bottom: 0;">
                         <label for="fat" style="min-width: 60px;">Fat (g)</label>
@@ -211,6 +234,8 @@ export function hideMacroForm() {
 function setupMacroFormListeners(isEdit, existingEntry) {
     const form = document.getElementById('macro-entry-form');
     const cancelBtn = document.getElementById('btn-cancel-macro');
+    const batchCheckbox = document.getElementById('is-batch-recipe');
+    const batchFields = document.getElementById('batch-fields');
 
     // Input listeners for auto-calculating calories
     const proteinInput = document.getElementById('protein');
@@ -224,6 +249,24 @@ function setupMacroFormListeners(isEdit, existingEntry) {
             input.addEventListener('input', () => clearFieldError(input));
         }
     });
+
+    // Batch recipe checkbox
+    if (batchCheckbox && batchFields) {
+        batchCheckbox.addEventListener('change', () => {
+            batchFields.style.display = batchCheckbox.checked ? 'block' : 'none';
+            updateCalculatedCalories();
+        });
+    }
+
+    // Batch servings inputs
+    const batchServingsInput = document.getElementById('batch-servings');
+    const servingsEatenInput = document.getElementById('servings-eaten');
+    if (batchServingsInput) {
+        batchServingsInput.addEventListener('input', updateCalculatedCalories);
+    }
+    if (servingsEatenInput) {
+        servingsEatenInput.addEventListener('input', updateCalculatedCalories);
+    }
 
     // Cancel button
     if (cancelBtn) {
@@ -250,12 +293,38 @@ function updateCalculatedCalories() {
     const carbs = parseFloat(document.getElementById('carbs')?.value || 0);
     const fat = parseFloat(document.getElementById('fat')?.value || 0);
     const fiber = parseFloat(document.getElementById('fiber')?.value || 0);
+    const isBatch = document.getElementById('is-batch-recipe')?.checked || false;
+    const batchServings = parseFloat(document.getElementById('batch-servings')?.value || 1);
+    const servingsEaten = parseFloat(document.getElementById('servings-eaten')?.value || 1);
 
-    const calories = calculateMacroCalories(protein, carbs, fat, fiber);
+    let displayProtein = protein;
+    let displayCarbs = carbs;
+    let displayFat = fat;
+    let displayFiber = fiber;
+
+    // If batch recipe, calculate actual consumed macros
+    if (isBatch && batchServings > 0) {
+        const perServing = {
+            protein: protein / batchServings,
+            carbs: carbs / batchServings,
+            fat: fat / batchServings,
+            fiber: fiber / batchServings
+        };
+        displayProtein = perServing.protein * servingsEaten;
+        displayCarbs = perServing.carbs * servingsEaten;
+        displayFat = perServing.fat * servingsEaten;
+        displayFiber = perServing.fiber * servingsEaten;
+    }
+
+    const calories = calculateMacroCalories(displayProtein, displayCarbs, displayFat, displayFiber);
 
     const caloriesDisplay = document.getElementById('calculated-calories');
     if (caloriesDisplay) {
-        caloriesDisplay.textContent = `${calories} cal`;
+        if (isBatch) {
+            caloriesDisplay.textContent = `${Math.round(calories)} cal (from ${servingsEaten} of ${batchServings} servings)`;
+        } else {
+            caloriesDisplay.textContent = `${calories} cal`;
+        }
     }
 }
 
@@ -271,14 +340,31 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
         clearFormErrors(form);
 
         // Get form values
-        const protein = parseFloat(document.getElementById('protein').value || 0);
-        const carbs = parseFloat(document.getElementById('carbs').value || 0);
-        const fat = parseFloat(document.getElementById('fat').value || 0);
-        const fiber = parseFloat(document.getElementById('fiber').value || 0);
+        let protein = parseFloat(document.getElementById('protein').value || 0);
+        let carbs = parseFloat(document.getElementById('carbs').value || 0);
+        let fat = parseFloat(document.getElementById('fat').value || 0);
+        let fiber = parseFloat(document.getElementById('fiber').value || 0);
         const mealName = document.getElementById('meal-name').value.trim();
         const foodDescription = document.getElementById('food-description').value.trim();
         const isPlanned = document.getElementById('meal-planned').checked;
         const skipLibrarySave = document.getElementById('skip-library-save').checked;
+        const isBatch = document.getElementById('is-batch-recipe').checked;
+        const batchServings = parseFloat(document.getElementById('batch-servings').value || 1);
+        const servingsEaten = parseFloat(document.getElementById('servings-eaten').value || 1);
+
+        // If batch recipe, adjust macros to actual consumed amount
+        if (isBatch && batchServings > 0) {
+            const perServing = {
+                protein: protein / batchServings,
+                carbs: carbs / batchServings,
+                fat: fat / batchServings,
+                fiber: fiber / batchServings
+            };
+            protein = perServing.protein * servingsEaten;
+            carbs = perServing.carbs * servingsEaten;
+            fat = perServing.fat * servingsEaten;
+            fiber = perServing.fiber * servingsEaten;
+        }
 
         // Validate macros
         const validation = validateMacros({ protein, carbs, fat, fiber });

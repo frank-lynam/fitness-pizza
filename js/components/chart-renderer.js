@@ -204,12 +204,19 @@ async function renderCalorieBalance(macros, workouts, days) {
         }
     });
 
+    // Get calorie goal
+    const goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
+    const goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+    const goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+    const goalCalories = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
+
     // Sort dates and prepare chart data
     const sortedDates = Object.keys(dates).sort();
     const labels = sortedDates;
     const intakeData = sortedDates.map(d => dates[d].intake);
     const burnedData = sortedDates.map(d => dates[d].burned);
     const netData = sortedDates.map(d => dates[d].intake - dates[d].burned);
+    const goalData = sortedDates.map(() => goalCalories); // Flat line at goal
 
     // Destroy existing chart
     if (charts.calorieBalance) {
@@ -224,6 +231,16 @@ async function renderCalorieBalance(macros, workouts, days) {
         data: {
             labels: labels,
             datasets: [
+                {
+                    label: 'Goal',
+                    data: goalData,
+                    borderColor: colors.textSecondary,
+                    backgroundColor: 'transparent',
+                    borderDash: [5, 5],
+                    borderWidth: 2,
+                    tension: 0,
+                    pointRadius: 0
+                },
                 {
                     label: 'Intake',
                     data: intakeData,

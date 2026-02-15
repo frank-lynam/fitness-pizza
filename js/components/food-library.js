@@ -46,7 +46,10 @@ export async function showFoodLibrary() {
 
             <div class="form-group-inline" style="margin-bottom: 4px;">
                 <label for="food-search">Search</label>
-                <input type="text" id="food-search" placeholder="Search foods..." value="${lastSearchTerm}">
+                <div style="position: relative; flex: 1;">
+                    <input type="text" id="food-search" placeholder="Search foods..." value="${lastSearchTerm}" style="width: 100%; padding-right: 30px;">
+                    <button id="clear-search" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; font-size: 16px; display: ${lastSearchTerm ? 'block' : 'none'};" title="Clear search">×</button>
+                </div>
             </div>
 
             <div class="form-group-inline" style="margin-bottom: 8px;">
@@ -77,6 +80,7 @@ export async function showFoodLibrary() {
 
     // Set up search and sort
     const searchInput = modal.querySelector('#food-search');
+    const clearSearchBtn = modal.querySelector('#clear-search');
     const sortSelect = modal.querySelector('#food-sort');
     const foodList = modal.querySelector('#food-library-list');
 
@@ -110,7 +114,18 @@ export async function showFoodLibrary() {
         setupFoodLibraryButtons(modal, filteredFoods);
     };
 
-    searchInput.addEventListener('input', updateFoodList);
+    searchInput.addEventListener('input', () => {
+        // Show/hide clear button
+        clearSearchBtn.style.display = searchInput.value ? 'block' : 'none';
+        updateFoodList();
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearSearchBtn.style.display = 'none';
+        updateFoodList();
+    });
+
     sortSelect.addEventListener('change', updateFoodList);
 
     // Apply initial filter if there's a saved search
@@ -177,8 +192,14 @@ async function sortByMacroMatch(foods) {
         return { food, score };
     });
 
-    // Sort by score (best matches first)
-    scoredFoods.sort((a, b) => a.score - b.score);
+    // Sort by starred first, then by score (best matches first)
+    scoredFoods.sort((a, b) => {
+        // Starred items always come first
+        if (a.food.starred && !b.food.starred) return -1;
+        if (!a.food.starred && b.food.starred) return 1;
+        // Then sort by score
+        return a.score - b.score;
+    });
 
     return scoredFoods.map(item => item.food);
 }

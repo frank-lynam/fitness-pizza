@@ -187,29 +187,28 @@ class FitnessTrackerApp {
         // Check if running average mode is enabled
         const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
 
+        let piDebug = null;
+
         if (runningAvgEnabled) {
             const allMacros = await db.getAllMacros();
             const dateObj = new Date(date + 'T12:00:00');
 
-            // Weight past 10 days linearly (recent days weighted more heavily)
-            // day 1 back = weight 10, day 2 = weight 9, ..., day 10 = weight 1
-            let weightedFat = 0, weightedProtein = 0, weightedCarbs = 0, totalWeight = 0;
+            // Collect errors for past 10 days (actual - effective_goal for each day)
+            const errors = { fat: [], protein: [], carbs: [] };
+            const dayData = [];
 
             for (let i = 1; i <= 10; i++) {
                 const pastDate = new Date(dateObj);
                 pastDate.setDate(pastDate.getDate() - i);
                 const pastDateStr = pastDate.toISOString().split('T')[0];
-                const weight = 11 - i; // linear: yesterday=10, 2 days ago=9, ..., 10 days ago=1
 
                 let dayFat, dayProtein, dayCarbs;
 
                 if (pastDateStr > today) {
-                    // Future day between today and target date: assume goal met exactly
-                    dayFat = baseFat;
-                    dayProtein = baseProtein;
-                    dayCarbs = baseCarbs;
+                    // Future day between today and target: assume goal met exactly
+                    dayFat = baseFat; dayProtein = baseProtein; dayCarbs = baseCarbs;
                 } else if (pastDateStr === today) {
-                    // Today: count both completed AND planned as consumed (forward projection)
+                    // Today: completed + planned (forward projection)
                     const dayMacros = allMacros.filter(m => m.date === pastDateStr);
                     dayFat = dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
                     dayProtein = dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
@@ -222,34 +221,63 @@ class FitnessTrackerApp {
                     dayCarbs = dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
                 }
 
-                // Discount reverse diet days by 20% of target
+                // Effective goal for that day (respects its own reverse diet)
+                let eFat = baseFat, eProtein = baseProtein, eCarbs = baseCarbs;
                 if (reverseDietDates[pastDateStr] === true) {
-                    dayFat -= baseFat * 0.2;
-                    dayProtein -= baseProtein * 0.2;
-                    dayCarbs -= baseCarbs * 0.2;
+                    eFat *= 1.2; eProtein *= 1.2; eCarbs *= 1.2;
                 }
 
-                weightedFat += dayFat * weight;
-                weightedProtein += dayProtein * weight;
-                weightedCarbs += dayCarbs * weight;
-                totalWeight += weight;
+                const errFat = dayFat - eFat;
+                const errProtein = dayProtein - eProtein;
+                const errCarbs = dayCarbs - eCarbs;
+
+                errors.fat.push(errFat);
+                errors.protein.push(errProtein);
+                errors.carbs.push(errCarbs);
+                dayData.push({ date: pastDateStr, fat: dayFat, protein: dayProtein, carbs: dayCarbs,
+                               errFat, errProtein, errCarbs, daysBack: i });
             }
 
-            // Weighted average daily consumption
-            const avgFat = weightedFat / totalWeight;
-            const avgProtein = weightedProtein / totalWeight;
-            const avgCarbs = weightedCarbs / totalWeight;
+            // PI controller gains
+            // Kp: correct 50% of yesterday's deviation today
+            // Ki: correct 10% of 10-day accumulated deviation today
+            const Kp = 0.5;
+            const Ki = 0.1;
 
-            // Compensation: compensate for weighted deviation from goal
-            // compensation = 2*goal - avg, so target = (goal + compensation)/2 = goal - (avg - goal)
-            const compensationFat = 2 * baseFat - avgFat;
-            const compensationProtein = 2 * baseProtein - avgProtein;
-            const compensationCarbs = 2 * baseCarbs - avgCarbs;
+            // P terms (yesterday = errors[0])
+            const p_fat     = Kp * errors.fat[0];
+            const p_protein = Kp * errors.protein[0];
+            const p_carbs   = Kp * errors.carbs[0];
 
-            // Apply running average (on top of any reverse diet already applied)
-            goalFat = (goalFat + compensationFat) / 2;
-            goalProtein = (goalProtein + compensationProtein) / 2;
-            goalCarbs = (goalCarbs + compensationCarbs) / 2;
+            // I terms (sum over all 10 days)
+            const i_sum_fat     = errors.fat.reduce((a, b) => a + b, 0);
+            const i_sum_protein = errors.protein.reduce((a, b) => a + b, 0);
+            const i_sum_carbs   = errors.carbs.reduce((a, b) => a + b, 0);
+            const i_fat     = Ki * i_sum_fat;
+            const i_protein = Ki * i_sum_protein;
+            const i_carbs   = Ki * i_sum_carbs;
+
+            // Raw adjustment (subtracted from goal)
+            const rawAdj_fat     = p_fat + i_fat;
+            const rawAdj_protein = p_protein + i_protein;
+            const rawAdj_carbs   = p_carbs + i_carbs;
+
+            // Clamp to ±33% of base goal
+            const cap = 0.33;
+            const adj_fat     = Math.max(-goalFat     * cap, Math.min(goalFat     * cap, rawAdj_fat));
+            const adj_protein = Math.max(-goalProtein * cap, Math.min(goalProtein * cap, rawAdj_protein));
+            const adj_carbs   = Math.max(-goalCarbs   * cap, Math.min(goalCarbs   * cap, rawAdj_carbs));
+
+            goalFat     -= adj_fat;
+            goalProtein -= adj_protein;
+            goalCarbs   -= adj_carbs;
+
+            piDebug = {
+                fat:     { p_err: errors.fat[0],     p_adj: p_fat,     i_sum: i_sum_fat,     i_adj: i_fat,     raw_adj: rawAdj_fat,     final_adj: adj_fat,     clamped: Math.abs(rawAdj_fat)     > goalFat     * cap },
+                protein: { p_err: errors.protein[0], p_adj: p_protein, i_sum: i_sum_protein, i_adj: i_protein, raw_adj: rawAdj_protein, final_adj: adj_protein, clamped: Math.abs(rawAdj_protein) > goalProtein * cap },
+                carbs:   { p_err: errors.carbs[0],   p_adj: p_carbs,   i_sum: i_sum_carbs,   i_adj: i_carbs,   raw_adj: rawAdj_carbs,   final_adj: adj_carbs,   clamped: Math.abs(rawAdj_carbs)   > goalCarbs   * cap },
+                dayData, Kp, Ki, cap
+            };
         }
 
         // Add workout credit: distribute burned calories as additional macro allowance
@@ -273,7 +301,8 @@ class FitnessTrackerApp {
             protein: goalProtein,
             carbs: goalCarbs,
             calories: goalCalories,
-            caloriesBurned
+            caloriesBurned,
+            piDebug
         };
     }
 
@@ -782,6 +811,112 @@ class FitnessTrackerApp {
         console.log('Loading trends screen...');
         const { initCharts } = await import('./components/chart-renderer.js');
         await initCharts();
+
+        // Show PI controller explanation if running average mode is on
+        const panel = document.getElementById('pi-controller-panel');
+        const content = document.getElementById('pi-explanation-content');
+        const panelDate = document.getElementById('pi-panel-date');
+        if (!panel || !content) return;
+
+        const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
+        if (!runningAvgEnabled) {
+            panel.classList.add('hidden');
+            return;
+        }
+
+        panel.classList.remove('hidden');
+        const date = this.currentDate;
+        if (panelDate) panelDate.textContent = date;
+
+        const goals = await this.calculateEffectiveGoals(date);
+        const { piDebug } = goals;
+        if (!piDebug) {
+            content.innerHTML = '<p>No data yet.</p>';
+            return;
+        }
+
+        const baseFat     = parseFloat(await db.getSetting('goal_fat')     || 70);
+        const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+        const baseCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
+
+        const fmt = (n) => (n >= 0 ? '+' : '') + n.toFixed(1) + 'g';
+        const fmtAdj = (n) => n === 0 ? '0g' : fmt(-n); // adjustment is subtracted, so display inverted
+
+        const macros = [
+            { key: 'fat',     label: 'Fat',     base: baseFat,     goal: goals.fat,     d: piDebug.fat },
+            { key: 'protein', label: 'Protein', base: baseProtein, goal: goals.protein, d: piDebug.protein },
+            { key: 'carbs',   label: 'Carbs',   base: baseCarbs,   goal: goals.carbs,   d: piDebug.carbs },
+        ];
+
+        const rows = macros.map(({ label, base, goal, d }) => {
+            const clampNote = d.clamped ? ` <span style="color:var(--warning-color);" title="Raw adjustment ${fmt(-d.raw_adj)} was clamped to ±${(piDebug.cap * 100).toFixed(0)}% cap">⚠ capped</span>` : '';
+            return `
+                <tr>
+                    <td style="padding:4px 8px;font-weight:600;">${label}</td>
+                    <td style="padding:4px 8px;text-align:right;">${base.toFixed(0)}g</td>
+                    <td style="padding:4px 8px;text-align:right;color:${d.p_err >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(d.p_err)}</td>
+                    <td style="padding:4px 8px;text-align:right;color:${d.i_sum >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(d.i_sum)}</td>
+                    <td style="padding:4px 8px;text-align:right;">${fmtAdj(d.final_adj)}${clampNote}</td>
+                    <td style="padding:4px 8px;text-align:right;font-weight:600;">${goal.toFixed(0)}g</td>
+                </tr>`;
+        }).join('');
+
+        // Per-day breakdown
+        const dayRows = piDebug.dayData.map(d => {
+            const errFmt = (e) => `<span style="color:${e >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(e)}</span>`;
+            return `<tr>
+                <td style="padding:3px 6px;">${d.date}</td>
+                <td style="padding:3px 6px;text-align:right;">${d.fat.toFixed(0)}g</td>
+                <td style="padding:3px 6px;text-align:right;">${errFmt(d.errFat)}</td>
+                <td style="padding:3px 6px;text-align:right;">${d.protein.toFixed(0)}g</td>
+                <td style="padding:3px 6px;text-align:right;">${errFmt(d.errProtein)}</td>
+                <td style="padding:3px 6px;text-align:right;">${d.carbs.toFixed(0)}g</td>
+                <td style="padding:3px 6px;text-align:right;">${errFmt(d.errCarbs)}</td>
+            </tr>`;
+        }).join('');
+
+        content.innerHTML = `
+            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
+                PI controller: Kp=${piDebug.Kp} (50% of yesterday's error), Ki=${piDebug.Ki} (10% of 10-day integral).
+                Adjustments capped at ±${(piDebug.cap * 100).toFixed(0)}% of base target.
+            </p>
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;">
+                    <thead>
+                        <tr style="border-bottom:1px solid var(--border-color);color:var(--text-secondary);">
+                            <th style="padding:4px 8px;text-align:left;">Macro</th>
+                            <th style="padding:4px 8px;text-align:right;">Base</th>
+                            <th style="padding:4px 8px;text-align:right;">P err (yday)</th>
+                            <th style="padding:4px 8px;text-align:right;">I sum (10d)</th>
+                            <th style="padding:4px 8px;text-align:right;">Adjustment</th>
+                            <th style="padding:4px 8px;text-align:right;">Today's goal</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <details style="margin-top:4px;">
+                <summary style="cursor:pointer;font-size:12px;color:var(--text-secondary);margin-bottom:6px;">
+                    10-day history (tap to expand)
+                </summary>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                        <thead>
+                            <tr style="border-bottom:1px solid var(--border-color);color:var(--text-secondary);">
+                                <th style="padding:3px 6px;text-align:left;">Date</th>
+                                <th style="padding:3px 6px;text-align:right;">Fat</th>
+                                <th style="padding:3px 6px;text-align:right;">Err</th>
+                                <th style="padding:3px 6px;text-align:right;">Protein</th>
+                                <th style="padding:3px 6px;text-align:right;">Err</th>
+                                <th style="padding:3px 6px;text-align:right;">Carbs</th>
+                                <th style="padding:3px 6px;text-align:right;">Err</th>
+                            </tr>
+                        </thead>
+                        <tbody>${dayRows}</tbody>
+                    </table>
+                </div>
+            </details>
+        `;
     }
 
     /**

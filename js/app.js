@@ -191,14 +191,15 @@ class FitnessTrackerApp {
             const allMacros = await db.getAllMacros();
             const dateObj = new Date(date + 'T12:00:00');
 
-            // Weight past 6 days using 1/n^2 (recent days weighted more heavily)
+            // Weight past 10 days linearly (recent days weighted more heavily)
+            // day 1 back = weight 10, day 2 = weight 9, ..., day 10 = weight 1
             let weightedFat = 0, weightedProtein = 0, weightedCarbs = 0, totalWeight = 0;
 
-            for (let i = 1; i <= 6; i++) {
+            for (let i = 1; i <= 10; i++) {
                 const pastDate = new Date(dateObj);
                 pastDate.setDate(pastDate.getDate() - i);
                 const pastDateStr = pastDate.toISOString().split('T')[0];
-                const weight = 1 / (i * i); // 1/n^2: yesterday=1, 2 days=0.25, 3 days=0.111...
+                const weight = 11 - i; // linear: yesterday=10, 2 days ago=9, ..., 10 days ago=1
 
                 let dayFat, dayProtein, dayCarbs;
 
@@ -380,10 +381,13 @@ class FitnessTrackerApp {
             const totalCaloriesPercent = (totalCalories / goalCalories) * 100;
             const totalWithPlannedCaloriesPercent = totalCaloriesPercent + plannedCaloriesPercent;
 
-            // Calculate workout credit zone as percentage of goal (for left dashed marker)
-            // goals.caloriesBurned is the actual burned, goalCalories already includes that credit
+            // Calculate position of workout credit boundary on the calorie bar:
+            // goalCalories includes the workout credit, so the base goal ends at
+            // (goalCalories - caloriesBurned) / goalCalories from the left.
+            // The left dashed marker appears there, separating base budget from workout credit zone.
+            const baseGoalCalories = goalCalories - goals.caloriesBurned;
             const workoutCreditPercent = goals.caloriesBurned > 0
-                ? (goals.caloriesBurned / goalCalories) * 100
+                ? (baseGoalCalories / goalCalories) * 100
                 : 0;
 
             // Find the maximum percentage across ALL bars (to determine if scaling is needed)
@@ -523,7 +527,7 @@ class FitnessTrackerApp {
                                         <!-- Overflow portion if calories exceed 100% -->
                                         ${caloriesDim.hasOverflow ? `<div class="progress-fill-overflow calories" style="position: absolute; left: ${marker100Percent}%; width: ${caloriesDim.scaledTotal - marker100Percent}%; z-index: 3;"></div>` : ''}
 
-                                        <!-- Workout credit left marker (dashed line showing where workout-free goal ends) -->
+                                        <!-- Workout credit boundary marker (dashed line between base budget and workout credit zone) -->
                                         ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                     `;
                                 })()}

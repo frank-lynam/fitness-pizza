@@ -238,11 +238,9 @@ class FitnessTrackerApp {
                                errFat, errProtein, errCarbs, daysBack: i });
             }
 
-            // PI controller gains
-            // Kp: correct 50% of yesterday's deviation today
-            // Ki: correct 10% of 10-day accumulated deviation today
-            const Kp = 0.5;
-            const Ki = 0.1;
+            // PI controller gains (user-configurable in settings)
+            const Kp = parseFloat(await db.getSetting('pi_kp') || '0.5');
+            const Ki = parseFloat(await db.getSetting('pi_ki') || '0.1');
 
             // P terms (yesterday = errors[0])
             const p_fat     = Kp * errors.fat[0];
@@ -410,14 +408,13 @@ class FitnessTrackerApp {
             const totalCaloriesPercent = (totalCalories / goalCalories) * 100;
             const totalWithPlannedCaloriesPercent = totalCaloriesPercent + plannedCaloriesPercent;
 
-            // Calculate position of workout credit boundary on the calorie bar:
-            // goalCalories includes the workout credit, so the base goal ends at
-            // (goalCalories - caloriesBurned) / goalCalories from the left.
-            // The left dashed marker appears there, separating base budget from workout credit zone.
-            const baseGoalCalories = goalCalories - goals.caloriesBurned;
-            const workoutCreditPercent = goals.caloriesBurned > 0
-                ? (baseGoalCalories / goalCalories) * 100
+            // Workout credit marker: left dashed line showing how much of the goal
+            // was earned by the workout. Appears at caloriesBurned/goalCalories from the left.
+            // Same fractional position applies to all macro bars (credit is proportional).
+            const workoutCreditPercent = goals.caloriesBurned > 0 && goalCalories > 0
+                ? (goals.caloriesBurned / goalCalories) * 100
                 : 0;
+            console.log('[WorkoutCredit] burned:', goals.caloriesBurned, 'goalCal:', goalCalories, 'creditPct:', workoutCreditPercent);
 
             // Find the maximum percentage across ALL bars (to determine if scaling is needed)
             const maxPercent = Math.max(
@@ -433,6 +430,9 @@ class FitnessTrackerApp {
 
             // Calculate the position of the 100% marker (as percentage of bar width)
             const marker100Percent = needsScaling ? (100 / scale) * 100 : 100;
+
+            // Scaled workout credit marker position (same fraction applies to all bars)
+            const scaledWorkoutCredit = (workoutCreditPercent / scale) * 100;
 
             // Helper function to calculate bar dimensions with scaling
             function calculateBarDimensions(completedPercent, plannedPercent) {
@@ -479,6 +479,8 @@ class FitnessTrackerApp {
                                 ${fatDim.hasOverflow ? `<div class="progress-fill-overflow fat" style="left: ${marker100Percent}%; width: ${fatDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                                 <!-- 100% marker line -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
+                                <!-- Workout credit marker -->
+                                ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
                                 <span class="progress-label">Fat: ${(totalFat + plannedFat).toFixed(0)}g</span>
                                 <span class="progress-value ${goalFat - totalFat - plannedFat < 0 ? 'over-target' : ''}">${
@@ -499,6 +501,8 @@ class FitnessTrackerApp {
                                 ${carbsDim.hasOverflow ? `<div class="progress-fill-overflow carbs" style="left: ${marker100Percent}%; width: ${carbsDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                                 <!-- 100% marker -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
+                                <!-- Workout credit marker -->
+                                ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
                                 <span class="progress-label">Carbs: ${(totalCarbs + plannedCarbs).toFixed(0)}g</span>
                                 <span class="progress-value ${goalCarbs - totalCarbs - plannedCarbs < 0 ? 'over-target' : ''}">${
@@ -519,6 +523,8 @@ class FitnessTrackerApp {
                                 ${proteinDim.hasOverflow ? `<div class="progress-fill-overflow protein" style="left: ${marker100Percent}%; width: ${proteinDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                                 <!-- 100% marker -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
+                                <!-- Workout credit marker -->
+                                ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
                                 <span class="progress-label">Protein: ${(totalProtein + plannedProtein).toFixed(0)}g</span>
                                 <span class="progress-value ${goalProtein - totalProtein - plannedProtein < 0 ? 'over-target' : ''}">${
@@ -537,7 +543,6 @@ class FitnessTrackerApp {
                                     const scaledFatCal = (fatCaloriesPercent / scale) * 100;
                                     const scaledCarbsCal = (carbsCaloriesPercent / scale) * 100;
                                     const scaledProteinCal = (proteinCaloriesPercent / scale) * 100;
-                                    const scaledWorkoutCredit = (workoutCreditPercent / scale) * 100;
 
                                     // Calculate positions
                                     const fatStart = 0;
@@ -556,7 +561,7 @@ class FitnessTrackerApp {
                                         <!-- Overflow portion if calories exceed 100% -->
                                         ${caloriesDim.hasOverflow ? `<div class="progress-fill-overflow calories" style="position: absolute; left: ${marker100Percent}%; width: ${caloriesDim.scaledTotal - marker100Percent}%; z-index: 3;"></div>` : ''}
 
-                                        <!-- Workout credit boundary marker (dashed line between base budget and workout credit zone) -->
+                                        <!-- Workout credit marker (same scaledWorkoutCredit as other bars) -->
                                         ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                     `;
                                 })()}
@@ -1070,20 +1075,50 @@ class FitnessTrackerApp {
         if (proteinInput) proteinInput.addEventListener('change', autoSaveGoals);
         if (carbsInput) carbsInput.addEventListener('change', autoSaveGoals);
 
-        // Running average mode toggle
+        // Running average mode toggle + PI gains
         const runningAvgCheckbox = document.getElementById('running-average-mode');
+        const piGainsSection = document.getElementById('pi-gains-section');
         const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
+
+        const updatePiGainsVisibility = (enabled) => {
+            if (piGainsSection) piGainsSection.classList.toggle('hidden', !enabled);
+        };
+
         if (runningAvgCheckbox) {
             runningAvgCheckbox.checked = runningAvgEnabled;
+            updatePiGainsVisibility(runningAvgEnabled);
             runningAvgCheckbox.addEventListener('change', async () => {
                 await db.setSetting('running_average_mode', runningAvgCheckbox.checked ? 'true' : 'false');
-                // Reload dashboard if visible to update targets
-                if (this.currentScreen === 'dashboard') {
-                    await this.loadDashboard();
-                }
+                updatePiGainsVisibility(runningAvgCheckbox.checked);
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
                 ui.showSuccess(runningAvgCheckbox.checked ?
-                    'Running Average Mode enabled' :
-                    'Running Average Mode disabled');
+                    'Running Average Mode enabled' : 'Running Average Mode disabled');
+            });
+        }
+
+        // Kp slider
+        const kpSlider = document.getElementById('pi-kp');
+        const kpValue = document.getElementById('pi-kp-value');
+        const savedKp = parseFloat(await db.getSetting('pi_kp') || '0.5');
+        if (kpSlider) {
+            kpSlider.value = savedKp;
+            if (kpValue) kpValue.textContent = savedKp.toFixed(2);
+            kpSlider.addEventListener('input', async () => {
+                if (kpValue) kpValue.textContent = parseFloat(kpSlider.value).toFixed(2);
+                await db.setSetting('pi_kp', kpSlider.value);
+            });
+        }
+
+        // Ki slider
+        const kiSlider = document.getElementById('pi-ki');
+        const kiValue = document.getElementById('pi-ki-value');
+        const savedKi = parseFloat(await db.getSetting('pi_ki') || '0.1');
+        if (kiSlider) {
+            kiSlider.value = savedKi;
+            if (kiValue) kiValue.textContent = savedKi.toFixed(2);
+            kiSlider.addEventListener('input', async () => {
+                if (kiValue) kiValue.textContent = parseFloat(kiSlider.value).toFixed(2);
+                await db.setSetting('pi_ki', kiSlider.value);
             });
         }
 

@@ -1520,14 +1520,14 @@ button {
     pointer-events: none;
 }
 
-/* Left dashed marker: shows where workout-credit zone begins on calorie bar */
+/* Left dashed marker: shows how much of the goal was earned by workout calories */
 .progress-marker-left {
     position: absolute;
     top: 0;
     bottom: 0;
     width: 2px;
-    background: rgba(255, 255, 255, 0.5);
-    border-left: 2px dashed rgba(255, 255, 255, 0.7);
+    background: rgba(251, 191, 36, 0.6);
+    border-left: 2px dashed rgba(251, 191, 36, 0.9);
     z-index: 10;
     pointer-events: none;
 }

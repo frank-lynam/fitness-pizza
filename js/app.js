@@ -158,16 +158,27 @@ class FitnessTrackerApp {
      * @returns {Object} Effective goals {fat, protein, carbs, calories}
      */
     async calculateEffectiveGoals(date) {
+        const today = new Date().toISOString().split('T')[0];
+
+        // Clean up past planned meals once per day
+        const lastCleanup = await db.getSetting('last_planned_cleanup');
+        if (lastCleanup !== today) {
+            await this.cleanUpPastPlannedMeals(today);
+            await db.setSetting('last_planned_cleanup', today);
+        }
+
         // Get base goals from settings
-        let goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
-        let goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-        let goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+        const baseFat = parseFloat(await db.getSetting('goal_fat') || 70);
+        const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+        const baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+
+        let goalFat = baseFat;
+        let goalProtein = baseProtein;
+        let goalCarbs = baseCarbs;
 
         // Check if reverse diet is enabled for this date
         const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
-        const isReverseDiet = reverseDietDates[date] === true;
-
-        if (isReverseDiet) {
+        if (reverseDietDates[date] === true) {
             goalFat *= 1.2;
             goalProtein *= 1.2;
             goalCarbs *= 1.2;
@@ -177,60 +188,81 @@ class FitnessTrackerApp {
         const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
 
         if (runningAvgEnabled) {
-            // Get past 6 days of consumption (not including today)
             const allMacros = await db.getAllMacros();
-            const dateObj = new Date(date);
-            const past6Days = [];
+            const dateObj = new Date(date + 'T12:00:00');
+
+            // Weight past 6 days using 1/n^2 (recent days weighted more heavily)
+            let weightedFat = 0, weightedProtein = 0, weightedCarbs = 0, totalWeight = 0;
 
             for (let i = 1; i <= 6; i++) {
                 const pastDate = new Date(dateObj);
                 pastDate.setDate(pastDate.getDate() - i);
                 const pastDateStr = pastDate.toISOString().split('T')[0];
-                past6Days.push(pastDateStr);
-            }
+                const weight = 1 / (i * i); // 1/n^2: yesterday=1, 2 days=0.25, 3 days=0.111...
 
-            // Base goals (without reverse diet) for the calculation
-            const baseFat = parseFloat(await db.getSetting('goal_fat') || 70);
-            const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-            const baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+                let dayFat, dayProtein, dayCarbs;
 
-            // Get reverse diet dates to discount them in running average
-            const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+                if (pastDateStr > today) {
+                    // Future day between today and target date: assume goal met exactly
+                    dayFat = baseFat;
+                    dayProtein = baseProtein;
+                    dayCarbs = baseCarbs;
+                } else if (pastDateStr === today) {
+                    // Today: count both completed AND planned as consumed (forward projection)
+                    const dayMacros = allMacros.filter(m => m.date === pastDateStr);
+                    dayFat = dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
+                    dayProtein = dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
+                    dayCarbs = dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
+                } else {
+                    // Past day: completed only
+                    const dayMacros = allMacros.filter(m => m.date === pastDateStr && m.status === 'completed');
+                    dayFat = dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
+                    dayProtein = dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
+                    dayCarbs = dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
+                }
 
-            // Calculate totals for past 6 days (completed only)
-            // Discount consumption on reverse diet days by 20% of target
-            let totalPastFat = 0;
-            let totalPastProtein = 0;
-            let totalPastCarbs = 0;
-
-            for (const pastDate of past6Days) {
-                const dayMacros = allMacros.filter(m =>
-                    m.date === pastDate && m.status === 'completed'
-                );
-                let dayFat = dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
-                let dayProtein = dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
-                let dayCarbs = dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
-
-                // If this was a reverse diet day, discount by 20% of target
-                if (reverseDietDates[pastDate] === true) {
+                // Discount reverse diet days by 20% of target
+                if (reverseDietDates[pastDateStr] === true) {
                     dayFat -= baseFat * 0.2;
                     dayProtein -= baseProtein * 0.2;
                     dayCarbs -= baseCarbs * 0.2;
                 }
 
-                totalPastFat += dayFat;
-                totalPastProtein += dayProtein;
-                totalPastCarbs += dayCarbs;
+                weightedFat += dayFat * weight;
+                weightedProtein += dayProtein * weight;
+                weightedCarbs += dayCarbs * weight;
+                totalWeight += weight;
             }
 
-            const compensationFat = (baseFat * 7) - totalPastFat;
-            const compensationProtein = (baseProtein * 7) - totalPastProtein;
-            const compensationCarbs = (baseCarbs * 7) - totalPastCarbs;
+            // Weighted average daily consumption
+            const avgFat = weightedFat / totalWeight;
+            const avgProtein = weightedProtein / totalWeight;
+            const avgCarbs = weightedCarbs / totalWeight;
 
-            // Running average target = halfway between goal and compensation
+            // Compensation: compensate for weighted deviation from goal
+            // compensation = 2*goal - avg, so target = (goal + compensation)/2 = goal - (avg - goal)
+            const compensationFat = 2 * baseFat - avgFat;
+            const compensationProtein = 2 * baseProtein - avgProtein;
+            const compensationCarbs = 2 * baseCarbs - avgCarbs;
+
+            // Apply running average (on top of any reverse diet already applied)
             goalFat = (goalFat + compensationFat) / 2;
             goalProtein = (goalProtein + compensationProtein) / 2;
             goalCarbs = (goalCarbs + compensationCarbs) / 2;
+        }
+
+        // Add workout credit: distribute burned calories as additional macro allowance
+        // proportional to each macro's caloric contribution to the goal
+        const workouts = await db.getWorkoutsByDate(date);
+        const caloriesBurned = workouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
+
+        if (caloriesBurned > 0) {
+            const baseGoalCal = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
+            if (baseGoalCal > 0) {
+                goalFat     += (caloriesBurned * (goalFat * 9 / baseGoalCal)) / 9;
+                goalProtein += (caloriesBurned * (goalProtein * 4 / baseGoalCal)) / 4;
+                goalCarbs   += (caloriesBurned * (goalCarbs * 4 / baseGoalCal)) / 4;
+            }
         }
 
         const goalCalories = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
@@ -239,8 +271,20 @@ class FitnessTrackerApp {
             fat: goalFat,
             protein: goalProtein,
             carbs: goalCarbs,
-            calories: goalCalories
+            calories: goalCalories,
+            caloriesBurned
         };
+    }
+
+    /**
+     * Remove planned entries from dates before today (they were never eaten)
+     */
+    async cleanUpPastPlannedMeals(today) {
+        const allMacros = await db.getAllMacros();
+        const pastPlanned = allMacros.filter(m => m.status === 'planned' && m.date < today);
+        for (const entry of pastPlanned) {
+            await db.deleteMacroEntry(entry.id);
+        }
     }
 
     /**
@@ -297,15 +341,6 @@ class FitnessTrackerApp {
             const totalCarbsPercent = carbsPercent + plannedCarbsPercent;
             const totalProteinPercent = proteinPercent + plannedProteinPercent;
 
-            // Calculate net calories (intake - half of burn)
-            const halfBurn = totalCaloriesBurned / 2;
-            const netCalories = totalCalories - halfBurn;
-            const intakePercent = (totalCalories / goalCalories) * 100;
-            const burnPercent = (halfBurn / goalCalories) * 100;
-
-            // Clamp burnPercent to not exceed intakePercent for display
-            const displayBurnPercent = Math.min(burnPercent, intakePercent);
-
             // Calculate calorie contributions from each macro for stacked bar
             const fatCalories = totalFat * 9;
             const carbsCalories = totalCarbs * 4;
@@ -345,8 +380,11 @@ class FitnessTrackerApp {
             const totalCaloriesPercent = (totalCalories / goalCalories) * 100;
             const totalWithPlannedCaloriesPercent = totalCaloriesPercent + plannedCaloriesPercent;
 
-            // Calculate workout burn as percentage
-            const workoutBurnPercent = (totalCaloriesBurned / goalCalories) * 100;
+            // Calculate workout credit zone as percentage of goal (for left dashed marker)
+            // goals.caloriesBurned is the actual burned, goalCalories already includes that credit
+            const workoutCreditPercent = goals.caloriesBurned > 0
+                ? (goals.caloriesBurned / goalCalories) * 100
+                : 0;
 
             // Find the maximum percentage across ALL bars (to determine if scaling is needed)
             const maxPercent = Math.max(
@@ -466,13 +504,12 @@ class FitnessTrackerApp {
                                     const scaledFatCal = (fatCaloriesPercent / scale) * 100;
                                     const scaledCarbsCal = (carbsCaloriesPercent / scale) * 100;
                                     const scaledProteinCal = (proteinCaloriesPercent / scale) * 100;
-                                    const scaledWorkoutBurn = (workoutBurnPercent / scale) * 100;
+                                    const scaledWorkoutCredit = (workoutCreditPercent / scale) * 100;
 
                                     // Calculate positions
                                     const fatStart = 0;
                                     const carbsStart = scaledFatCal;
                                     const proteinStart = scaledFatCal + scaledCarbsCal;
-                                    const totalMacroWidth = scaledFatCal + scaledCarbsCal + scaledProteinCal;
 
                                     return `
                                         <!-- Planned layers -->
@@ -483,21 +520,21 @@ class FitnessTrackerApp {
                                         ${scaledCarbsCal > 0 ? `<div class="progress-fill carbs" style="position: absolute; left: ${carbsStart}%; width: ${scaledCarbsCal}%; z-index: 2;"></div>` : ''}
                                         ${scaledProteinCal > 0 ? `<div class="progress-fill protein" style="position: absolute; left: ${proteinStart}%; width: ${scaledProteinCal}%; z-index: 2;"></div>` : ''}
 
-                                        <!-- Workout burn (red ghost at the end) -->
-                                        ${workoutBurnPercent > 0 ? `<div class="progress-fill-burn" style="position: absolute; left: ${totalMacroWidth}%; width: ${scaledWorkoutBurn}%; z-index: 1;"></div>` : ''}
-
                                         <!-- Overflow portion if calories exceed 100% -->
                                         ${caloriesDim.hasOverflow ? `<div class="progress-fill-overflow calories" style="position: absolute; left: ${marker100Percent}%; width: ${caloriesDim.scaledTotal - marker100Percent}%; z-index: 3;"></div>` : ''}
+
+                                        <!-- Workout credit left marker (dashed line showing where workout-free goal ends) -->
+                                        ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                     `;
                                 })()}
                                 <!-- 100% marker -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
                                 <span class="progress-label">Calories: ${(totalCalories + plannedCalories).toFixed(0)}</span>
-                                <span class="progress-value ${goalCalories - netCalories - plannedCalories < 0 ? 'over-target' : ''}">${
-                                    goalCalories - netCalories - plannedCalories >= 0
-                                        ? Math.max(0, goalCalories - netCalories - plannedCalories).toFixed(0) + ' left'
-                                        : '+' + Math.abs(goalCalories - netCalories - plannedCalories).toFixed(0) + ' over'
+                                <span class="progress-value ${goalCalories - totalCalories - plannedCalories < 0 ? 'over-target' : ''}">${
+                                    goalCalories - totalCalories - plannedCalories >= 0
+                                        ? Math.max(0, goalCalories - totalCalories - plannedCalories).toFixed(0) + ' left'
+                                        : '+' + Math.abs(goalCalories - totalCalories - plannedCalories).toFixed(0) + ' over'
                                 }</span>
                             </div>
                         </div>

@@ -847,14 +847,23 @@ class FitnessTrackerApp {
         const fmt = (n) => (n >= 0 ? '+' : '') + n.toFixed(1) + 'g';
         const fmtAdj = (n) => n === 0 ? '0g' : fmt(-n); // adjustment is subtracted, so display inverted
 
+        // Workout credit in grams per macro: credit is proportional to each macro's share of total goal
+        const caloriesBurned = goals.caloriesBurned || 0;
+        const workoutCreditFat_g     = caloriesBurned > 0 && goals.calories > 0 ? goals.fat     * caloriesBurned / goals.calories : 0;
+        const workoutCreditProtein_g = caloriesBurned > 0 && goals.calories > 0 ? goals.protein * caloriesBurned / goals.calories : 0;
+        const workoutCreditCarbs_g   = caloriesBurned > 0 && goals.calories > 0 ? goals.carbs   * caloriesBurned / goals.calories : 0;
+
         const macros = [
-            { key: 'fat',     label: 'Fat',     base: baseFat,     goal: goals.fat,     d: piDebug.fat },
-            { key: 'protein', label: 'Protein', base: baseProtein, goal: goals.protein, d: piDebug.protein },
-            { key: 'carbs',   label: 'Carbs',   base: baseCarbs,   goal: goals.carbs,   d: piDebug.carbs },
+            { key: 'fat',     label: 'Fat',     base: baseFat,     goal: goals.fat,     d: piDebug.fat,     workoutG: workoutCreditFat_g },
+            { key: 'protein', label: 'Protein', base: baseProtein, goal: goals.protein, d: piDebug.protein, workoutG: workoutCreditProtein_g },
+            { key: 'carbs',   label: 'Carbs',   base: baseCarbs,   goal: goals.carbs,   d: piDebug.carbs,   workoutG: workoutCreditCarbs_g },
         ];
 
-        const rows = macros.map(({ label, base, goal, d }) => {
+        const rows = macros.map(({ label, base, goal, d, workoutG }) => {
             const clampNote = d.clamped ? ` <span style="color:var(--warning-color);" title="Raw adjustment ${fmt(-d.raw_adj)} was clamped to ±${(piDebug.cap * 100).toFixed(0)}% cap">⚠ capped</span>` : '';
+            const workoutCell = workoutG > 0.05
+                ? `<span style="color:var(--accent-color);">+${workoutG.toFixed(1)}g</span>`
+                : `<span style="color:var(--text-secondary);">—</span>`;
             return `
                 <tr>
                     <td style="padding:4px 8px;font-weight:600;">${label}</td>
@@ -862,6 +871,7 @@ class FitnessTrackerApp {
                     <td style="padding:4px 8px;text-align:right;color:${d.p_err >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(d.p_err)}</td>
                     <td style="padding:4px 8px;text-align:right;color:${d.i_sum >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(d.i_sum)}</td>
                     <td style="padding:4px 8px;text-align:right;">${fmtAdj(d.final_adj)}${clampNote}</td>
+                    <td style="padding:4px 8px;text-align:right;">${workoutCell}</td>
                     <td style="padding:4px 8px;text-align:right;font-weight:600;">${goal.toFixed(0)}g</td>
                 </tr>`;
         }).join('');
@@ -882,8 +892,9 @@ class FitnessTrackerApp {
 
         content.innerHTML = `
             <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-                PI controller: Kp=${piDebug.Kp} (50% of yesterday's error), Ki=${piDebug.Ki} (10% of 10-day integral).
-                Adjustments capped at ±${(piDebug.cap * 100).toFixed(0)}% of base target.
+                PI controller: Kp=${piDebug.Kp.toFixed(2)} (correct ${(piDebug.Kp * 100).toFixed(0)}% of yesterday's error today),
+                Ki=${piDebug.Ki.toFixed(2)} (correct ${(piDebug.Ki * 100).toFixed(0)}% of 10-day accumulated error per day).
+                Adjustments capped at ±${(piDebug.cap * 100).toFixed(0)}% of base target.${caloriesBurned > 0 ? ` Workout credit: ${caloriesBurned.toFixed(0)} cal burned.` : ''}
             </p>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;">
@@ -893,7 +904,8 @@ class FitnessTrackerApp {
                             <th style="padding:4px 8px;text-align:right;">Base</th>
                             <th style="padding:4px 8px;text-align:right;">P err (yday)</th>
                             <th style="padding:4px 8px;text-align:right;">I sum (10d)</th>
-                            <th style="padding:4px 8px;text-align:right;">Adjustment</th>
+                            <th style="padding:4px 8px;text-align:right;">PI adj</th>
+                            <th style="padding:4px 8px;text-align:right;">Workout+</th>
                             <th style="padding:4px 8px;text-align:right;">Today's goal</th>
                         </tr>
                     </thead>

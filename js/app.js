@@ -283,12 +283,16 @@ class FitnessTrackerApp {
         const workouts = await db.getWorkoutsByDate(date);
         const caloriesBurned = workouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
 
-        if (caloriesBurned > 0) {
+        // Only credit 50% of calories burned (conservative — accounts for estimation error,
+        // and prevents over-eating from overestimated workout burns)
+        const caloriesCredited = caloriesBurned / 2;
+
+        if (caloriesCredited > 0) {
             const baseGoalCal = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
             if (baseGoalCal > 0) {
-                goalFat     += (caloriesBurned * (goalFat * 9 / baseGoalCal)) / 9;
-                goalProtein += (caloriesBurned * (goalProtein * 4 / baseGoalCal)) / 4;
-                goalCarbs   += (caloriesBurned * (goalCarbs * 4 / baseGoalCal)) / 4;
+                goalFat     += (caloriesCredited * (goalFat * 9 / baseGoalCal)) / 9;
+                goalProtein += (caloriesCredited * (goalProtein * 4 / baseGoalCal)) / 4;
+                goalCarbs   += (caloriesCredited * (goalCarbs * 4 / baseGoalCal)) / 4;
             }
         }
 
@@ -299,7 +303,8 @@ class FitnessTrackerApp {
             protein: goalProtein,
             carbs: goalCarbs,
             calories: goalCalories,
-            caloriesBurned,
+            caloriesBurned,       // actual estimated burn
+            caloriesCredited,     // 50% of burned — what was actually added to goals
             piDebug
         };
     }
@@ -411,10 +416,10 @@ class FitnessTrackerApp {
             // Workout credit marker: left dashed line showing how much of the goal
             // was earned by the workout. Appears at caloriesBurned/goalCalories from the left.
             // Same fractional position applies to all macro bars (credit is proportional).
-            const workoutCreditPercent = goals.caloriesBurned > 0 && goalCalories > 0
-                ? (goals.caloriesBurned / goalCalories) * 100
+            const workoutCreditPercent = goals.caloriesCredited > 0 && goalCalories > 0
+                ? (goals.caloriesCredited / goalCalories) * 100
                 : 0;
-            console.log('[WorkoutCredit] burned:', goals.caloriesBurned, 'goalCal:', goalCalories, 'creditPct:', workoutCreditPercent);
+            console.log('[WorkoutCredit] burned:', goals.caloriesBurned, 'credited (50%):', goals.caloriesCredited, 'goalCal:', goalCalories, 'creditPct:', workoutCreditPercent);
 
             // Find the maximum percentage across ALL bars (to determine if scaling is needed)
             const maxPercent = Math.max(
@@ -848,15 +853,16 @@ class FitnessTrackerApp {
         const fmtAdj = (n) => n === 0 ? '0g' : fmt(-n); // adjustment is subtracted, so display inverted
 
         // Workout credit in grams per macro: credit is proportional to each macro's share of total goal
-        const caloriesBurned = goals.caloriesBurned || 0;
-        const workoutCreditFat_g     = caloriesBurned > 0 && goals.calories > 0 ? goals.fat     * caloriesBurned / goals.calories : 0;
-        const workoutCreditProtein_g = caloriesBurned > 0 && goals.calories > 0 ? goals.protein * caloriesBurned / goals.calories : 0;
-        const workoutCreditCarbs_g   = caloriesBurned > 0 && goals.calories > 0 ? goals.carbs   * caloriesBurned / goals.calories : 0;
+        // goals.caloriesCredited = 50% of burned (what was actually added to goals)
+        const caloriesCredited = goals.caloriesCredited || 0;
+        const workoutCreditFat_g     = caloriesCredited > 0 && goals.calories > 0 ? goals.fat     * caloriesCredited / goals.calories : 0;
+        const workoutCreditProtein_g = caloriesCredited > 0 && goals.calories > 0 ? goals.protein * caloriesCredited / goals.calories : 0;
+        const workoutCreditCarbs_g   = caloriesCredited > 0 && goals.calories > 0 ? goals.carbs   * caloriesCredited / goals.calories : 0;
 
         const macros = [
             { key: 'fat',     label: 'Fat',     base: baseFat,     goal: goals.fat,     d: piDebug.fat,     workoutG: workoutCreditFat_g },
-            { key: 'protein', label: 'Protein', base: baseProtein, goal: goals.protein, d: piDebug.protein, workoutG: workoutCreditProtein_g },
             { key: 'carbs',   label: 'Carbs',   base: baseCarbs,   goal: goals.carbs,   d: piDebug.carbs,   workoutG: workoutCreditCarbs_g },
+            { key: 'protein', label: 'Protein', base: baseProtein, goal: goals.protein, d: piDebug.protein, workoutG: workoutCreditProtein_g },
         ];
 
         const rows = macros.map(({ label, base, goal, d, workoutG }) => {
@@ -894,7 +900,7 @@ class FitnessTrackerApp {
             <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
                 PI controller: Kp=${piDebug.Kp.toFixed(2)} (correct ${(piDebug.Kp * 100).toFixed(0)}% of yesterday's error today),
                 Ki=${piDebug.Ki.toFixed(2)} (correct ${(piDebug.Ki * 100).toFixed(0)}% of 10-day accumulated error per day).
-                Adjustments capped at ±${(piDebug.cap * 100).toFixed(0)}% of base target.${caloriesBurned > 0 ? ` Workout credit: ${caloriesBurned.toFixed(0)} cal burned.` : ''}
+                Adjustments capped at ±${(piDebug.cap * 100).toFixed(0)}% of base target.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}
             </p>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;">

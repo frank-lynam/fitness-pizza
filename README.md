@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.2
+**Current**: v2.1.3
+- **Fix Ialpha initialization**: moved PI gain constants above the error loop to fix temporal dead zone crash
+- **Ialpha settings slider**: α decay rate is now configurable in Settings alongside Kp/Ki
+
+**Previous**: v2.1.2
 - **PI I-term exponential decay**: older errors now weighted by `(1-α)^k` (α=0.25, half-life ~2.4 days) — eliminates the cliff when a large-error day falls off the 10-day window
 - **Dashboard serving check-off**: ticking one serving of a multi-serving planned item now increments an existing matching completed entry instead of always creating a new one
 

@@ -193,6 +193,13 @@ class FitnessTrackerApp {
             const allMacros = await db.getAllMacros();
             const dateObj = new Date(date + 'T12:00:00');
 
+            // PI controller gains (user-configurable in settings)
+            const Kp = parseFloat(await db.getSetting('pi_kp') || '0.5');
+            const Ki = parseFloat(await db.getSetting('pi_ki') || '0.1');
+            // Exponential decay rate for I-term: older errors contribute less.
+            // α=0.25 → half-life ~2.4 days; weight for day k back = (1-α)^(k-1)
+            const Ialpha = parseFloat(await db.getSetting('pi_ialpha') || '0.25');
+
             // Collect errors for past 10 days (actual - effective_goal for each day)
             const errors = { fat: [], protein: [], carbs: [] };
             const dayData = [];
@@ -239,13 +246,6 @@ class FitnessTrackerApp {
                 dayData.push({ date: pastDateStr, fat: dayFat, protein: dayProtein, carbs: dayCarbs,
                                errFat, errProtein, errCarbs, decayWeight, daysBack: i });
             }
-
-            // PI controller gains (user-configurable in settings)
-            const Kp = parseFloat(await db.getSetting('pi_kp') || '0.5');
-            const Ki = parseFloat(await db.getSetting('pi_ki') || '0.1');
-            // Exponential decay rate for I-term: older errors contribute less.
-            // α=0.25 → half-life ~2.4 days; weight for day k back = (1-α)^k
-            const Ialpha = 0.25;
 
             // P terms (yesterday = errors[0], raw unweighted)
             const p_fat     = Kp * errors.fat[0];
@@ -1166,6 +1166,19 @@ class FitnessTrackerApp {
             kiSlider.addEventListener('input', async () => {
                 if (kiValue) kiValue.textContent = parseFloat(kiSlider.value).toFixed(2);
                 await db.setSetting('pi_ki', kiSlider.value);
+            });
+        }
+
+        // Ialpha slider
+        const ialphaSlider = document.getElementById('pi-ialpha');
+        const ialphaValue = document.getElementById('pi-ialpha-value');
+        const savedIalpha = parseFloat(await db.getSetting('pi_ialpha') || '0.25');
+        if (ialphaSlider) {
+            ialphaSlider.value = savedIalpha;
+            if (ialphaValue) ialphaValue.textContent = savedIalpha.toFixed(2);
+            ialphaSlider.addEventListener('input', async () => {
+                if (ialphaValue) ialphaValue.textContent = parseFloat(ialphaSlider.value).toFixed(2);
+                await db.setSetting('pi_ialpha', ialphaSlider.value);
             });
         }
 

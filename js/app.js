@@ -1195,27 +1195,115 @@ class FitnessTrackerApp {
 
                 try {
                     const text = await file.text();
-                    const data = JSON.parse(text);
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        ui.showError('Invalid JSON file: ' + e.message);
+                        importFile.value = '';
+                        return;
+                    }
+
+                    // Validate: must be a plain object (not array/null)
+                    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                        ui.showError('Import file must be a JSON object, not an array or null.');
+                        importFile.value = '';
+                        return;
+                    }
+
+                    const knownStores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings'];
+                    const errors = [];
+                    const validEntries = { macros: [], measurements: [], workouts: [], named_foods: [], settings: [] };
+
+                    // Validate each known store
+                    for (const store of knownStores) {
+                        if (data[store] === undefined) continue;
+                        if (!Array.isArray(data[store])) {
+                            errors.push(`"${store}" must be an array`);
+                            continue;
+                        }
+                        for (let i = 0; i < data[store].length; i++) {
+                            const entry = data[store][i];
+                            let entryErrors = [];
+                            if (store === 'macros') {
+                                if (!entry.date || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date))
+                                    entryErrors.push('missing or invalid date');
+                                if (typeof entry.protein !== 'number' || isNaN(entry.protein))
+                                    entryErrors.push('protein must be a number');
+                                if (typeof entry.carbs !== 'number' || isNaN(entry.carbs))
+                                    entryErrors.push('carbs must be a number');
+                                if (typeof entry.fat !== 'number' || isNaN(entry.fat))
+                                    entryErrors.push('fat must be a number');
+                            } else if (store === 'measurements') {
+                                if (!['weight', 'waist'].includes(entry.type))
+                                    entryErrors.push('type must be "weight" or "waist"');
+                                if (typeof entry.value !== 'number' || isNaN(entry.value))
+                                    entryErrors.push('value must be a number');
+                            } else if (store === 'workouts') {
+                                if (!entry.date || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date))
+                                    entryErrors.push('missing or invalid date');
+                                if (!entry.exercise_name)
+                                    entryErrors.push('exercise_name is required');
+                            }
+                            if (entryErrors.length > 0) {
+                                errors.push(`${store}[${i}]: ${entryErrors.join(', ')}`);
+                            } else {
+                                validEntries[store].push(entry);
+                            }
+                        }
+                    }
+
+                    const totalValid = Object.values(validEntries).reduce((s, arr) => s + arr.length, 0);
+                    const totalAll = knownStores.reduce((s, k) => s + (Array.isArray(data[k]) ? data[k].length : 0), 0);
+
+                    if (errors.length > 0) {
+                        // Show modal with errors and offer to import valid entries only
+                        const errorList = errors.slice(0, 20).map(e => `<li style="font-size:0.85em;">${e}</li>`).join('');
+                        const moreNote = errors.length > 20 ? `<p style="font-size:0.85em;color:var(--text-secondary);">...and ${errors.length - 20} more issues</p>` : '';
+                        ui.createModal('Import Validation Errors', `
+                            <p style="margin-bottom:8px;">${errors.length} validation issue(s) found. ${totalValid} of ${totalAll} entries are valid.</p>
+                            <ul style="max-height:200px;overflow-y:auto;margin:0 0 8px;padding-left:20px;">${errorList}</ul>
+                            ${moreNote}
+                            <p>Import ${totalValid} valid entries and skip ${totalAll - totalValid} invalid ones?</p>
+                        `, [
+                            {
+                                text: 'Cancel',
+                                className: 'btn-secondary'
+                            },
+                            {
+                                text: `Import ${totalValid} Valid Entries`,
+                                className: 'btn-primary',
+                                onClick: async () => {
+                                    try {
+                                        await db.importData(validEntries);
+                                        importFile.value = '';
+                                        ui.createModal('Import Successful', `
+                                            <div style="text-align:center;padding:var(--spacing-md);">
+                                                <p style="font-size:1.2em;margin-bottom:var(--spacing-sm);">✓ Import complete</p>
+                                                <p>Imported ${totalValid} entries (${totalAll - totalValid} skipped due to validation errors)</p>
+                                            </div>
+                                        `, [{ text: 'OK', className: 'btn-primary' }]);
+                                        await this.loadScreen(this.currentScreen);
+                                    } catch (err) {
+                                        console.error('Import error:', err);
+                                        ui.showError('Failed to import data: ' + err.message);
+                                    }
+                                }
+                            }
+                        ]);
+                        importFile.value = '';
+                        return;
+                    }
+
+                    // No errors — import everything
                     await db.importData(data);
-
-                    // Show success modal
-                    const totalItems =
-                        (data.macros?.length || 0) +
-                        (data.measurements?.length || 0) +
-                        (data.workouts?.length || 0) +
-                        (data.named_foods?.length || 0);
-
+                    importFile.value = '';
                     ui.createModal('Import Successful', `
                         <div style="text-align: center; padding: var(--spacing-md);">
                             <p style="font-size: 1.2em; margin-bottom: var(--spacing-sm);">✓ Data imported successfully!</p>
-                            <p>Imported ${totalItems} total items</p>
+                            <p>Imported ${totalAll} total items</p>
                         </div>
                     `, [{ text: 'OK', className: 'btn-primary' }]);
-
-                    // Clear file input
-                    importFile.value = '';
-
-                    // Reload current screen
                     await this.loadScreen(this.currentScreen);
                 } catch (error) {
                     console.error('Import error:', error);

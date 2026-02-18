@@ -221,33 +221,60 @@ export async function loadMeasurements() {
         const measurements = await db.getAllMeasurements();
 
         const measurementEntries = document.getElementById('measurement-entries');
-        if (!measurementEntries) return;
+        const historyList = document.getElementById('measurement-history-list');
 
-        if (measurements.length === 0) {
-            measurementEntries.innerHTML = '<p class="text-muted">No measurements yet. Add your first measurement!</p>';
-            return;
+        // Render history grouped by date
+        if (historyList) {
+            if (measurements.length === 0) {
+                historyList.innerHTML = '<p class="text-muted">No measurements yet. Add your first measurement!</p>';
+            } else {
+                const sorted = [...measurements].sort((a, b) => b.timestamp - a.timestamp);
+
+                // Group by date
+                const byDate = {};
+                for (const m of sorted) {
+                    if (!byDate[m.date]) byDate[m.date] = [];
+                    byDate[m.date].push(m);
+                }
+
+                const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+                let html = '';
+                for (const date of dates) {
+                    html += `<div class="history-date-header" style="font-size:0.85em;color:var(--text-secondary);margin:8px 0 4px;">${date}</div>`;
+                    for (const m of byDate[date]) {
+                        const time = new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                        html += `
+                            <div class="entry-item" data-id="${m.id}" style="margin-bottom:4px;">
+                                <div class="entry-item-header">
+                                    <span class="entry-item-title">${m.type}: ${m.value} ${m.unit}</span>
+                                    <div class="entry-item-actions">
+                                        <span style="font-size:0.8em;color:var(--text-secondary);margin-right:8px;">${time}</span>
+                                        <button class="btn-delete btn-danger btn-small history-delete-btn" data-id="${m.id}">×</button>
+                                    </div>
+                                </div>
+                                ${m.notes ? `<div class="entry-item-content" style="font-size:0.85em;color:var(--text-secondary);">${m.notes}</div>` : ''}
+                            </div>
+                        `;
+                    }
+                }
+                historyList.innerHTML = html;
+
+                // Set up delete buttons in history
+                historyList.querySelectorAll('.history-delete-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = parseInt(e.target.dataset.id);
+                        await handleDeleteMeasurement(id);
+                    });
+                });
+            }
         }
 
-        // Sort by timestamp (most recent first)
-        measurements.sort((a, b) => b.timestamp - a.timestamp);
-
-        // Group by type
-        const weights = measurements.filter(m => m.type === 'weight');
-        const waists = measurements.filter(m => m.type === 'waist');
-
-        let html = '';
-
-        if (weights.length > 0) {
-            html += weights.slice(0, 10).map(m => createMeasurementHTML(m)).join('');
+        // Keep measurement-entries for backward compat (hidden or empty)
+        if (measurementEntries) {
+            measurementEntries.innerHTML = '';
         }
 
-        if (waists.length > 0) {
-            html += waists.slice(0, 10).map(m => createMeasurementHTML(m)).join('');
-        }
-
-        measurementEntries.innerHTML = html;
-
-        // Set up edit/delete buttons
+        // Set up legacy edit/delete buttons (no longer rendered but kept for safety)
         document.querySelectorAll('.btn-edit-measurement').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const id = parseInt(e.target.dataset.id);
@@ -267,9 +294,9 @@ export async function loadMeasurements() {
 
     } catch (error) {
         console.error('Error loading measurements:', error);
-        const measurementEntries = document.getElementById('measurement-entries');
-        if (measurementEntries) {
-            measurementEntries.innerHTML = '<p class="text-danger">Error loading measurements</p>';
+        const historyList = document.getElementById('measurement-history-list');
+        if (historyList) {
+            historyList.innerHTML = '<p class="text-danger">Error loading measurements</p>';
         }
     }
 }

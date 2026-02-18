@@ -140,7 +140,15 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v1.9.9
+**Current**: v2.1.0
+- **Max Button Fix**: Fixed 3 bugs in the >> (max servings) button on macro entries
+  - Now reads goals via `calculateEffectiveGoals()` (respects PI controller, reverse diet, workout credit)
+  - Now includes planned meals when calculating remaining macro budget
+- **Measurement History**: Measurements screen now shows full history grouped by date with delete buttons
+- **Workout Calorie Estimation**: Cardio workouts with pace now use MET-based formula for more accurate calorie estimates
+- **Import Validation**: Import now validates entries before writing; shows errors and offers to import valid entries only
+
+**Previous**: v1.9.9
 - **Fix Planned Servings Macro Calculation**: Properly divide macros when checking off multiple servings
   - Now calculates per-serving macros correctly
   - Example: 2 servings of 50g protein → checking off creates 1 serving of 25g, leaves 1 serving of 25g

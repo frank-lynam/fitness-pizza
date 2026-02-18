@@ -802,16 +802,24 @@ async function handleMaxServings(id) {
         const perServingCarbs = entry.carbs / currentServings;
         const perServingProtein = entry.protein / currentServings;
 
-        // Get goals from settings
-        const settings = await db.getAllSettings();
-        const goalFat = parseFloat(settings.goal_fat?.value || 70);
-        const goalCarbs = parseFloat(settings.goal_carbs?.value || 200);
-        const goalProtein = parseFloat(settings.goal_protein?.value || 150);
-
-        // Get today's macros (excluding this entry)
+        // Get effective goals (includes reverse diet, PI controller, workout credit)
         const today = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+        let goalFat, goalCarbs, goalProtein;
+        if (window.fitnessApp) {
+            const goals = await window.fitnessApp.calculateEffectiveGoals(today);
+            goalFat = goals.fat;
+            goalCarbs = goals.carbs;
+            goalProtein = goals.protein;
+        } else {
+            goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
+            goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+            goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+        }
+
+        // Get today's macros (excluding this entry, including planned)
         const allMacros = await db.getMacrosByDate(today);
-        const otherMacros = allMacros.filter(m => m.id !== id && m.status === 'completed');
+        const otherMacros = allMacros.filter(m => m.id !== id &&
+            (m.status === 'completed' || m.status === 'planned'));
 
         // Calculate current totals (excluding this entry)
         const totalFat = otherMacros.reduce((sum, m) => sum + (m.fat || 0), 0);

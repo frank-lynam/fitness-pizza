@@ -207,18 +207,23 @@ function setupWorkoutFormListeners(isEdit, existingEntry) {
     const exerciseInput = document.getElementById('exercise-name');
     const durationInput = document.getElementById('duration-minutes');
     const repsInput = document.getElementById('exercise-reps');
+    const paceInput = document.getElementById('pace');
 
     if (exerciseInput) {
-        exerciseInput.addEventListener('input', updateEstimatedCalories);
+        exerciseInput.addEventListener('input', () => { updateEstimatedCalories(); });
         exerciseInput.addEventListener('input', () => clearFieldError(exerciseInput));
     }
 
     if (durationInput) {
-        durationInput.addEventListener('input', updateEstimatedCalories);
+        durationInput.addEventListener('input', () => { updateEstimatedCalories(); });
     }
 
     if (repsInput) {
-        repsInput.addEventListener('input', updateEstimatedCalories);
+        repsInput.addEventListener('input', () => { updateEstimatedCalories(); });
+    }
+
+    if (paceInput) {
+        paceInput.addEventListener('input', () => { updateEstimatedCalories(); });
     }
 }
 
@@ -255,22 +260,28 @@ function setupSetListeners() {
 /**
  * Update the estimated calories display
  */
-function updateEstimatedCalories() {
+async function updateEstimatedCalories() {
     const exerciseType = document.getElementById('exercise-type')?.value || 'Lifting';
     const durationMinutes = parseInt(document.getElementById('duration-minutes')?.value || 0);
     const reps = parseInt(document.getElementById('exercise-reps')?.value || 0);
+    const pace = parseFloat(document.getElementById('pace')?.value || 0);
 
     let calories = 0;
 
-    // Conservative estimates
     if (exerciseType === 'Cardio' && durationMinutes > 0) {
-        // 5-7 cal/min for moderate cardio (use 5 for low-end)
-        calories = durationMinutes * 5;
+        if (pace > 0) {
+            // MET-based calculation when pace is provided
+            const met = pace <= 6 ? 16 : pace <= 8 ? 12 : pace <= 10 ? 10 : pace <= 12 ? 8 : 4;
+            const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
+            const weightKg = weightLbs * 0.453592;
+            calories = (met * 3.5 * weightKg / 200) * durationMinutes;
+        } else {
+            // Fallback when no pace provided
+            calories = durationMinutes * 3;
+        }
     } else if (exerciseType === 'Core' && reps > 0) {
-        // ~0.5-1 cal per rep for core exercises (use 0.5 for low-end)
         calories = reps * 0.5;
     } else if (exerciseType === 'Lifting' && reps > 0) {
-        // ~1-2 cal per rep for lifting (use 1 for low-end)
         calories = reps * 1;
     }
 
@@ -317,10 +328,17 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
             return;
         }
 
-        // Calculate calories (conservative estimates)
+        // Calculate calories
         let estimatedCalories = 0;
         if (exerciseType === 'Cardio') {
-            estimatedCalories = durationMinutes * 3;
+            if (pace > 0) {
+                const met = pace <= 6 ? 16 : pace <= 8 ? 12 : pace <= 10 ? 10 : pace <= 12 ? 8 : 4;
+                const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
+                const weightKg = weightLbs * 0.453592;
+                estimatedCalories = (met * 3.5 * weightKg / 200) * durationMinutes;
+            } else {
+                estimatedCalories = durationMinutes * 3;
+            }
         } else if (exerciseType === 'Core') {
             estimatedCalories = reps * 0.3;
         } else if (exerciseType === 'Lifting') {

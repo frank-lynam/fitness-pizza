@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.0
+**Current**: v2.1.1
+- **Fix Macro Match Sort**: Use effective goals, include planned meals, remove starred priority from sort order
+
+**Previous**: v2.1.0
 - **Max Button Fix**: Fixed 3 bugs in the >> (max servings) button on macro entries
   - Now reads goals via `calculateEffectiveGoals()` (respects PI controller, reverse diet, workout credit)
   - Now includes planned meals when calculating remaining macro budget

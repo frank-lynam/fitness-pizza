@@ -141,65 +141,60 @@ export async function showFoodLibrary() {
  * Sort foods by how well they match remaining macros
  */
 async function sortByMacroMatch(foods) {
-    // Get today's data
     const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : new Date().toISOString().split('T')[0];
     const macros = await db.getMacrosByDate(currentDate);
-    const completedMacros = macros.filter(m => m.status === 'completed');
 
-    // Get goals
-    const goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
-    const goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-    const goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+    // Include both completed and planned meals in the consumed total
+    const countedMacros = macros.filter(m => m.status === 'completed' || m.status === 'planned');
+
+    // Use effective goals (respects reverse diet, PI controller, workout credit)
+    let goalFat, goalProtein, goalCarbs;
+    if (window.fitnessApp) {
+        const goals = await window.fitnessApp.calculateEffectiveGoals(currentDate);
+        goalFat = goals.fat;
+        goalProtein = goals.protein;
+        goalCarbs = goals.carbs;
+    } else {
+        goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
+        goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+        goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
+    }
 
     // Calculate remaining macros
-    const totalFat = completedMacros.reduce((sum, m) => sum + m.fat, 0);
-    const totalProtein = completedMacros.reduce((sum, m) => sum + m.protein, 0);
-    const totalCarbs = completedMacros.reduce((sum, m) => sum + m.carbs, 0);
+    const totalFat = countedMacros.reduce((sum, m) => sum + m.fat, 0);
+    const totalProtein = countedMacros.reduce((sum, m) => sum + m.protein, 0);
+    const totalCarbs = countedMacros.reduce((sum, m) => sum + m.carbs, 0);
 
     const remainingFat = Math.max(0, goalFat - totalFat);
     const remainingProtein = Math.max(0, goalProtein - totalProtein);
     const remainingCarbs = Math.max(0, goalCarbs - totalCarbs);
 
-    // Calculate total remaining
     const totalRemaining = remainingFat + remainingProtein + remainingCarbs;
 
     if (totalRemaining === 0) {
-        // Already hit goals, sort by name
         return foods.sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    // Calculate target ratios
+    // Target ratios from remaining macro budget
     const targetFatRatio = remainingFat / totalRemaining;
     const targetProteinRatio = remainingProtein / totalRemaining;
     const targetCarbsRatio = remainingCarbs / totalRemaining;
 
-    // Score each food by how close its ratios match the target
+    // Score each food purely by ratio closeness (lower = better match)
     const scoredFoods = foods.map(food => {
         const foodTotal = food.fat + food.protein + food.carbs;
         if (foodTotal === 0) {
-            return { food, score: 999999 }; // Put zero-macro foods at end
+            return { food, score: 999999 };
         }
 
-        const foodFatRatio = food.fat / foodTotal;
-        const foodProteinRatio = food.protein / foodTotal;
-        const foodCarbsRatio = food.carbs / foodTotal;
-
-        // Calculate difference (lower is better)
-        const score = Math.abs(foodFatRatio - targetFatRatio) +
-                     Math.abs(foodProteinRatio - targetProteinRatio) +
-                     Math.abs(foodCarbsRatio - targetCarbsRatio);
+        const score = Math.abs(food.fat / foodTotal - targetFatRatio) +
+                      Math.abs(food.protein / foodTotal - targetProteinRatio) +
+                      Math.abs(food.carbs / foodTotal - targetCarbsRatio);
 
         return { food, score };
     });
 
-    // Sort by starred first, then by score (best matches first)
-    scoredFoods.sort((a, b) => {
-        // Starred items always come first
-        if (a.food.starred && !b.food.starred) return -1;
-        if (!a.food.starred && b.food.starred) return 1;
-        // Then sort by score
-        return a.score - b.score;
-    });
+    scoredFoods.sort((a, b) => a.score - b.score);
 
     return scoredFoods.map(item => item.food);
 }

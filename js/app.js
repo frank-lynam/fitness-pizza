@@ -158,7 +158,7 @@ class FitnessTrackerApp {
      * @returns {Object} Effective goals {fat, protein, carbs, calories}
      */
     async calculateEffectiveGoals(date) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDate(); // local date, not UTC
 
         // Clean up past planned meals once per day
         const lastCleanup = await db.getSetting('last_planned_cleanup');
@@ -200,7 +200,7 @@ class FitnessTrackerApp {
             for (let i = 1; i <= 10; i++) {
                 const pastDate = new Date(dateObj);
                 pastDate.setDate(pastDate.getDate() - i);
-                const pastDateStr = pastDate.toISOString().split('T')[0];
+                const pastDateStr = `${pastDate.getFullYear()}-${String(pastDate.getMonth()+1).padStart(2,'0')}-${String(pastDate.getDate()).padStart(2,'0')}`;
 
                 let dayFat, dayProtein, dayCarbs;
 

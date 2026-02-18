@@ -231,23 +231,28 @@ class FitnessTrackerApp {
                 const errProtein = dayProtein - eProtein;
                 const errCarbs = dayCarbs - eCarbs;
 
-                errors.fat.push(errFat);
-                errors.protein.push(errProtein);
-                errors.carbs.push(errCarbs);
+                // Exponential decay: weight = (1-α)^(i-1), so yesterday (i=1) has weight 1.0
+                const decayWeight = Math.pow(1 - Ialpha, i - 1);
+                errors.fat.push(errFat * decayWeight);
+                errors.protein.push(errProtein * decayWeight);
+                errors.carbs.push(errCarbs * decayWeight);
                 dayData.push({ date: pastDateStr, fat: dayFat, protein: dayProtein, carbs: dayCarbs,
-                               errFat, errProtein, errCarbs, daysBack: i });
+                               errFat, errProtein, errCarbs, decayWeight, daysBack: i });
             }
 
             // PI controller gains (user-configurable in settings)
             const Kp = parseFloat(await db.getSetting('pi_kp') || '0.5');
             const Ki = parseFloat(await db.getSetting('pi_ki') || '0.1');
+            // Exponential decay rate for I-term: older errors contribute less.
+            // α=0.25 → half-life ~2.4 days; weight for day k back = (1-α)^k
+            const Ialpha = 0.25;
 
-            // P terms (yesterday = errors[0])
+            // P terms (yesterday = errors[0], raw unweighted)
             const p_fat     = Kp * errors.fat[0];
             const p_protein = Kp * errors.protein[0];
             const p_carbs   = Kp * errors.carbs[0];
 
-            // I terms (sum over all 10 days)
+            // I terms: exponentially weighted sum (errors array is already weighted)
             const i_sum_fat     = errors.fat.reduce((a, b) => a + b, 0);
             const i_sum_protein = errors.protein.reduce((a, b) => a + b, 0);
             const i_sum_carbs   = errors.carbs.reduce((a, b) => a + b, 0);
@@ -274,7 +279,7 @@ class FitnessTrackerApp {
                 fat:     { p_err: errors.fat[0],     p_adj: p_fat,     i_sum: i_sum_fat,     i_adj: i_fat,     raw_adj: rawAdj_fat,     final_adj: adj_fat,     clamped: Math.abs(rawAdj_fat)     > goalFat     * cap },
                 protein: { p_err: errors.protein[0], p_adj: p_protein, i_sum: i_sum_protein, i_adj: i_protein, raw_adj: rawAdj_protein, final_adj: adj_protein, clamped: Math.abs(rawAdj_protein) > goalProtein * cap },
                 carbs:   { p_err: errors.carbs[0],   p_adj: p_carbs,   i_sum: i_sum_carbs,   i_adj: i_carbs,   raw_adj: rawAdj_carbs,   final_adj: adj_carbs,   clamped: Math.abs(rawAdj_carbs)   > goalCarbs   * cap },
-                dayData, Kp, Ki, cap
+                dayData, Kp, Ki, Ialpha, cap
             };
         }
 
@@ -724,22 +729,44 @@ class FitnessTrackerApp {
                                     calories: entry.calories / entry.servings
                                 };
 
-                                // Create a new completed entry with 1 serving
-                                const completedEntry = {
-                                    ...entry,
-                                    servings: 1,
-                                    protein: perServing.protein,
-                                    carbs: perServing.carbs,
-                                    fat: perServing.fat,
-                                    fiber: perServing.fiber,
-                                    calories: perServing.calories,
-                                    status: 'completed',
-                                    timestamp: Date.now()
-                                };
-                                delete completedEntry.id; // Remove id so it creates a new entry
-                                await db.addMacroEntry(completedEntry);
+                                // Check if a matching completed entry already exists today
+                                const todayMacros = await db.getMacrosByDate(entry.date);
+                                const existingCompleted = todayMacros.find(m =>
+                                    m.status === 'completed' &&
+                                    m.id !== entry.id &&
+                                    (
+                                        (entry.food_id && m.food_id === entry.food_id) ||
+                                        (entry.meal_name && m.meal_name === entry.meal_name)
+                                    )
+                                );
 
-                                // Update the planned entry: reduce servings and adjust macros
+                                if (existingCompleted) {
+                                    // Increment existing completed entry by 1 serving
+                                    existingCompleted.servings = (existingCompleted.servings || 1) + 1;
+                                    existingCompleted.protein += perServing.protein;
+                                    existingCompleted.carbs += perServing.carbs;
+                                    existingCompleted.fat += perServing.fat;
+                                    existingCompleted.fiber = (existingCompleted.fiber || 0) + (perServing.fiber || 0);
+                                    existingCompleted.calories += perServing.calories;
+                                    await db.updateMacroEntry(existingCompleted);
+                                } else {
+                                    // No matching entry — create a new completed entry with 1 serving
+                                    const completedEntry = {
+                                        ...entry,
+                                        servings: 1,
+                                        protein: perServing.protein,
+                                        carbs: perServing.carbs,
+                                        fat: perServing.fat,
+                                        fiber: perServing.fiber,
+                                        calories: perServing.calories,
+                                        status: 'completed',
+                                        timestamp: Date.now()
+                                    };
+                                    delete completedEntry.id;
+                                    await db.addMacroEntry(completedEntry);
+                                }
+
+                                // Reduce the planned entry by 1 serving
                                 const remainingServings = entry.servings - 1;
                                 entry.servings = remainingServings;
                                 entry.protein = perServing.protein * remainingServings;
@@ -887,6 +914,7 @@ class FitnessTrackerApp {
             const errFmt = (e) => `<span style="color:${e >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(e)}</span>`;
             return `<tr>
                 <td style="padding:3px 6px;">${d.date}</td>
+                <td style="padding:3px 6px;text-align:right;color:var(--text-secondary);">${(d.decayWeight * 100).toFixed(0)}%</td>
                 <td style="padding:3px 6px;text-align:right;">${d.fat.toFixed(0)}g</td>
                 <td style="padding:3px 6px;text-align:right;">${errFmt(d.errFat)}</td>
                 <td style="padding:3px 6px;text-align:right;">${d.protein.toFixed(0)}g</td>
@@ -899,7 +927,7 @@ class FitnessTrackerApp {
         content.innerHTML = `
             <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
                 PI controller: Kp=${piDebug.Kp.toFixed(2)} (correct ${(piDebug.Kp * 100).toFixed(0)}% of yesterday's error today),
-                Ki=${piDebug.Ki.toFixed(2)} (correct ${(piDebug.Ki * 100).toFixed(0)}% of 10-day accumulated error per day).
+                Ki=${piDebug.Ki.toFixed(2)} × exp-weighted 10-day sum (α=${piDebug.Ialpha.toFixed(2)}, half-life ~${(Math.log(0.5)/Math.log(1-piDebug.Ialpha)).toFixed(1)} days).
                 Adjustments capped at ±${(piDebug.cap * 100).toFixed(0)}% of base target.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}
             </p>
             <div style="overflow-x:auto;">
@@ -909,7 +937,7 @@ class FitnessTrackerApp {
                             <th style="padding:4px 8px;text-align:left;">Macro</th>
                             <th style="padding:4px 8px;text-align:right;">Base</th>
                             <th style="padding:4px 8px;text-align:right;">P err (yday)</th>
-                            <th style="padding:4px 8px;text-align:right;">I sum (10d)</th>
+                            <th style="padding:4px 8px;text-align:right;">I sum (10d, exp)</th>
                             <th style="padding:4px 8px;text-align:right;">PI adj</th>
                             <th style="padding:4px 8px;text-align:right;">Workout+</th>
                             <th style="padding:4px 8px;text-align:right;">Today's goal</th>
@@ -927,6 +955,7 @@ class FitnessTrackerApp {
                         <thead>
                             <tr style="border-bottom:1px solid var(--border-color);color:var(--text-secondary);">
                                 <th style="padding:3px 6px;text-align:left;">Date</th>
+                                <th style="padding:3px 6px;text-align:right;">Wt</th>
                                 <th style="padding:3px 6px;text-align:right;">Fat</th>
                                 <th style="padding:3px 6px;text-align:right;">Err</th>
                                 <th style="padding:3px 6px;text-align:right;">Protein</th>

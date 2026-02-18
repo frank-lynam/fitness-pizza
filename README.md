@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.1
+**Current**: v2.1.2
+- **PI I-term exponential decay**: older errors now weighted by `(1-α)^k` (α=0.25, half-life ~2.4 days) — eliminates the cliff when a large-error day falls off the 10-day window
+- **Dashboard serving check-off**: ticking one serving of a multi-serving planned item now increments an existing matching completed entry instead of always creating a new one
+
+**Previous**: v2.1.1
 - **Fix Macro Match Sort**: Use effective goals, include planned meals, remove starred priority from sort order
 
 **Previous**: v2.1.0

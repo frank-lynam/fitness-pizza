@@ -14,17 +14,24 @@ import { formatDate, formatDateTime, getTodayDate } from '../utils/date-utils.js
 export function initMeasurementForm() {
     const btnAddWeight = document.getElementById('btn-add-weight');
     const btnAddWaist = document.getElementById('btn-add-waist');
+    const btnAddBodyFat = document.getElementById('btn-add-bodyfat');
+    const btnEstimateNavy = document.getElementById('btn-estimate-navy');
+    const btnEstimateCalipers = document.getElementById('btn-estimate-calipers');
 
     if (btnAddWeight) {
-        btnAddWeight.addEventListener('click', () => {
-            showMeasurementForm('weight');
-        });
+        btnAddWeight.addEventListener('click', () => showMeasurementForm('weight'));
     }
-
     if (btnAddWaist) {
-        btnAddWaist.addEventListener('click', () => {
-            showMeasurementForm('waist');
-        });
+        btnAddWaist.addEventListener('click', () => showMeasurementForm('waist'));
+    }
+    if (btnAddBodyFat) {
+        btnAddBodyFat.addEventListener('click', () => showMeasurementForm('body_fat'));
+    }
+    if (btnEstimateNavy) {
+        btnEstimateNavy.addEventListener('click', () => showNavyEstimatorForm());
+    }
+    if (btnEstimateCalipers) {
+        btnEstimateCalipers.addEventListener('click', () => showCaliperEstimatorForm());
     }
 }
 
@@ -45,9 +52,9 @@ export function showMeasurementForm(type, existingEntry = null) {
         date: getTodayDate()
     };
 
-    const title = type === 'weight' ? 'Weight' : 'Waist';
-    const units = type === 'weight' ? ['lbs', 'kg'] : ['in', 'cm'];
-    const placeholder = type === 'weight' ? '150' : '32';
+    const title = type === 'weight' ? 'Weight' : type === 'waist' ? 'Waist' : 'Body Fat %';
+    const units = type === 'weight' ? ['lbs', 'kg'] : type === 'waist' ? ['in', 'cm'] : ['%'];
+    const placeholder = type === 'weight' ? '150' : type === 'waist' ? '32' : '20';
 
     formContainer.innerHTML = `
         <div class="measurement-form-card">
@@ -170,7 +177,12 @@ async function handleMeasurementFormSubmit(type, isEdit, existingEntry) {
             validateWeight(value, unit) :
             validateWaist(value, unit);
 
-        if (!validation.valid) {
+        if (type === 'body_fat') {
+            if (isNaN(value) || value <= 0 || value >= 70) {
+                showFieldError(document.getElementById('measurement-value'), 'Enter a body fat % between 1 and 70');
+                return;
+            }
+        } else if (!validation.valid) {
             const input = document.getElementById('measurement-value');
             showFieldError(input, validation.error);
             return;
@@ -343,4 +355,257 @@ async function handleDeleteMeasurement(id) {
             }
         }
     );
+}
+
+/**
+ * Show Navy method body fat estimator form.
+ * Men:   %BF = 86.010×log10(waist−neck) − 70.041×log10(height) + 36.76
+ * Women: %BF = 163.205×log10(waist+hip−neck) − 97.684×log10(height) − 78.387
+ * All measurements in inches, height in inches.
+ */
+function showNavyEstimatorForm() {
+    const formContainer = document.getElementById('measurement-form-container');
+    if (!formContainer) return;
+
+    formContainer.innerHTML = `
+        <div class="measurement-form-card">
+            <div class="form-header">
+                <h3>Navy Body Fat Estimator</h3>
+                <button id="btn-cancel-bf-estimator" class="btn-secondary btn-small">Cancel</button>
+            </div>
+            <div class="form-group">
+                <label>Sex</label>
+                <div style="display:flex;gap:12px;">
+                    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
+                        <input type="radio" name="navy-sex" value="male" checked> Male
+                    </label>
+                    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
+                        <input type="radio" name="navy-sex" value="female"> Female
+                    </label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="navy-height">Height (in)</label>
+                    <input type="number" id="navy-height" step="0.1" min="48" max="96" placeholder="70">
+                </div>
+                <div class="form-group">
+                    <label for="navy-neck">Neck (in)</label>
+                    <input type="number" id="navy-neck" step="0.1" min="8" max="24" placeholder="15">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="navy-waist">Waist (in)</label>
+                    <input type="number" id="navy-waist" step="0.1" min="20" max="80" placeholder="34">
+                </div>
+                <div class="form-group" id="navy-hip-group" style="display:none;">
+                    <label for="navy-hip">Hip (in) <span style="color:var(--text-secondary);font-size:0.85em;">Women only</span></label>
+                    <input type="number" id="navy-hip" step="0.1" min="20" max="80" placeholder="38">
+                </div>
+            </div>
+            <div id="navy-result" style="margin:8px 0;font-size:1.1em;font-weight:600;color:var(--accent-primary);min-height:1.5em;"></div>
+            <div class="form-actions">
+                <button id="btn-navy-calculate" class="btn-secondary">Calculate</button>
+                <button id="btn-navy-save" class="btn-primary" disabled>Save Result</button>
+            </div>
+        </div>
+    `;
+    formContainer.classList.remove('hidden');
+    formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    document.getElementById('btn-cancel-bf-estimator').addEventListener('click', () => {
+        formContainer.classList.add('hidden');
+        formContainer.innerHTML = '';
+    });
+
+    // Show/hide hip field based on sex
+    document.querySelectorAll('input[name="navy-sex"]').forEach(r => {
+        r.addEventListener('change', () => {
+            const isFemale = document.querySelector('input[name="navy-sex"]:checked').value === 'female';
+            document.getElementById('navy-hip-group').style.display = isFemale ? '' : 'none';
+        });
+    });
+
+    let estimatedBF = null;
+
+    document.getElementById('btn-navy-calculate').addEventListener('click', () => {
+        const sex    = document.querySelector('input[name="navy-sex"]:checked').value;
+        const height = parseFloat(document.getElementById('navy-height').value);
+        const neck   = parseFloat(document.getElementById('navy-neck').value);
+        const waist  = parseFloat(document.getElementById('navy-waist').value);
+        const hip    = parseFloat(document.getElementById('navy-hip').value) || 0;
+        const result = document.getElementById('navy-result');
+        const saveBtn = document.getElementById('btn-navy-save');
+
+        if (!height || !neck || !waist || (sex === 'female' && !hip)) {
+            result.textContent = 'Please fill in all required fields.';
+            result.style.color = 'var(--danger-color)';
+            saveBtn.disabled = true;
+            return;
+        }
+
+        let bf;
+        if (sex === 'male') {
+            bf = 86.010 * Math.log10(waist - neck) - 70.041 * Math.log10(height) + 36.76;
+        } else {
+            bf = 163.205 * Math.log10(waist + hip - neck) - 97.684 * Math.log10(height) - 78.387;
+        }
+
+        if (isNaN(bf) || bf <= 0 || bf >= 70) {
+            result.textContent = 'Invalid inputs — check measurements and try again.';
+            result.style.color = 'var(--danger-color)';
+            saveBtn.disabled = true;
+            return;
+        }
+
+        estimatedBF = Math.round(bf * 10) / 10;
+        result.textContent = `Estimated body fat: ${estimatedBF}%`;
+        result.style.color = 'var(--accent-primary)';
+        saveBtn.disabled = false;
+    });
+
+    document.getElementById('btn-navy-save').addEventListener('click', async () => {
+        if (estimatedBF === null) return;
+        await db.addMeasurement({
+            type: 'body_fat', value: estimatedBF, unit: '%',
+            date: getTodayDate(), notes: 'Navy formula estimate', timestamp: Date.now()
+        });
+        formContainer.classList.add('hidden');
+        formContainer.innerHTML = '';
+        await loadMeasurements();
+        ui.showSuccess(`Body fat ${estimatedBF}% saved`);
+    });
+}
+
+/**
+ * Show Jackson-Pollock 3-site caliper estimator form.
+ * Men (chest, abdomen, thigh):
+ *   D = 1.10938 - 0.0008267×S + 0.0000016×S² - 0.0002574×age
+ * Women (tricep, suprailiac, thigh):
+ *   D = 1.0994921 - 0.0009929×S + 0.0000023×S² - 0.0001392×age
+ * %BF = (495 / D) - 450  (Siri equation)
+ * Skinfold measurements in mm.
+ */
+function showCaliperEstimatorForm() {
+    const formContainer = document.getElementById('measurement-form-container');
+    if (!formContainer) return;
+
+    formContainer.innerHTML = `
+        <div class="measurement-form-card">
+            <div class="form-header">
+                <h3>Caliper Estimator (Jackson-Pollock 3-site)</h3>
+                <button id="btn-cancel-caliper" class="btn-secondary btn-small">Cancel</button>
+            </div>
+            <div class="form-group">
+                <label>Sex</label>
+                <div style="display:flex;gap:12px;">
+                    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
+                        <input type="radio" name="caliper-sex" value="male" checked> Male
+                    </label>
+                    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
+                        <input type="radio" name="caliper-sex" value="female"> Female
+                    </label>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="caliper-age">Age</label>
+                    <input type="number" id="caliper-age" step="1" min="18" max="99" placeholder="30">
+                </div>
+            </div>
+            <div id="caliper-sites-male">
+                <p style="font-size:0.85em;color:var(--text-secondary);margin:4px 0 8px;">Measure in mm at: chest (diagonal fold), abdomen (vertical, 1in right of navel), thigh (vertical, mid front thigh)</p>
+                <div class="form-row">
+                    <div class="form-group"><label for="caliper-chest">Chest (mm)</label><input type="number" id="caliper-chest" step="0.5" min="1" max="80" placeholder="10"></div>
+                    <div class="form-group"><label for="caliper-abdomen">Abdomen (mm)</label><input type="number" id="caliper-abdomen" step="0.5" min="1" max="80" placeholder="15"></div>
+                    <div class="form-group"><label for="caliper-thigh-m">Thigh (mm)</label><input type="number" id="caliper-thigh-m" step="0.5" min="1" max="80" placeholder="12"></div>
+                </div>
+            </div>
+            <div id="caliper-sites-female" style="display:none;">
+                <p style="font-size:0.85em;color:var(--text-secondary);margin:4px 0 8px;">Measure in mm at: tricep (vertical, back of upper arm), suprailiac (diagonal, above hip bone), thigh (vertical, mid front thigh)</p>
+                <div class="form-row">
+                    <div class="form-group"><label for="caliper-tricep">Tricep (mm)</label><input type="number" id="caliper-tricep" step="0.5" min="1" max="80" placeholder="15"></div>
+                    <div class="form-group"><label for="caliper-suprailiac">Suprailiac (mm)</label><input type="number" id="caliper-suprailiac" step="0.5" min="1" max="80" placeholder="12"></div>
+                    <div class="form-group"><label for="caliper-thigh-f">Thigh (mm)</label><input type="number" id="caliper-thigh-f" step="0.5" min="1" max="80" placeholder="20"></div>
+                </div>
+            </div>
+            <div id="caliper-result" style="margin:8px 0;font-size:1.1em;font-weight:600;color:var(--accent-primary);min-height:1.5em;"></div>
+            <div class="form-actions">
+                <button id="btn-caliper-calculate" class="btn-secondary">Calculate</button>
+                <button id="btn-caliper-save" class="btn-primary" disabled>Save Result</button>
+            </div>
+        </div>
+    `;
+    formContainer.classList.remove('hidden');
+    formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    document.getElementById('btn-cancel-caliper').addEventListener('click', () => {
+        formContainer.classList.add('hidden');
+        formContainer.innerHTML = '';
+    });
+
+    document.querySelectorAll('input[name="caliper-sex"]').forEach(r => {
+        r.addEventListener('change', () => {
+            const isFemale = document.querySelector('input[name="caliper-sex"]:checked').value === 'female';
+            document.getElementById('caliper-sites-male').style.display = isFemale ? 'none' : '';
+            document.getElementById('caliper-sites-female').style.display = isFemale ? '' : 'none';
+        });
+    });
+
+    let estimatedBF = null;
+
+    document.getElementById('btn-caliper-calculate').addEventListener('click', () => {
+        const sex = document.querySelector('input[name="caliper-sex"]:checked').value;
+        const age = parseFloat(document.getElementById('caliper-age').value);
+        const result  = document.getElementById('caliper-result');
+        const saveBtn = document.getElementById('btn-caliper-save');
+
+        let S, density;
+        if (sex === 'male') {
+            const chest   = parseFloat(document.getElementById('caliper-chest').value);
+            const abdomen = parseFloat(document.getElementById('caliper-abdomen').value);
+            const thigh   = parseFloat(document.getElementById('caliper-thigh-m').value);
+            S = chest + abdomen + thigh;
+            density = 1.10938 - 0.0008267 * S + 0.0000016 * S * S - 0.0002574 * age;
+        } else {
+            const tricep     = parseFloat(document.getElementById('caliper-tricep').value);
+            const suprailiac = parseFloat(document.getElementById('caliper-suprailiac').value);
+            const thigh      = parseFloat(document.getElementById('caliper-thigh-f').value);
+            S = tricep + suprailiac + thigh;
+            density = 1.0994921 - 0.0009929 * S + 0.0000023 * S * S - 0.0001392 * age;
+        }
+
+        if (isNaN(S) || isNaN(age) || density <= 0) {
+            result.textContent = 'Please fill in all fields.';
+            result.style.color = 'var(--danger-color)';
+            saveBtn.disabled = true;
+            return;
+        }
+
+        const bf = (495 / density) - 450;
+        if (isNaN(bf) || bf <= 0 || bf >= 70) {
+            result.textContent = 'Invalid result — check inputs.';
+            result.style.color = 'var(--danger-color)';
+            saveBtn.disabled = true;
+            return;
+        }
+
+        estimatedBF = Math.round(bf * 10) / 10;
+        result.textContent = `Estimated body fat: ${estimatedBF}%  (sum of skinfolds: ${S.toFixed(1)} mm)`;
+        result.style.color = 'var(--accent-primary)';
+        saveBtn.disabled = false;
+    });
+
+    document.getElementById('btn-caliper-save').addEventListener('click', async () => {
+        if (estimatedBF === null) return;
+        await db.addMeasurement({
+            type: 'body_fat', value: estimatedBF, unit: '%',
+            date: getTodayDate(), notes: 'JP3 caliper estimate', timestamp: Date.now()
+        });
+        formContainer.classList.add('hidden');
+        formContainer.innerHTML = '';
+        await loadMeasurements();
+        ui.showSuccess(`Body fat ${estimatedBF}% saved`);
+    });
 }

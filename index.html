@@ -94,6 +94,11 @@
                     <div class="action-buttons">
                         <button id="btn-add-weight" class="btn-primary">+ Add Weight</button>
                         <button id="btn-add-waist" class="btn-secondary">+ Add Waist</button>
+                        <button id="btn-add-bodyfat" class="btn-secondary">+ Add Body Fat %</button>
+                    </div>
+                    <div class="action-buttons" style="margin-top:4px;">
+                        <button id="btn-estimate-navy" class="btn-tertiary btn-small">📐 Estimate (Navy)</button>
+                        <button id="btn-estimate-calipers" class="btn-tertiary btn-small">📏 Estimate (Calipers)</button>
                     </div>
                     <div id="measurement-form-container" class="hidden"></div>
                     <div id="measurement-history" style="margin-top:16px;">
@@ -152,6 +157,10 @@
                         <div class="chart-container">
                             <h3>Workout Volume</h3>
                             <canvas id="workout-volume-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Contractile Tissue (7-day rolling avg)</h3>
+                            <canvas id="contractile-tissue-chart"></canvas>
                         </div>
                     </div>
                 </div>

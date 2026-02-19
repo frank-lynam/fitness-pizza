@@ -608,6 +608,18 @@ button {
     background-color: var(--bg-input);
 }
 
+.btn-tertiary {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    font-weight: 500;
+}
+
+.btn-tertiary:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
 .btn-danger {
     background-color: var(--accent-danger);
     color: white;

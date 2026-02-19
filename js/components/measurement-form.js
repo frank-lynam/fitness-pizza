@@ -363,9 +363,25 @@ async function handleDeleteMeasurement(id) {
  * Women: %BF = 163.205×log10(waist+hip−neck) − 97.684×log10(height) − 78.387
  * All measurements in inches, height in inches.
  */
-function showNavyEstimatorForm() {
+async function showNavyEstimatorForm() {
     const formContainer = document.getElementById('measurement-form-container');
     if (!formContainer) return;
+
+    // Auto-populate from latest saved measurements
+    let waistInches = '';
+    let waistNote = '';
+    try {
+        const waistMeasurements = await db.getMeasurementsByType('waist');
+        if (waistMeasurements.length > 0) {
+            waistMeasurements.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            const latest = waistMeasurements[0];
+            const val = parseFloat(latest.value);
+            if (!isNaN(val)) {
+                waistInches = latest.unit === 'cm' ? (val * 0.3937).toFixed(1) : val.toString();
+                waistNote = ` <span style="font-size:0.8em;color:var(--text-secondary);">(from ${latest.date})</span>`;
+            }
+        }
+    } catch (e) { /* ignore — form still works without pre-fill */ }
 
     formContainer.innerHTML = `
         <div class="measurement-form-card">
@@ -396,8 +412,8 @@ function showNavyEstimatorForm() {
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="navy-waist">Waist (in)</label>
-                    <input type="number" id="navy-waist" step="0.1" min="20" max="80" placeholder="34">
+                    <label for="navy-waist">Waist (in)${waistNote}</label>
+                    <input type="number" id="navy-waist" step="0.1" min="20" max="80" placeholder="34" value="${waistInches}">
                 </div>
                 <div class="form-group" id="navy-hip-group" style="display:none;">
                     <label for="navy-hip">Hip (in) <span style="color:var(--text-secondary);font-size:0.85em;">Women only</span></label>

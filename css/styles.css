@@ -242,6 +242,19 @@
     text-shadow: 0 0 2px #00ff00, 0 0 4px #00ff0088;
 }
 
+/* Range slider accent color follows theme */
+input[type="range"] {
+    accent-color: var(--accent-primary);
+}
+
+/* Progress bar labels: light themes use white shadow instead of dark (avoids blur on light bg) */
+:root[data-theme="light"] .progress-label,
+:root[data-theme="light"] .progress-value,
+:root[data-theme="pink"] .progress-label,
+:root[data-theme="pink"] .progress-value {
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85);
+}
+
 /* Progress bar colors match theme and charts */
 .progress-fill.fat,
 .progress-fill.fat-planned {
@@ -1538,8 +1551,8 @@ button {
     top: 0;
     bottom: 0;
     width: 2px;
-    background: rgba(251, 191, 36, 0.6);
-    border-left: 2px dashed rgba(251, 191, 36, 0.9);
+    background: rgba(34, 211, 238, 0.6);
+    border-left: 2px dashed rgba(34, 211, 238, 0.95);
     z-index: 10;
     pointer-events: none;
 }

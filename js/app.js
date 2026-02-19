@@ -909,6 +909,28 @@ class FitnessTrackerApp {
                 </tr>`;
         }).join('');
 
+        // Calories row (calorie equivalents of all macro adjustments)
+        const fmtCal = (n) => (n >= 0 ? '+' : '') + Math.round(n) + 'cal';
+        const calBase = baseFat * 9 + baseProtein * 4 + baseCarbs * 4;
+        const calPErr = piDebug.fat.p_err * 9 + piDebug.protein.p_err * 4 + piDebug.carbs.p_err * 4;
+        const calISum = piDebug.fat.i_sum * 9 + piDebug.protein.i_sum * 4 + piDebug.carbs.i_sum * 4;
+        const calAdj  = piDebug.fat.final_adj * 9 + piDebug.protein.final_adj * 4 + piDebug.carbs.final_adj * 4;
+        const calClamped = piDebug.fat.clamped || piDebug.protein.clamped || piDebug.carbs.clamped;
+        const calClampNote = calClamped ? ` <span style="color:var(--warning-color);">⚠ capped</span>` : '';
+        const calWorkoutCell = caloriesCredited > 0.5
+            ? `<span style="color:var(--accent-color);">+${Math.round(caloriesCredited)}cal</span>`
+            : `<span style="color:var(--text-secondary);">—</span>`;
+        const caloriesRow = `
+                <tr style="border-top:1px solid var(--border-color);">
+                    <td style="padding:4px 8px;font-weight:600;font-style:italic;">Calories</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;">${Math.round(calBase)}cal</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calPErr >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmtCal(calPErr)}</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calISum >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmtCal(calISum)}</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;">${calAdj === 0 ? '0cal' : fmtCal(-calAdj)}${calClampNote}</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;">${calWorkoutCell}</td>
+                    <td style="padding:4px 8px;text-align:right;font-weight:600;font-style:italic;">${Math.round(goals.calories)}cal</td>
+                </tr>`;
+
         // Per-day breakdown
         const dayRows = piDebug.dayData.map(d => {
             const errFmt = (e) => `<span style="color:${e >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(e)}</span>`;
@@ -943,7 +965,7 @@ class FitnessTrackerApp {
                             <th style="padding:4px 8px;text-align:right;">Today's goal</th>
                         </tr>
                     </thead>
-                    <tbody>${rows}</tbody>
+                    <tbody>${rows}${caloriesRow}</tbody>
                 </table>
             </div>
             <details style="margin-top:4px;">

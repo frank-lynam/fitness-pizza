@@ -492,7 +492,7 @@ class FitnessTrackerApp {
                                 <!-- Workout credit marker -->
                                 ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
-                                <span class="progress-label">Fat: ${(totalFat + plannedFat).toFixed(0)}g</span>
+                                <span class="progress-label">Fat: ${plannedFat > 0 ? totalFat.toFixed(0) + ' / ' : ''}${(totalFat + plannedFat).toFixed(0)}g</span>
                                 <span class="progress-value ${goalFat - totalFat - plannedFat < 0 ? 'over-target' : ''}">${
                                     goalFat - totalFat - plannedFat >= 0
                                         ? Math.max(0, goalFat - totalFat - plannedFat).toFixed(0) + 'g left'
@@ -514,7 +514,7 @@ class FitnessTrackerApp {
                                 <!-- Workout credit marker -->
                                 ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
-                                <span class="progress-label">Carbs: ${(totalCarbs + plannedCarbs).toFixed(0)}g</span>
+                                <span class="progress-label">Carbs: ${plannedCarbs > 0 ? totalCarbs.toFixed(0) + ' / ' : ''}${(totalCarbs + plannedCarbs).toFixed(0)}g</span>
                                 <span class="progress-value ${goalCarbs - totalCarbs - plannedCarbs < 0 ? 'over-target' : ''}">${
                                     goalCarbs - totalCarbs - plannedCarbs >= 0
                                         ? Math.max(0, goalCarbs - totalCarbs - plannedCarbs).toFixed(0) + 'g left'
@@ -536,7 +536,7 @@ class FitnessTrackerApp {
                                 <!-- Workout credit marker -->
                                 ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
-                                <span class="progress-label">Protein: ${(totalProtein + plannedProtein).toFixed(0)}g</span>
+                                <span class="progress-label">Protein: ${plannedProtein > 0 ? totalProtein.toFixed(0) + ' / ' : ''}${(totalProtein + plannedProtein).toFixed(0)}g</span>
                                 <span class="progress-value ${goalProtein - totalProtein - plannedProtein < 0 ? 'over-target' : ''}">${
                                     goalProtein - totalProtein - plannedProtein >= 0
                                         ? Math.max(0, goalProtein - totalProtein - plannedProtein).toFixed(0) + 'g left'
@@ -578,7 +578,7 @@ class FitnessTrackerApp {
                                 <!-- 100% marker -->
                                 ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
                                 <!-- Labels (always visible) -->
-                                <span class="progress-label">Calories: ${(totalCalories + plannedCalories).toFixed(0)}</span>
+                                <span class="progress-label">Calories: ${plannedCalories > 0 ? totalCalories.toFixed(0) + ' / ' : ''}${(totalCalories + plannedCalories).toFixed(0)}</span>
                                 <span class="progress-value ${goalCalories - totalCalories - plannedCalories < 0 ? 'over-target' : ''}">${
                                     goalCalories - totalCalories - plannedCalories >= 0
                                         ? Math.max(0, goalCalories - totalCalories - plannedCalories).toFixed(0) + ' left'
@@ -686,12 +686,13 @@ class FitnessTrackerApp {
                             </div>
                         `;
                     case 'workout':
+                        const workoutCal = activity.data.estimated_calories_burned;
                         return `
                             <div class="activity-item">
                                 <span class="activity-icon">💪</span>
                                 <div class="activity-content">
                                     <div class="activity-title">${activity.data.exercise_name}</div>
-                                    <div class="activity-time">${date} at ${time}</div>
+                                    <div class="activity-time">${workoutCal > 0 ? `~${workoutCal} cal burned • ` : ''}${date} at ${time}</div>
                                 </div>
                             </div>
                         `;
@@ -718,18 +719,8 @@ class FitnessTrackerApp {
                         const entry = macros.find(m => m.id === id);
 
                         if (entry) {
-                            // If planned item with multiple servings, only complete 1 serving
-                            if (entry.status === 'planned' && entry.servings > 1) {
-                                // Calculate macros per serving
-                                const perServing = {
-                                    protein: entry.protein / entry.servings,
-                                    carbs: entry.carbs / entry.servings,
-                                    fat: entry.fat / entry.servings,
-                                    fiber: entry.fiber / entry.servings,
-                                    calories: entry.calories / entry.servings
-                                };
-
-                                // Check if a matching completed entry already exists today
+                            if (entry.status === 'planned') {
+                                // Find any matching completed entry to stack with (shared by all branches)
                                 const todayMacros = await db.getMacrosByDate(entry.date);
                                 const existingCompleted = todayMacros.find(m =>
                                     m.status === 'completed' &&
@@ -740,45 +731,74 @@ class FitnessTrackerApp {
                                     )
                                 );
 
-                                if (existingCompleted) {
-                                    // Increment existing completed entry by 1 serving
-                                    existingCompleted.servings = (existingCompleted.servings || 1) + 1;
-                                    existingCompleted.protein += perServing.protein;
-                                    existingCompleted.carbs += perServing.carbs;
-                                    existingCompleted.fat += perServing.fat;
-                                    existingCompleted.fiber = (existingCompleted.fiber || 0) + (perServing.fiber || 0);
-                                    existingCompleted.calories += perServing.calories;
-                                    await db.updateMacroEntry(existingCompleted);
-                                } else {
-                                    // No matching entry — create a new completed entry with 1 serving
-                                    const completedEntry = {
-                                        ...entry,
-                                        servings: 1,
-                                        protein: perServing.protein,
-                                        carbs: perServing.carbs,
-                                        fat: perServing.fat,
-                                        fiber: perServing.fiber,
-                                        calories: perServing.calories,
-                                        status: 'completed',
-                                        timestamp: Date.now()
+                                if (entry.servings > 1) {
+                                    // Multi-serving: confirm exactly 1 serving, leave the rest planned
+                                    const perServing = {
+                                        protein: entry.protein / entry.servings,
+                                        carbs: entry.carbs / entry.servings,
+                                        fat: entry.fat / entry.servings,
+                                        fiber: entry.fiber / entry.servings,
+                                        calories: entry.calories / entry.servings
                                     };
-                                    delete completedEntry.id;
-                                    await db.addMacroEntry(completedEntry);
-                                }
 
-                                // Reduce the planned entry by 1 serving
-                                const remainingServings = entry.servings - 1;
-                                entry.servings = remainingServings;
-                                entry.protein = perServing.protein * remainingServings;
-                                entry.carbs = perServing.carbs * remainingServings;
-                                entry.fat = perServing.fat * remainingServings;
-                                entry.fiber = perServing.fiber * remainingServings;
-                                entry.calories = perServing.calories * remainingServings;
-                                await db.updateMacroEntry(entry);
+                                    if (existingCompleted) {
+                                        // Add 1 serving to existing completed entry
+                                        existingCompleted.servings = (existingCompleted.servings || 1) + 1;
+                                        existingCompleted.protein += perServing.protein;
+                                        existingCompleted.carbs += perServing.carbs;
+                                        existingCompleted.fat += perServing.fat;
+                                        existingCompleted.fiber = (existingCompleted.fiber || 0) + (perServing.fiber || 0);
+                                        existingCompleted.calories += perServing.calories;
+                                        await db.updateMacroEntry(existingCompleted);
+                                    } else {
+                                        // Create a new completed entry with 1 serving
+                                        const completedEntry = {
+                                            ...entry,
+                                            servings: 1,
+                                            protein: perServing.protein,
+                                            carbs: perServing.carbs,
+                                            fat: perServing.fat,
+                                            fiber: perServing.fiber,
+                                            calories: perServing.calories,
+                                            status: 'completed',
+                                            timestamp: Date.now()
+                                        };
+                                        delete completedEntry.id;
+                                        await db.addMacroEntry(completedEntry);
+                                    }
+
+                                    // Reduce the planned entry by 1 serving
+                                    const remainingServings = entry.servings - 1;
+                                    entry.servings = remainingServings;
+                                    entry.protein = perServing.protein * remainingServings;
+                                    entry.carbs = perServing.carbs * remainingServings;
+                                    entry.fat = perServing.fat * remainingServings;
+                                    entry.fiber = perServing.fiber * remainingServings;
+                                    entry.calories = perServing.calories * remainingServings;
+                                    await db.updateMacroEntry(entry);
+                                } else {
+                                    // Final serving (1.0 or a fractional remainder like 0.5)
+                                    if (existingCompleted) {
+                                        // Stack with existing completed entry
+                                        existingCompleted.servings = (existingCompleted.servings || 1) + (entry.servings || 1);
+                                        existingCompleted.protein += entry.protein;
+                                        existingCompleted.carbs += entry.carbs;
+                                        existingCompleted.fat += entry.fat;
+                                        existingCompleted.fiber = (existingCompleted.fiber || 0) + (entry.fiber || 0);
+                                        existingCompleted.calories += entry.calories;
+                                        await db.updateMacroEntry(existingCompleted);
+                                        await db.deleteMacroEntry(entry.id);
+                                    } else {
+                                        // No existing stack — convert planned to completed in-place
+                                        entry.status = 'completed';
+                                        entry.timestamp = Date.now();
+                                        await db.updateMacroEntry(entry);
+                                    }
+                                }
                             } else {
-                                // For single serving or already completed items, just toggle status
+                                // Already completed entry — ensure status is set
                                 entry.status = 'completed';
-                                entry.timestamp = Date.now(); // Update timestamp to now
+                                entry.timestamp = Date.now();
                                 await db.updateMacroEntry(entry);
                             }
 

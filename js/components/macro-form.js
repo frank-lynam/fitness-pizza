@@ -69,10 +69,6 @@ async function setupReverseDietToggle(toggle) {
         if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
             await window.fitnessApp.loadDashboard();
         }
-
-        ui.showSuccess(toggle.checked ?
-            '📈 Reverse Diet enabled for today (+20%)' :
-            'Reverse Diet disabled for today');
     });
 
     // Re-check state when date changes (if fitnessApp is available)
@@ -172,19 +168,19 @@ export function showMacroForm(existingEntry = null) {
                 <div class="macros-grid" style="gap: 4px; margin-bottom: 4px;">
                     <div class="form-group-inline" style="margin-bottom: 0;">
                         <label for="fat" style="min-width: 60px;">Fat (g)</label>
-                        <input type="number" id="fat" step="0.001" min="0" required
+                        <input type="number" id="fat" step="0.001" min="0"
                                value="${entry.fat}">
                     </div>
 
                     <div class="form-group-inline" style="margin-bottom: 0;">
                         <label for="carbs" style="min-width: 60px;">Carbs (g)</label>
-                        <input type="number" id="carbs" step="0.001" min="0" required
+                        <input type="number" id="carbs" step="0.001" min="0"
                                value="${entry.carbs}">
                     </div>
 
                     <div class="form-group-inline" style="margin-bottom: 0;">
                         <label for="protein" style="min-width: 60px;">Protein (g)</label>
-                        <input type="number" id="protein" step="0.001" min="0" required
+                        <input type="number" id="protein" step="0.001" min="0"
                                value="${entry.protein}">
                     </div>
 

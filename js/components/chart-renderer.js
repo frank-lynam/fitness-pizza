@@ -58,11 +58,9 @@ async function renderCharts(days) {
         const filteredMeasurements = measurements.filter(m => m.timestamp >= cutoff && m.timestamp <= now);
 
         // Render individual charts
-        await renderMacroDistribution(filteredMacros);
+        await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
-        await renderWeightTrend(filteredMeasurements);
         await renderWorkoutVolume(filteredWorkouts);
-        await renderContractileTissue(measurements, days); // uses all measurements for rolling avg
 
     } catch (error) {
         console.error('Error rendering charts:', error);
@@ -104,43 +102,129 @@ function getThemeColors() {
 }
 
 /**
- * Render macro distribution pie chart
+ * Render combined weight + lean mass (contractile tissue) trend chart.
+ * Both series use a 7-day rolling average. Lean mass only plotted when
+ * body fat % data is also available.
+ * @param {Array} allMeasurements - All measurements (unfiltered, for rolling window)
+ * @param {number|null} days - Display range
  */
-async function renderMacroDistribution(macros) {
-    const ctx = document.getElementById('macro-distribution-chart');
+async function renderBodyComposition(allMeasurements, days) {
+    const ctx = document.getElementById('body-composition-chart');
     if (!ctx) return;
 
-    // Calculate totals
-    const totalFat = macros.reduce((sum, m) => sum + (m.fat || 0), 0);
-    const totalProtein = macros.reduce((sum, m) => sum + (m.protein || 0), 0);
-    const totalCarbs = macros.reduce((sum, m) => sum + (m.carbs || 0), 0);
+    if (charts.weightTrend)      charts.weightTrend.destroy();
+    if (charts.contractileTissue) charts.contractileTissue.destroy();
+    if (charts.bodyComposition)   charts.bodyComposition.destroy();
 
-    // Destroy existing chart
-    if (charts.macroDistribution) {
-        charts.macroDistribution.destroy();
+    const weightReadings = allMeasurements
+        .filter(m => m.type === 'weight')
+        .sort((a, b) => a.timestamp - b.timestamp);
+    const bfReadings = allMeasurements
+        .filter(m => m.type === 'body_fat')
+        .sort((a, b) => a.timestamp - b.timestamp);
+
+    if (weightReadings.length === 0) {
+        charts.bodyComposition = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: true,
+                plugins: { legend: { labels: { color: getThemeColors().text } } } }
+        });
+        return;
+    }
+
+    // Build daily value maps (last reading of each day)
+    const weightByDate = {};
+    for (const r of weightReadings) {
+        weightByDate[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value;
+    }
+    const bfByDate = {};
+    for (const r of bfReadings) {
+        bfByDate[r.date] = r.value;
+    }
+
+    // Determine display date range
+    const today = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const dateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    const todayStr = dateStr(today);
+    let minDateStr;
+    if (days) {
+        const start = new Date(today);
+        start.setDate(start.getDate() - (days - 1));
+        minDateStr = dateStr(start);
+    } else {
+        const allDates = [...Object.keys(weightByDate), ...Object.keys(bfByDate)].sort();
+        minDateStr = allDates[0] || todayStr;
+    }
+
+    const labels = [];
+    const weightData = [];
+    const leanMassData = [];
+
+    const cur = new Date(minDateStr + 'T12:00:00');
+    const end = new Date(todayStr + 'T12:00:00');
+
+    while (cur <= end) {
+        const ds = dateStr(cur);
+        let wSum = 0, wCount = 0, bfSum = 0, bfCount = 0;
+        for (let back = 0; back < 7; back++) {
+            const d = new Date(cur);
+            d.setDate(d.getDate() - back);
+            const dds = dateStr(d);
+            if (weightByDate[dds] !== undefined) { wSum += weightByDate[dds]; wCount++; }
+            if (bfByDate[dds]     !== undefined) { bfSum += bfByDate[dds];     bfCount++; }
+        }
+
+        if (wCount > 0) {
+            const avgWeight = wSum / wCount;
+            labels.push(ds);
+            weightData.push(Math.round(avgWeight * 10) / 10);
+            leanMassData.push(bfCount > 0
+                ? Math.round(avgWeight * (1 - (bfSum / bfCount) / 100) * 10) / 10
+                : null);
+        }
+        cur.setDate(cur.getDate() + 1);
     }
 
     const colors = getThemeColors();
+    const datasets = [{
+        label: 'Weight (lbs, 7d avg)',
+        data: weightData,
+        borderColor: colors.secondary,
+        backgroundColor: colors.secondary + '20',
+        tension: 0,
+        pointRadius: 2,
+        spanGaps: false
+    }];
 
-    // Create new chart
-    charts.macroDistribution = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: ['Fat', 'Carbs', 'Protein'],
-            datasets: [{
-                data: [totalFat, totalCarbs, totalProtein],
-                backgroundColor: [colors.warning, colors.success, colors.primary]
-            }]
-        },
+    if (leanMassData.some(v => v !== null)) {
+        datasets.push({
+            label: 'Lean Mass (lbs, 7d avg)',
+            data: leanMassData,
+            borderColor: colors.success,
+            backgroundColor: colors.success + '20',
+            tension: 0,
+            pointRadius: 2,
+            spanGaps: false
+        });
+    }
+
+    charts.bodyComposition = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: {
-                    labels: {
-                        color: colors.text
-                    }
+                legend: { labels: { color: colors.text } },
+                tooltip: {
+                    callbacks: { label: ctx => `${ctx.parsed.y?.toFixed(1)} lbs` }
                 }
+            },
+            scales: {
+                x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
+                y: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } }
             }
         }
     });
@@ -289,187 +373,6 @@ async function renderCalorieBalance(macros, workouts, days) {
     });
 }
 
-/**
- * Render weight trend line chart
- */
-async function renderWeightTrend(measurements) {
-    const ctx = document.getElementById('weight-trend-chart');
-    if (!ctx) return;
-
-    // Filter weight measurements
-    const weightData = measurements
-        .filter(m => m.type === 'weight')
-        .sort((a, b) => a.timestamp - b.timestamp);
-
-    const labels = weightData.map(m => m.date);
-    const data = weightData.map(m => m.value);
-
-    // Destroy existing chart
-    if (charts.weightTrend) {
-        charts.weightTrend.destroy();
-    }
-
-    const colors = getThemeColors();
-
-    // Create new chart
-    charts.weightTrend = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Weight (lbs)',
-                data: data,
-                borderColor: colors.secondary,
-                backgroundColor: colors.secondary + '20',
-                tension: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: colors.text
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    ticks: { color: colors.textSecondary },
-                    grid: { color: colors.border + '40' }
-                },
-                y: {
-                    ticks: { color: colors.textSecondary },
-                    grid: { color: colors.border + '40' }
-                }
-            }
-        }
-    });
-}
-
-/**
- * Render contractile tissue (lean mass) trend chart.
- * Uses a 7-day rolling average of weight and body_fat % measurements.
- * Lean mass (lbs) = weight_lbs × (1 − body_fat_pct / 100)
- * Only plots dates where both a rolling-average weight AND body fat % are available.
- * @param {Array} allMeasurements - All measurements (unfiltered, for rolling window)
- * @param {number|null} days - Display range
- */
-async function renderContractileTissue(allMeasurements, days) {
-    const ctx = document.getElementById('contractile-tissue-chart');
-    if (!ctx) return;
-
-    if (charts.contractileTissue) charts.contractileTissue.destroy();
-
-    // Sort all weight and body_fat readings chronologically
-    const weightReadings = allMeasurements
-        .filter(m => m.type === 'weight')
-        .sort((a, b) => a.timestamp - b.timestamp);
-    const bfReadings = allMeasurements
-        .filter(m => m.type === 'body_fat')
-        .sort((a, b) => a.timestamp - b.timestamp);
-
-    if (weightReadings.length === 0 || bfReadings.length === 0) {
-        charts.contractileTissue = new Chart(ctx, {
-            type: 'line',
-            data: { labels: [], datasets: [{ label: 'Lean Mass (lbs)', data: [] }] },
-            options: { responsive: true, maintainAspectRatio: true,
-                plugins: { legend: { labels: { color: getThemeColors().text } } } }
-        });
-        return;
-    }
-
-    // Build daily value maps (use last reading of the day)
-    const weightByDate = {};
-    for (const r of weightReadings) {
-        // Convert lbs to lbs (keep), convert kg to lbs if needed
-        const valueLbs = r.unit === 'kg' ? r.value * 2.20462 : r.value;
-        weightByDate[r.date] = valueLbs;
-    }
-    const bfByDate = {};
-    for (const r of bfReadings) {
-        bfByDate[r.date] = r.value; // already in %
-    }
-
-    // Determine date range for the chart display
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    let minDateStr;
-    if (days) {
-        const start = new Date(today);
-        start.setDate(start.getDate() - (days - 1));
-        minDateStr = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}-${String(start.getDate()).padStart(2,'0')}`;
-    } else {
-        const allDates = [...Object.keys(weightByDate), ...Object.keys(bfByDate)].sort();
-        minDateStr = allDates[0] || todayStr;
-    }
-
-    // Compute 7-day rolling average for each day in display range
-    // For each display date, look back up to 7 days to average weight and bf %
-    const labels = [];
-    const leanMassData = [];
-
-    const cur = new Date(minDateStr + 'T12:00:00');
-    const end = new Date(todayStr + 'T12:00:00');
-
-    while (cur <= end) {
-        const dateStr = `${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}-${String(cur.getDate()).padStart(2,'0')}`;
-
-        // Collect readings from the past 7 days (including today)
-        let wSum = 0, wCount = 0, bfSum = 0, bfCount = 0;
-        for (let back = 0; back < 7; back++) {
-            const d = new Date(cur);
-            d.setDate(d.getDate() - back);
-            const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            if (weightByDate[ds] !== undefined) { wSum += weightByDate[ds]; wCount++; }
-            if (bfByDate[ds]     !== undefined) { bfSum += bfByDate[ds];     bfCount++; }
-        }
-
-        if (wCount > 0 && bfCount > 0) {
-            const avgWeight = wSum / wCount;
-            const avgBF     = bfSum / bfCount;
-            const leanMass  = avgWeight * (1 - avgBF / 100);
-            labels.push(dateStr);
-            leanMassData.push(Math.round(leanMass * 10) / 10);
-        }
-
-        cur.setDate(cur.getDate() + 1);
-    }
-
-    const colors = getThemeColors();
-
-    charts.contractileTissue = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Lean Mass (lbs)',
-                data: leanMassData,
-                borderColor: colors.success,
-                backgroundColor: colors.success + '20',
-                tension: 0,
-                pointRadius: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            plugins: {
-                legend: { labels: { color: colors.text } },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => `${ctx.parsed.y.toFixed(1)} lbs lean mass`
-                    }
-                }
-            },
-            scales: {
-                x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
-                y: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } }
-            }
-        }
-    });
-}
 
 /**
  * Render workout volume bar chart

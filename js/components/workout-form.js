@@ -258,33 +258,49 @@ function setupSetListeners() {
 }
 
 /**
+ * Shared calorie computation used by both the preview display and form submit.
+ * Single source of truth — fixes preview vs. saved value inconsistency.
+ *
+ * @param {string} exerciseType - 'Cardio' | 'Core' | 'Lifting'
+ * @param {string} exerciseName - Exercise name (used for Cardio MET lookup)
+ * @param {number} durationMinutes - Duration in minutes (Cardio only)
+ * @param {number} reps - Total reps (Core / Lifting only)
+ * @param {number} pace - Min/mile pace (Cardio only, 0 = not provided)
+ * @returns {number} Estimated calories burned
+ */
+async function computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, pace) {
+    if (exerciseType === 'Cardio') {
+        const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
+        if (pace > 0 && durationMinutes > 0) {
+            // Continuous MET from pace: speed (mph) = 60/pace
+            const speedMph = 60 / pace;
+            const met = Math.min(20, Math.max(3.5, 1.5 * speedMph + 1.0));
+            const weightKg = weightLbs * 0.453592;
+            return (met * 3.5 * weightKg / 200) * durationMinutes;
+        } else if (durationMinutes > 0) {
+            // MET-based fallback from exercise name
+            return estimateWorkoutCalories(exerciseName, durationMinutes, [], weightLbs);
+        }
+        return 0;
+    } else if (exerciseType === 'Core') {
+        return reps * 0.3;
+    } else {
+        // Lifting
+        return reps * 0.5;
+    }
+}
+
+/**
  * Update the estimated calories display
  */
 async function updateEstimatedCalories() {
     const exerciseType = document.getElementById('exercise-type')?.value || 'Lifting';
+    const exerciseName = document.getElementById('exercise-name')?.value || '';
     const durationMinutes = parseInt(document.getElementById('duration-minutes')?.value || 0);
     const reps = parseInt(document.getElementById('exercise-reps')?.value || 0);
     const pace = parseFloat(document.getElementById('pace')?.value || 0);
 
-    let calories = 0;
-
-    if (exerciseType === 'Cardio' && durationMinutes > 0) {
-        if (pace > 0) {
-            // Continuous MET from pace: speed (mph) = 60/pace, MET rises linearly with speed
-            const speedMph = 60 / pace;
-            const met = Math.min(20, Math.max(3.5, 1.5 * speedMph + 1.0));
-            const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
-            const weightKg = weightLbs * 0.453592;
-            calories = (met * 3.5 * weightKg / 200) * durationMinutes;
-        } else {
-            // Fallback when no pace provided
-            calories = durationMinutes * 3;
-        }
-    } else if (exerciseType === 'Core' && reps > 0) {
-        calories = reps * 0.5;
-    } else if (exerciseType === 'Lifting' && reps > 0) {
-        calories = reps * 1;
-    }
+    const calories = await computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, pace);
 
     const caloriesDisplay = document.getElementById('estimated-calories');
     if (caloriesDisplay) {
@@ -329,23 +345,8 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
             return;
         }
 
-        // Calculate calories
-        let estimatedCalories = 0;
-        if (exerciseType === 'Cardio') {
-            if (pace > 0) {
-                const speedMph = 60 / pace;
-                const met = Math.min(20, Math.max(3.5, 1.5 * speedMph + 1.0));
-                const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
-                const weightKg = weightLbs * 0.453592;
-                estimatedCalories = (met * 3.5 * weightKg / 200) * durationMinutes;
-            } else {
-                estimatedCalories = durationMinutes * 3;
-            }
-        } else if (exerciseType === 'Core') {
-            estimatedCalories = reps * 0.3;
-        } else if (exerciseType === 'Lifting') {
-            estimatedCalories = reps * 0.5;
-        }
+        // Calculate calories using the same shared function as the preview display
+        const estimatedCalories = await computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, pace);
 
         // Prepare entry data
         const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();

@@ -6,6 +6,8 @@
 import { db } from './db.js';
 import * as ui from './ui.js';
 import { getTodayDate } from './utils/date-utils.js';
+import { calculateMacroCalories } from './utils/calorie-calc.js';
+import { computeGoalAdjustments } from './utils/pi-controller.js';
 import { initMacroForm, loadTodaysMacros } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
@@ -172,115 +174,45 @@ class FitnessTrackerApp {
         const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
         const baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
 
-        let goalFat = baseFat;
-        let goalProtein = baseProtein;
-        let goalCarbs = baseCarbs;
-
-        // Check if reverse diet is enabled for this date
         const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
-        if (reverseDietDates[date] === true) {
-            goalFat *= 1.2;
-            goalProtein *= 1.2;
-            goalCarbs *= 1.2;
-        }
 
         // Check if running average mode is enabled
         const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
 
+        let goalFat = baseFat;
+        let goalProtein = baseProtein;
+        let goalCarbs = baseCarbs;
         let piDebug = null;
 
         if (runningAvgEnabled) {
-            const allMacros = await db.getAllMacros();
-            const dateObj = new Date(date + 'T12:00:00');
-
             // PI controller gains (user-configurable in settings)
             const Kp = parseFloat(await db.getSetting('pi_kp') || '0.5');
             const Ki = parseFloat(await db.getSetting('pi_ki') || '0.1');
-            // Exponential decay rate for I-term: older errors contribute less.
-            // α=0.25 → half-life ~2.4 days; weight for day k back = (1-α)^(k-1)
             const Ialpha = parseFloat(await db.getSetting('pi_ialpha') || '0.25');
 
-            // Collect errors for past 10 days (actual - effective_goal for each day)
-            const errors = { fat: [], protein: [], carbs: [] };
-            const dayData = [];
+            const allMacros = await db.getAllMacros();
 
-            for (let i = 1; i <= 10; i++) {
-                const pastDate = new Date(dateObj);
-                pastDate.setDate(pastDate.getDate() - i);
-                const pastDateStr = `${pastDate.getFullYear()}-${String(pastDate.getMonth()+1).padStart(2,'0')}-${String(pastDate.getDate()).padStart(2,'0')}`;
+            // PI controller operates on BASE goals; reverse diet applied afterwards
+            // to prevent the inflated goals from skewing the error signal
+            const result = computeGoalAdjustments({
+                allMacros, date, today,
+                baseFat, baseProtein, baseCarbs,
+                reverseDietDates,
+                Kp, Ki, Ialpha
+            });
 
-                let dayFat, dayProtein, dayCarbs;
+            goalFat     = result.goalFat;
+            goalProtein = result.goalProtein;
+            goalCarbs   = result.goalCarbs;
+            piDebug     = result.piDebug;
+        }
 
-                if (pastDateStr > today) {
-                    // Future day between today and target: assume goal met exactly
-                    dayFat = baseFat; dayProtein = baseProtein; dayCarbs = baseCarbs;
-                } else if (pastDateStr === today) {
-                    // Today: completed + planned (forward projection)
-                    const dayMacros = allMacros.filter(m => m.date === pastDateStr);
-                    dayFat = dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
-                    dayProtein = dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
-                    dayCarbs = dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
-                } else {
-                    // Past day: completed only
-                    const dayMacros = allMacros.filter(m => m.date === pastDateStr && m.status === 'completed');
-                    dayFat = dayMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
-                    dayProtein = dayMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
-                    dayCarbs = dayMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
-                }
-
-                // Effective goal for that day (respects its own reverse diet)
-                let eFat = baseFat, eProtein = baseProtein, eCarbs = baseCarbs;
-                if (reverseDietDates[pastDateStr] === true) {
-                    eFat *= 1.2; eProtein *= 1.2; eCarbs *= 1.2;
-                }
-
-                const errFat = dayFat - eFat;
-                const errProtein = dayProtein - eProtein;
-                const errCarbs = dayCarbs - eCarbs;
-
-                // Exponential decay: weight = (1-α)^(i-1), so yesterday (i=1) has weight 1.0
-                const decayWeight = Math.pow(1 - Ialpha, i - 1);
-                errors.fat.push(errFat * decayWeight);
-                errors.protein.push(errProtein * decayWeight);
-                errors.carbs.push(errCarbs * decayWeight);
-                dayData.push({ date: pastDateStr, fat: dayFat, protein: dayProtein, carbs: dayCarbs,
-                               errFat, errProtein, errCarbs, decayWeight, daysBack: i });
-            }
-
-            // P terms (yesterday = errors[0], raw unweighted)
-            const p_fat     = Kp * errors.fat[0];
-            const p_protein = Kp * errors.protein[0];
-            const p_carbs   = Kp * errors.carbs[0];
-
-            // I terms: exponentially weighted sum (errors array is already weighted)
-            const i_sum_fat     = errors.fat.reduce((a, b) => a + b, 0);
-            const i_sum_protein = errors.protein.reduce((a, b) => a + b, 0);
-            const i_sum_carbs   = errors.carbs.reduce((a, b) => a + b, 0);
-            const i_fat     = Ki * i_sum_fat;
-            const i_protein = Ki * i_sum_protein;
-            const i_carbs   = Ki * i_sum_carbs;
-
-            // Raw adjustment (subtracted from goal)
-            const rawAdj_fat     = p_fat + i_fat;
-            const rawAdj_protein = p_protein + i_protein;
-            const rawAdj_carbs   = p_carbs + i_carbs;
-
-            // Clamp to ±33% of base goal
-            const cap = 0.33;
-            const adj_fat     = Math.max(-goalFat     * cap, Math.min(goalFat     * cap, rawAdj_fat));
-            const adj_protein = Math.max(-goalProtein * cap, Math.min(goalProtein * cap, rawAdj_protein));
-            const adj_carbs   = Math.max(-goalCarbs   * cap, Math.min(goalCarbs   * cap, rawAdj_carbs));
-
-            goalFat     -= adj_fat;
-            goalProtein -= adj_protein;
-            goalCarbs   -= adj_carbs;
-
-            piDebug = {
-                fat:     { p_err: errors.fat[0],     p_adj: p_fat,     i_sum: i_sum_fat,     i_adj: i_fat,     raw_adj: rawAdj_fat,     final_adj: adj_fat,     clamped: Math.abs(rawAdj_fat)     > goalFat     * cap },
-                protein: { p_err: errors.protein[0], p_adj: p_protein, i_sum: i_sum_protein, i_adj: i_protein, raw_adj: rawAdj_protein, final_adj: adj_protein, clamped: Math.abs(rawAdj_protein) > goalProtein * cap },
-                carbs:   { p_err: errors.carbs[0],   p_adj: p_carbs,   i_sum: i_sum_carbs,   i_adj: i_carbs,   raw_adj: rawAdj_carbs,   final_adj: adj_carbs,   clamped: Math.abs(rawAdj_carbs)   > goalCarbs   * cap },
-                dayData, Kp, Ki, Ialpha, cap
-            };
+        // Apply reverse diet AFTER PI adjustment so the controller's error signal
+        // is not inflated, and the cap is not inadvertently widened
+        if (reverseDietDates[date] === true) {
+            goalFat     *= 1.2;
+            goalProtein *= 1.2;
+            goalCarbs   *= 1.2;
         }
 
         // Add workout credit: distribute burned calories as additional macro allowance
@@ -293,7 +225,7 @@ class FitnessTrackerApp {
         const caloriesCredited = caloriesBurned / 2;
 
         if (caloriesCredited > 0) {
-            const baseGoalCal = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
+            const baseGoalCal = calculateMacroCalories(goalProtein, goalCarbs, goalFat, 0);
             if (baseGoalCal > 0) {
                 goalFat     += (caloriesCredited * (goalFat * 9 / baseGoalCal)) / 9;
                 goalProtein += (caloriesCredited * (goalProtein * 4 / baseGoalCal)) / 4;
@@ -301,7 +233,7 @@ class FitnessTrackerApp {
             }
         }
 
-        const goalCalories = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
+        const goalCalories = calculateMacroCalories(goalProtein, goalCarbs, goalFat, 0);
 
         return {
             fat: goalFat,
@@ -608,12 +540,69 @@ class FitnessTrackerApp {
                 }
             }
 
+            // Update water tracker widget
+            await this.loadWaterTracker();
+
             // Display recent activity
             await this.loadRecentActivity();
 
         } catch (error) {
             console.error('Error loading dashboard:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Load and wire up the water intake tracker widget on the dashboard
+     */
+    async loadWaterTracker() {
+        const today = this.currentDate;
+        const goal = parseInt(await db.getSetting('water_goal_oz') || 64);
+
+        // Water log stored as JSON: { [date]: count_oz }
+        const waterLog = JSON.parse(await db.getSetting('water_log') || '{}');
+        const current = waterLog[today] || 0;
+
+        const countEl = document.getElementById('water-count');
+        const labelEl = document.getElementById('water-label');
+        const fillEl = document.getElementById('water-progress-fill');
+        const minusBtn = document.getElementById('btn-water-minus');
+        const plusBtn = document.getElementById('btn-water-plus');
+
+        if (!countEl) return;
+
+        const render = (oz) => {
+            countEl.textContent = oz;
+            if (labelEl) labelEl.textContent = `${oz} / ${goal} oz`;
+            if (fillEl) fillEl.style.width = `${Math.min(100, (oz / goal) * 100)}%`;
+        };
+
+        render(current);
+
+        // Remove old listeners by replacing the buttons
+        const newPlus = plusBtn ? plusBtn.cloneNode(true) : null;
+        const newMinus = minusBtn ? minusBtn.cloneNode(true) : null;
+        if (plusBtn && newPlus) plusBtn.replaceWith(newPlus);
+        if (minusBtn && newMinus) minusBtn.replaceWith(newMinus);
+
+        const save = async (oz) => {
+            const log = JSON.parse(await db.getSetting('water_log') || '{}');
+            log[today] = Math.max(0, oz);
+            await db.setSetting('water_log', JSON.stringify(log));
+            render(log[today]);
+        };
+
+        if (newPlus) {
+            newPlus.addEventListener('click', async () => {
+                const log = JSON.parse(await db.getSetting('water_log') || '{}');
+                await save((log[today] || 0) + 8);
+            });
+        }
+        if (newMinus) {
+            newMinus.addEventListener('click', async () => {
+                const log = JSON.parse(await db.getSetting('water_log') || '{}');
+                await save((log[today] || 0) - 8);
+            });
         }
     }
 
@@ -931,7 +920,7 @@ class FitnessTrackerApp {
 
         // Calories row (calorie equivalents of all macro adjustments)
         const fmtCal = (n) => (n >= 0 ? '+' : '') + Math.round(n) + 'cal';
-        const calBase = baseFat * 9 + baseProtein * 4 + baseCarbs * 4;
+        const calBase = calculateMacroCalories(baseProtein, baseCarbs, baseFat, 0);
         const calPErr = piDebug.fat.p_err * 9 + piDebug.protein.p_err * 4 + piDebug.carbs.p_err * 4;
         const calISum = piDebug.fat.i_sum * 9 + piDebug.protein.i_sum * 4 + piDebug.carbs.i_sum * 4;
         const calAdj  = piDebug.fat.final_adj * 9 + piDebug.protein.final_adj * 4 + piDebug.carbs.final_adj * 4;
@@ -1045,7 +1034,7 @@ class FitnessTrackerApp {
             const fat = parseFloat(fatInput.value || 0);
             const protein = parseFloat(proteinInput.value || 0);
             const carbs = parseFloat(carbsInput.value || 0);
-            const calories = (fat * 9) + (protein * 4) + (carbs * 4);
+            const calories = calculateMacroCalories(protein, carbs, fat, 0);
             if (computedCaloriesEl) {
                 computedCaloriesEl.textContent = `${calories.toFixed(0)} cal`;
             }
@@ -1144,7 +1133,7 @@ class FitnessTrackerApp {
                 const fat = parseFloat(fatInput.value) || 70;
                 const protein = parseFloat(proteinInput.value) || 150;
                 const carbs = parseFloat(carbsInput.value) || 200;
-                const calories = (fat * 9) + (protein * 4) + (carbs * 4);
+                const calories = calculateMacroCalories(protein, carbs, fat, 0);
 
                 await db.setSetting('goal_fat', fat);
                 await db.setSetting('goal_protein', protein);
@@ -1223,6 +1212,81 @@ class FitnessTrackerApp {
                 await db.setSetting('pi_ialpha', ialphaSlider.value);
             });
         }
+
+        // Water goal setting
+        const waterGoalInput = document.getElementById('water-goal-oz');
+        if (waterGoalInput) {
+            waterGoalInput.value = await db.getSetting('water_goal_oz') || 64;
+            waterGoalInput.addEventListener('change', async () => {
+                const val = parseInt(waterGoalInput.value);
+                if (val >= 8) await db.setSetting('water_goal_oz', val);
+            });
+        }
+
+        // Body stats & TDEE display
+        const userSexSelect = document.getElementById('user-sex');
+        const userAgeInput = document.getElementById('user-age');
+        const userHeightInput = document.getElementById('user-height');
+        const tdeeDisplay = document.getElementById('tdee-display');
+        const tdeeBmrRow = document.getElementById('tdee-bmr-row');
+        const tdeeTbody = document.getElementById('tdee-tbody');
+
+        const savedSex = await db.getSetting('user_sex') || 'male';
+        const savedAge = await db.getSetting('user_age') || '';
+        const savedHeight = await db.getSetting('user_height_in') || '';
+        if (userSexSelect) userSexSelect.value = savedSex;
+        if (userAgeInput) userAgeInput.value = savedAge;
+        if (userHeightInput) userHeightInput.value = savedHeight;
+
+        const updateTDEE = async () => {
+            const sex = userSexSelect ? userSexSelect.value : savedSex;
+            const age = parseFloat(userAgeInput ? userAgeInput.value : savedAge);
+            const heightIn = parseFloat(userHeightInput ? userHeightInput.value : savedHeight);
+            const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 0);
+
+            if (!age || !heightIn || !weightLbs || !tdeeDisplay) return;
+
+            const weightKg = weightLbs * 0.453592;
+            const heightCm = heightIn * 2.54;
+
+            // Mifflin-St Jeor BMR
+            const bmr = sex === 'female'
+                ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
+                : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
+
+            const activityLevels = [
+                { label: 'Sedentary (desk job)', multiplier: 1.2 },
+                { label: 'Lightly active (1-3 days/wk)', multiplier: 1.375 },
+                { label: 'Moderately active (3-5 days/wk)', multiplier: 1.55 },
+                { label: 'Very active (6-7 days/wk)', multiplier: 1.725 },
+                { label: 'Extra active (2×/day)', multiplier: 1.9 }
+            ];
+
+            tdeeDisplay.style.display = 'block';
+            if (tdeeBmrRow) tdeeBmrRow.textContent = `BMR: ${Math.round(bmr)} cal/day`;
+            if (tdeeTbody) {
+                tdeeTbody.innerHTML = activityLevels.map(({ label, multiplier }) => {
+                    const tdee = Math.round(bmr * multiplier);
+                    return `<tr>
+                        <td style="padding: 3px 0; color: var(--text-secondary); font-size: 12px;">${label}</td>
+                        <td style="padding: 3px 0; text-align: right; font-weight: 600;">${tdee} cal</td>
+                    </tr>`;
+                }).join('');
+            }
+        };
+
+        const saveBodyStats = async () => {
+            if (userSexSelect) await db.setSetting('user_sex', userSexSelect.value);
+            if (userAgeInput && userAgeInput.value) await db.setSetting('user_age', userAgeInput.value);
+            if (userHeightInput && userHeightInput.value) await db.setSetting('user_height_in', userHeightInput.value);
+            await updateTDEE();
+        };
+
+        if (userSexSelect) userSexSelect.addEventListener('change', saveBodyStats);
+        if (userAgeInput) userAgeInput.addEventListener('change', saveBodyStats);
+        if (userHeightInput) userHeightInput.addEventListener('change', saveBodyStats);
+
+        await updateTDEE();
 
         // Set up theme toggle
         const themeToggle = document.getElementById('theme-toggle');

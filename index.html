@@ -60,6 +60,24 @@
                     <div class="stat-card">
                         <div id="today-macros-summary">Loading...</div>
                     </div>
+                    <!-- Water Tracker -->
+                    <div class="stat-card" id="water-tracker-card" style="padding: 10px 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span style="font-size: 1.2em;">💧</span>
+                            <span style="font-weight: 600; font-size: 0.95em;">Water</span>
+                            <div style="flex: 1; min-width: 120px;">
+                                <div id="water-progress-bar" style="height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                    <div id="water-progress-fill" style="height: 100%; width: 0%; background: var(--accent-color); border-radius: 4px; transition: width 0.3s;"></div>
+                                </div>
+                                <div id="water-label" style="font-size: 12px; color: var(--text-secondary); margin-top: 3px;">0 / 64 oz</div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <button id="btn-water-minus" class="btn-secondary btn-small" style="padding: 2px 8px; font-size: 1.1em;">−</button>
+                                <span id="water-count" style="min-width: 28px; text-align: center; font-weight: 700; font-size: 1.1em;">0</span>
+                                <button id="btn-water-plus" class="btn-primary btn-small" style="padding: 2px 8px; font-size: 1.1em;">+</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="recent-activity">
                         <div id="recent-activity-list">No activity today</div>
                     </div>
@@ -217,6 +235,36 @@
                     </div>
 
                     <div class="settings-section">
+                        <h3>Body Stats &amp; TDEE</h3>
+                        <div class="form-group-inline">
+                            <label for="user-sex">Sex</label>
+                            <select id="user-sex">
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                            </select>
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="user-age">Age (years)</label>
+                            <input type="number" id="user-age" placeholder="30" step="1" min="10" max="120">
+                        </div>
+                        <div class="form-group-inline">
+                            <label for="user-height">Height (in)</label>
+                            <input type="number" id="user-height" placeholder="70" step="0.5" min="36" max="96">
+                        </div>
+                        <div class="form-group-inline" style="margin-top: 8px;">
+                            <label for="water-goal-oz">Daily Water Goal (oz)</label>
+                            <input type="number" id="water-goal-oz" placeholder="64" step="8" min="8" max="300">
+                        </div>
+                        <div id="tdee-display" style="margin-top: 10px; padding: 10px; background: var(--bg-tertiary); border-radius: var(--radius-md); font-size: 13px; display: none;">
+                            <div style="font-weight: 600; margin-bottom: 6px;">Estimated TDEE (Mifflin-St Jeor)</div>
+                            <div id="tdee-bmr-row" style="color: var(--text-secondary); margin-bottom: 4px;"></div>
+                            <table id="tdee-table" style="width: 100%; border-collapse: collapse;">
+                                <tbody id="tdee-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
                         <h3>Preferences</h3>
                         <div class="form-group-inline">
                             <label for="theme-toggle">Theme</label>
@@ -262,7 +310,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p>Fitness Pizza v2.1.8 🍕</p>
+                        <p>Fitness Pizza v2.1.9 🍕</p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

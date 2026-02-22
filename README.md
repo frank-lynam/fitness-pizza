@@ -140,7 +140,20 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.3
+**Current**: v2.1.9
+- **Fix Core calorie inconsistency**: preview and saved calorie values for Core/Lifting workouts now use the same shared `computeWorkoutCalories()` helper (was 0.5 vs 0.3 for Core)
+- **Fix service worker offline cache**: all 8 component JS files, `api.js`, and icon paths now included in `STATIC_ASSETS` — app works fully offline
+- **Fix setInterval leak**: `setupReverseDietToggle` now stores and clears its polling interval ID, preventing accumulating background timers
+- **Calorie formula dedup**: 5 inline `(fat*9)+(protein*4)+(carbs*4)` expressions in `app.js` replaced with `calculateMacroCalories()` from the shared utility
+- **PI controller extracted**: `calculateEffectiveGoals()` PI logic moved to `js/utils/pi-controller.js` for independent testability
+- **Fix reverse diet / PI interaction**: reverse diet multiplier is now applied AFTER PI adjustment so the controller's error signal and clamp cap are based on unmodified base goals
+- **TDEE display in Settings**: new Body Stats section with sex/age/height inputs shows Mifflin-St Jeor BMR and TDEE at 5 activity levels
+- **Water intake tracker**: dashboard now shows a daily water counter (+8 oz / −8 oz buttons) with a progress bar and configurable goal in Settings
+
+**Previous**: v2.1.8
+- (See git history)
+
+**Previous**: v2.1.3
 - **Fix Ialpha initialization**: moved PI gain constants above the error loop to fix temporal dead zone crash
 - **Ialpha settings slider**: α decay rate is now configurable in Settings alongside Kp/Ki
 

@@ -5,6 +5,9 @@
 
 import { db } from '../db.js';
 import { calculateMacroCalories } from '../utils/calorie-calc.js';
+
+// Module-level interval ID so it can be cleared when the screen is re-entered
+let _reverseDietIntervalId = null;
 import { validateMacros, showFieldError, clearFieldError, clearFormErrors } from '../utils/validation.js';
 import * as ui from '../ui.js';
 import { formatDateTime, getTodayDate } from '../utils/date-utils.js';
@@ -73,11 +76,15 @@ async function setupReverseDietToggle(toggle) {
 
     // Re-check state when date changes (if fitnessApp is available)
     if (window.fitnessApp) {
-        const originalGetCurrentDate = window.fitnessApp.getCurrentDate;
         let lastDate = currentDate;
 
-        // Poll for date changes
-        setInterval(async () => {
+        // Clear any previous poll before starting a new one
+        if (_reverseDietIntervalId !== null) {
+            clearInterval(_reverseDietIntervalId);
+        }
+
+        // Poll for date changes and store the ID so it can be cleared later
+        _reverseDietIntervalId = setInterval(async () => {
             const newDate = window.fitnessApp.getCurrentDate();
             if (newDate !== lastDate) {
                 lastDate = newDate;

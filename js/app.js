@@ -540,69 +540,12 @@ class FitnessTrackerApp {
                 }
             }
 
-            // Update water tracker widget
-            await this.loadWaterTracker();
-
             // Display recent activity
             await this.loadRecentActivity();
 
         } catch (error) {
             console.error('Error loading dashboard:', error);
             throw error;
-        }
-    }
-
-    /**
-     * Load and wire up the water intake tracker widget on the dashboard
-     */
-    async loadWaterTracker() {
-        const today = this.currentDate;
-        const goal = parseInt(await db.getSetting('water_goal_oz') || 64);
-
-        // Water log stored as JSON: { [date]: count_oz }
-        const waterLog = JSON.parse(await db.getSetting('water_log') || '{}');
-        const current = waterLog[today] || 0;
-
-        const countEl = document.getElementById('water-count');
-        const labelEl = document.getElementById('water-label');
-        const fillEl = document.getElementById('water-progress-fill');
-        const minusBtn = document.getElementById('btn-water-minus');
-        const plusBtn = document.getElementById('btn-water-plus');
-
-        if (!countEl) return;
-
-        const render = (oz) => {
-            countEl.textContent = oz;
-            if (labelEl) labelEl.textContent = `${oz} / ${goal} oz`;
-            if (fillEl) fillEl.style.width = `${Math.min(100, (oz / goal) * 100)}%`;
-        };
-
-        render(current);
-
-        // Remove old listeners by replacing the buttons
-        const newPlus = plusBtn ? plusBtn.cloneNode(true) : null;
-        const newMinus = minusBtn ? minusBtn.cloneNode(true) : null;
-        if (plusBtn && newPlus) plusBtn.replaceWith(newPlus);
-        if (minusBtn && newMinus) minusBtn.replaceWith(newMinus);
-
-        const save = async (oz) => {
-            const log = JSON.parse(await db.getSetting('water_log') || '{}');
-            log[today] = Math.max(0, oz);
-            await db.setSetting('water_log', JSON.stringify(log));
-            render(log[today]);
-        };
-
-        if (newPlus) {
-            newPlus.addEventListener('click', async () => {
-                const log = JSON.parse(await db.getSetting('water_log') || '{}');
-                await save((log[today] || 0) + 8);
-            });
-        }
-        if (newMinus) {
-            newMinus.addEventListener('click', async () => {
-                const log = JSON.parse(await db.getSetting('water_log') || '{}');
-                await save((log[today] || 0) - 8);
-            });
         }
     }
 
@@ -1210,16 +1153,6 @@ class FitnessTrackerApp {
             ialphaSlider.addEventListener('input', async () => {
                 if (ialphaValue) ialphaValue.textContent = parseFloat(ialphaSlider.value).toFixed(2);
                 await db.setSetting('pi_ialpha', ialphaSlider.value);
-            });
-        }
-
-        // Water goal setting
-        const waterGoalInput = document.getElementById('water-goal-oz');
-        if (waterGoalInput) {
-            waterGoalInput.value = await db.getSetting('water_goal_oz') || 64;
-            waterGoalInput.addEventListener('change', async () => {
-                const val = parseInt(waterGoalInput.value);
-                if (val >= 8) await db.setSetting('water_goal_oz', val);
             });
         }
 

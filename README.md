@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.9
+**Current**: v2.1.10
+- **Remove water tracker**: removed water intake tracking from dashboard and settings
+
+**Previous**: v2.1.9
 - **Fix Core calorie inconsistency**: preview and saved calorie values for Core/Lifting workouts now use the same shared `computeWorkoutCalories()` helper (was 0.5 vs 0.3 for Core)
 - **Fix service worker offline cache**: all 8 component JS files, `api.js`, and icon paths now included in `STATIC_ASSETS` — app works fully offline
 - **Fix setInterval leak**: `setupReverseDietToggle` now stores and clears its polling interval ID, preventing accumulating background timers

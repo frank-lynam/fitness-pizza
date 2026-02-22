@@ -270,8 +270,9 @@ async function updateEstimatedCalories() {
 
     if (exerciseType === 'Cardio' && durationMinutes > 0) {
         if (pace > 0) {
-            // MET-based calculation when pace is provided
-            const met = pace <= 6 ? 16 : pace <= 8 ? 12 : pace <= 10 ? 10 : pace <= 12 ? 8 : 4;
+            // Continuous MET from pace: speed (mph) = 60/pace, MET rises linearly with speed
+            const speedMph = 60 / pace;
+            const met = Math.min(20, Math.max(3.5, 1.5 * speedMph + 1.0));
             const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
             const weightKg = weightLbs * 0.453592;
             calories = (met * 3.5 * weightKg / 200) * durationMinutes;
@@ -332,7 +333,8 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
         let estimatedCalories = 0;
         if (exerciseType === 'Cardio') {
             if (pace > 0) {
-                const met = pace <= 6 ? 16 : pace <= 8 ? 12 : pace <= 10 ? 10 : pace <= 12 ? 8 : 4;
+                const speedMph = 60 / pace;
+                const met = Math.min(20, Math.max(3.5, 1.5 * speedMph + 1.0));
                 const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
                 const weightKg = weightLbs * 0.453592;
                 estimatedCalories = (met * 3.5 * weightKg / 200) * durationMinutes;

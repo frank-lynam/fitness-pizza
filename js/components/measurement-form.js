@@ -33,6 +33,7 @@ export function initMeasurementForm() {
     if (btnEstimateCalipers) {
         btnEstimateCalipers.addEventListener('click', () => showCaliperEstimatorForm());
     }
+
 }
 
 /**
@@ -367,9 +368,11 @@ async function showNavyEstimatorForm() {
     const formContainer = document.getElementById('measurement-form-container');
     if (!formContainer) return;
 
-    // Auto-populate from latest saved measurements
+    // Pre-fill from Settings body stats and latest saved measurements
     let waistInches = '';
     let waistNote = '';
+    let savedHeight = '';
+    let savedSex = 'male';
     try {
         const waistMeasurements = await db.getMeasurementsByType('waist');
         if (waistMeasurements.length > 0) {
@@ -381,6 +384,8 @@ async function showNavyEstimatorForm() {
                 waistNote = ` <span style="font-size:0.8em;color:var(--text-secondary);">(from ${latest.date})</span>`;
             }
         }
+        savedHeight = await db.getSetting('user_height_in') || '';
+        savedSex    = await db.getSetting('user_sex') || 'male';
     } catch (e) { /* ignore — form still works without pre-fill */ }
 
     formContainer.innerHTML = `
@@ -393,17 +398,17 @@ async function showNavyEstimatorForm() {
                 <label>Sex</label>
                 <div style="display:flex;gap:12px;">
                     <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
-                        <input type="radio" name="navy-sex" value="male" checked> Male
+                        <input type="radio" name="navy-sex" value="male" ${savedSex !== 'female' ? 'checked' : ''}> Male
                     </label>
                     <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
-                        <input type="radio" name="navy-sex" value="female"> Female
+                        <input type="radio" name="navy-sex" value="female" ${savedSex === 'female' ? 'checked' : ''}> Female
                     </label>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="navy-height">Height (in)</label>
-                    <input type="number" id="navy-height" step="0.1" min="48" max="96" placeholder="70">
+                    <input type="number" id="navy-height" step="0.1" min="48" max="96" placeholder="70" value="${savedHeight}">
                 </div>
                 <div class="form-group">
                     <label for="navy-neck">Neck (in)</label>
@@ -435,13 +440,15 @@ async function showNavyEstimatorForm() {
         formContainer.innerHTML = '';
     });
 
-    // Show/hide hip field based on sex
+    // Show/hide hip field based on sex (and apply initial state from saved setting)
+    const applyNavySexVisibility = () => {
+        const isFemale = document.querySelector('input[name="navy-sex"]:checked').value === 'female';
+        document.getElementById('navy-hip-group').style.display = isFemale ? '' : 'none';
+    };
     document.querySelectorAll('input[name="navy-sex"]').forEach(r => {
-        r.addEventListener('change', () => {
-            const isFemale = document.querySelector('input[name="navy-sex"]:checked').value === 'female';
-            document.getElementById('navy-hip-group').style.display = isFemale ? '' : 'none';
-        });
+        r.addEventListener('change', applyNavySexVisibility);
     });
+    applyNavySexVisibility();
 
     let estimatedBF = null;
 
@@ -503,9 +510,17 @@ async function showNavyEstimatorForm() {
  * %BF = (495 / D) - 450  (Siri equation)
  * Skinfold measurements in mm.
  */
-function showCaliperEstimatorForm() {
+async function showCaliperEstimatorForm() {
     const formContainer = document.getElementById('measurement-form-container');
     if (!formContainer) return;
+
+    // Pre-fill age and sex from Settings
+    let savedAge = '';
+    let savedSex = 'male';
+    try {
+        savedAge = await db.getSetting('user_age') || '';
+        savedSex = await db.getSetting('user_sex') || 'male';
+    } catch (e) { /* ignore */ }
 
     formContainer.innerHTML = `
         <div class="measurement-form-card">
@@ -517,33 +532,55 @@ function showCaliperEstimatorForm() {
                 <label>Sex</label>
                 <div style="display:flex;gap:12px;">
                     <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
-                        <input type="radio" name="caliper-sex" value="male" checked> Male
+                        <input type="radio" name="caliper-sex" value="male" ${savedSex !== 'female' ? 'checked' : ''}> Male
                     </label>
                     <label style="display:flex;align-items:center;gap:4px;font-weight:normal;">
-                        <input type="radio" name="caliper-sex" value="female"> Female
+                        <input type="radio" name="caliper-sex" value="female" ${savedSex === 'female' ? 'checked' : ''}> Female
                     </label>
                 </div>
             </div>
             <div class="form-row">
                 <div class="form-group">
                     <label for="caliper-age">Age</label>
-                    <input type="number" id="caliper-age" step="1" min="18" max="99" placeholder="30">
+                    <input type="number" id="caliper-age" step="1" min="18" max="99" placeholder="30" value="${savedAge}">
                 </div>
             </div>
             <div id="caliper-sites-male">
-                <p style="font-size:0.85em;color:var(--text-secondary);margin:4px 0 8px;">Measure in mm at: chest (diagonal fold), abdomen (vertical, 1in right of navel), thigh (vertical, mid front thigh)</p>
                 <div class="form-row">
-                    <div class="form-group"><label for="caliper-chest">Chest (mm)</label><input type="number" id="caliper-chest" step="0.5" min="1" max="80" placeholder="10"></div>
-                    <div class="form-group"><label for="caliper-abdomen">Abdomen (mm)</label><input type="number" id="caliper-abdomen" step="0.5" min="1" max="80" placeholder="15"></div>
-                    <div class="form-group"><label for="caliper-thigh-m">Thigh (mm)</label><input type="number" id="caliper-thigh-m" step="0.5" min="1" max="80" placeholder="12"></div>
+                    <div class="form-group">
+                        <label for="caliper-chest">Chest (mm)</label>
+                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Diagonal pinch, center of pec — halfway between nipple and front armpit crease</p>
+                        <input type="number" id="caliper-chest" step="0.5" min="1" max="80" placeholder="10">
+                    </div>
+                    <div class="form-group">
+                        <label for="caliper-abdomen">Abdomen (mm)</label>
+                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Vertical pinch, 1 in (2.5 cm) to the right of the navel</p>
+                        <input type="number" id="caliper-abdomen" step="0.5" min="1" max="80" placeholder="15">
+                    </div>
+                    <div class="form-group">
+                        <label for="caliper-thigh-m">Thigh (mm)</label>
+                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Vertical pinch, midpoint of front thigh between hip crease and kneecap</p>
+                        <input type="number" id="caliper-thigh-m" step="0.5" min="1" max="80" placeholder="12">
+                    </div>
                 </div>
             </div>
             <div id="caliper-sites-female" style="display:none;">
-                <p style="font-size:0.85em;color:var(--text-secondary);margin:4px 0 8px;">Measure in mm at: tricep (vertical, back of upper arm), suprailiac (diagonal, above hip bone), thigh (vertical, mid front thigh)</p>
                 <div class="form-row">
-                    <div class="form-group"><label for="caliper-tricep">Tricep (mm)</label><input type="number" id="caliper-tricep" step="0.5" min="1" max="80" placeholder="15"></div>
-                    <div class="form-group"><label for="caliper-suprailiac">Suprailiac (mm)</label><input type="number" id="caliper-suprailiac" step="0.5" min="1" max="80" placeholder="12"></div>
-                    <div class="form-group"><label for="caliper-thigh-f">Thigh (mm)</label><input type="number" id="caliper-thigh-f" step="0.5" min="1" max="80" placeholder="20"></div>
+                    <div class="form-group">
+                        <label for="caliper-tricep">Tricep (mm)</label>
+                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Vertical pinch, midpoint of back of upper arm — shoulder to elbow, arm hanging relaxed</p>
+                        <input type="number" id="caliper-tricep" step="0.5" min="1" max="80" placeholder="15">
+                    </div>
+                    <div class="form-group">
+                        <label for="caliper-suprailiac">Suprailiac (mm)</label>
+                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Diagonal pinch following skin fold, just above the hip bone (iliac crest) at the side</p>
+                        <input type="number" id="caliper-suprailiac" step="0.5" min="1" max="80" placeholder="12">
+                    </div>
+                    <div class="form-group">
+                        <label for="caliper-thigh-f">Thigh (mm)</label>
+                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Vertical pinch, midpoint of front thigh between hip crease and kneecap</p>
+                        <input type="number" id="caliper-thigh-f" step="0.5" min="1" max="80" placeholder="20">
+                    </div>
                 </div>
             </div>
             <div id="caliper-result" style="margin:8px 0;font-size:1.1em;font-weight:600;color:var(--accent-primary);min-height:1.5em;"></div>
@@ -561,13 +598,15 @@ function showCaliperEstimatorForm() {
         formContainer.innerHTML = '';
     });
 
+    const applyCaliperSexVisibility = () => {
+        const isFemale = document.querySelector('input[name="caliper-sex"]:checked').value === 'female';
+        document.getElementById('caliper-sites-male').style.display = isFemale ? 'none' : '';
+        document.getElementById('caliper-sites-female').style.display = isFemale ? '' : 'none';
+    };
     document.querySelectorAll('input[name="caliper-sex"]').forEach(r => {
-        r.addEventListener('change', () => {
-            const isFemale = document.querySelector('input[name="caliper-sex"]:checked').value === 'female';
-            document.getElementById('caliper-sites-male').style.display = isFemale ? 'none' : '';
-            document.getElementById('caliper-sites-female').style.display = isFemale ? '' : 'none';
-        });
+        r.addEventListener('change', applyCaliperSexVisibility);
     });
+    applyCaliperSexVisibility();
 
     let estimatedBF = null;
 

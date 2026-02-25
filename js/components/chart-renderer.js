@@ -8,6 +8,14 @@ import { db } from '../db.js';
 let charts = {};
 
 /**
+ * Format a Date object as a local YYYY-MM-DD string (avoids UTC offset shifting the date).
+ */
+function localDateStr(d) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
  * Initialize all charts on the trends screen
  */
 export async function initCharts() {
@@ -60,7 +68,7 @@ async function renderCharts(days) {
         // Render individual charts
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
-        await renderWorkoutVolume(filteredWorkouts);
+        await renderMacroDelta(filteredMacros, days);
 
     } catch (error) {
         console.error('Error rendering charts:', error);
@@ -145,14 +153,12 @@ async function renderBodyComposition(allMeasurements, days) {
 
     // Determine display date range
     const today = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const dateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-    const todayStr = dateStr(today);
+    const todayStr = localDateStr(today);
     let minDateStr;
     if (days) {
         const start = new Date(today);
         start.setDate(start.getDate() - (days - 1));
-        minDateStr = dateStr(start);
+        minDateStr = localDateStr(start);
     } else {
         const allDates = [...Object.keys(weightByDate), ...Object.keys(bfByDate)].sort();
         minDateStr = allDates[0] || todayStr;
@@ -166,12 +172,12 @@ async function renderBodyComposition(allMeasurements, days) {
     const end = new Date(todayStr + 'T12:00:00');
 
     while (cur <= end) {
-        const ds = dateStr(cur);
+        const ds = localDateStr(cur);
         let wSum = 0, wCount = 0, bfSum = 0, bfCount = 0;
         for (let back = 0; back < 7; back++) {
             const d = new Date(cur);
             d.setDate(d.getDate() - back);
-            const dds = dateStr(d);
+            const dds = localDateStr(d);
             if (weightByDate[dds] !== undefined) { wSum += weightByDate[dds]; wCount++; }
             if (bfByDate[dds]     !== undefined) { bfSum += bfByDate[dds];     bfCount++; }
         }
@@ -240,53 +246,40 @@ async function renderCalorieBalance(macros, workouts, days) {
     const ctx = document.getElementById('calorie-balance-chart');
     if (!ctx) return;
 
-    // Determine date range based on days parameter
+    // Determine date range using local dates to avoid UTC offset shifting the last day
+    const today = new Date();
     let minDate, maxDate;
 
     if (days) {
-        // For specific day ranges, calculate from today backward
-        const today = new Date();
-        maxDate = today.toISOString().split('T')[0];
-
+        maxDate = localDateStr(today);
         const startDate = new Date(today);
         startDate.setDate(startDate.getDate() - (days - 1));
-        minDate = startDate.toISOString().split('T')[0];
+        minDate = localDateStr(startDate);
     } else {
-        // For "All Time", use date range from the data
         [...macros, ...workouts].forEach(item => {
             if (!minDate || item.date < minDate) minDate = item.date;
             if (!maxDate || item.date > maxDate) maxDate = item.date;
         });
-
-        // If no data, use today
         if (!minDate || !maxDate) {
-            const today = new Date().toISOString().split('T')[0];
-            minDate = maxDate = today;
+            minDate = maxDate = localDateStr(today);
         }
     }
 
     // Initialize dates object with all dates in range
     const dates = {};
-    const currentDate = new Date(minDate);
-    const endDate = new Date(maxDate);
-
-    while (currentDate <= endDate) {
-        const dateStr = currentDate.toISOString().split('T')[0];
-        dates[dateStr] = { intake: 0, burned: 0 };
-        currentDate.setDate(currentDate.getDate() + 1);
+    const cur = new Date(minDate + 'T12:00:00');
+    const end = new Date(maxDate + 'T12:00:00');
+    while (cur <= end) {
+        dates[localDateStr(cur)] = { intake: 0, burned: 0 };
+        cur.setDate(cur.getDate() + 1);
     }
 
     // Fill in actual data
     macros.forEach(m => {
-        if (dates[m.date]) {
-            dates[m.date].intake += m.calories || 0;
-        }
+        if (dates[m.date]) dates[m.date].intake += m.calories || 0;
     });
-
     workouts.forEach(w => {
-        if (dates[w.date]) {
-            dates[w.date].burned += w.estimated_calories_burned || 0;
-        }
+        if (dates[w.date]) dates[w.date].burned += w.estimated_calories_burned || 0;
     });
 
     // Get calorie goal
@@ -295,26 +288,21 @@ async function renderCalorieBalance(macros, workouts, days) {
     const goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
     const goalCalories = (goalFat * 9) + (goalProtein * 4) + (goalCarbs * 4);
 
-    // Sort dates and prepare chart data
     const sortedDates = Object.keys(dates).sort();
     const labels = sortedDates;
     const intakeData = sortedDates.map(d => dates[d].intake);
     const burnedData = sortedDates.map(d => dates[d].burned);
     const netData = sortedDates.map(d => dates[d].intake - dates[d].burned);
-    const goalData = sortedDates.map(() => goalCalories); // Flat line at goal
+    const goalData = sortedDates.map(() => goalCalories);
 
-    // Destroy existing chart
-    if (charts.calorieBalance) {
-        charts.calorieBalance.destroy();
-    }
+    if (charts.calorieBalance) charts.calorieBalance.destroy();
 
     const colors = getThemeColors();
 
-    // Create new chart
     charts.calorieBalance = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
+            labels,
             datasets: [
                 {
                     label: 'Goal',
@@ -352,87 +340,119 @@ async function renderCalorieBalance(macros, workouts, days) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: colors.text
-                    }
-                }
-            },
+            plugins: { legend: { labels: { color: colors.text } } },
             scales: {
-                x: {
-                    ticks: { color: colors.textSecondary },
-                    grid: { color: colors.border + '40' }
-                },
-                y: {
-                    ticks: { color: colors.textSecondary },
-                    grid: { color: colors.border + '40' }
-                }
+                x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
+                y: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } }
             }
         }
     });
 }
 
-
 /**
- * Render workout volume bar chart
+ * Render macro over/under line chart.
+ * Shows daily (actual − goal) in grams for fat, protein, and carbs.
+ * Zero = goal met; positive = over; negative = under.
+ * @param {Array} macros - Filtered completed macro entries
+ * @param {number|null} days - Number of days to show, or null for all time
  */
-async function renderWorkoutVolume(workouts) {
-    const ctx = document.getElementById('workout-volume-chart');
+async function renderMacroDelta(macros, days) {
+    const ctx = document.getElementById('macro-delta-chart');
     if (!ctx) return;
 
-    // Group by date
-    const dates = {};
+    if (charts.macroDelta) charts.macroDelta.destroy();
 
-    workouts.forEach(w => {
-        if (!dates[w.date]) {
-            dates[w.date] = 0;
+    const goalFat     = parseFloat(await db.getSetting('goal_fat')     || 70);
+    const goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+    const goalCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
+
+    // Determine date range using local dates
+    const today = new Date();
+    let minDate, maxDate;
+
+    if (days) {
+        maxDate = localDateStr(today);
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - (days - 1));
+        minDate = localDateStr(startDate);
+    } else {
+        macros.forEach(m => {
+            if (!minDate || m.date < minDate) minDate = m.date;
+            if (!maxDate || m.date > maxDate) maxDate = m.date;
+        });
+        if (!minDate || !maxDate) {
+            minDate = maxDate = localDateStr(today);
         }
-        dates[w.date] += w.estimated_calories_burned || 0;
+    }
+
+    // Build per-day totals
+    const byDate = {};
+    const cur = new Date(minDate + 'T12:00:00');
+    const end = new Date(maxDate + 'T12:00:00');
+    while (cur <= end) {
+        byDate[localDateStr(cur)] = { fat: 0, protein: 0, carbs: 0 };
+        cur.setDate(cur.getDate() + 1);
+    }
+
+    macros.forEach(m => {
+        if (byDate[m.date]) {
+            byDate[m.date].fat     += m.fat     || 0;
+            byDate[m.date].protein += m.protein || 0;
+            byDate[m.date].carbs   += m.carbs   || 0;
+        }
     });
 
-    // Sort dates
-    const sortedDates = Object.keys(dates).sort();
+    const sortedDates = Object.keys(byDate).sort();
     const labels = sortedDates;
-    const data = sortedDates.map(d => dates[d]);
-
-    // Destroy existing chart
-    if (charts.workoutVolume) {
-        charts.workoutVolume.destroy();
-    }
+    const fatDelta     = sortedDates.map(d => Math.round((byDate[d].fat     - goalFat)     * 10) / 10);
+    const proteinDelta = sortedDates.map(d => Math.round((byDate[d].protein - goalProtein) * 10) / 10);
+    const carbsDelta   = sortedDates.map(d => Math.round((byDate[d].carbs   - goalCarbs)   * 10) / 10);
 
     const colors = getThemeColors();
 
-    // Create new chart
-    charts.workoutVolume = new Chart(ctx, {
-        type: 'bar',
+    charts.macroDelta = new Chart(ctx, {
+        type: 'line',
         data: {
-            labels: labels,
-            datasets: [{
-                label: 'Calories Burned',
-                data: data,
-                backgroundColor: colors.warning
-            }]
+            labels,
+            datasets: [
+                {
+                    label: 'Fat (g vs goal)',
+                    data: fatDelta,
+                    borderColor: colors.warning,
+                    backgroundColor: 'transparent',
+                    tension: 0,
+                    pointRadius: 2
+                },
+                {
+                    label: 'Protein (g vs goal)',
+                    data: proteinDelta,
+                    borderColor: colors.secondary,
+                    backgroundColor: 'transparent',
+                    tension: 0,
+                    pointRadius: 2
+                },
+                {
+                    label: 'Carbs (g vs goal)',
+                    data: carbsDelta,
+                    borderColor: colors.primary,
+                    backgroundColor: 'transparent',
+                    tension: 0,
+                    pointRadius: 2
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: colors.text
-                    }
-                }
-            },
+            plugins: { legend: { labels: { color: colors.text } } },
             scales: {
-                x: {
-                    ticks: { color: colors.textSecondary },
-                    grid: { color: colors.border + '40' }
-                },
+                x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
                 y: {
-                    ticks: { color: colors.textSecondary },
-                    grid: { color: colors.border + '40' },
-                    beginAtZero: true
+                    ticks: {
+                        color: colors.textSecondary,
+                        callback: v => (v >= 0 ? '+' : '') + v + 'g'
+                    },
+                    grid: { color: colors.border + '40' }
                 }
             }
         }

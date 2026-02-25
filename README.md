@@ -140,7 +140,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.10
+**Current**: v2.1.11
+- **Remove workout volume chart**: removed from Trends tab
+- **Add macro over/under chart**: new line chart on Trends showing daily (actual − goal) in grams for fat, protein, and carbs; y-axis labelled with +/− g, zero = goal met
+- **Fix calorie balance timezone bug**: date range calculation now uses local dates instead of `toISOString()` (UTC), which was shifting the most recent data point by one day for users west of UTC
+
+**Previous**: v2.1.10
 - **Remove water tracker**: removed water intake tracking from dashboard and settings
 
 **Previous**: v2.1.9

@@ -857,7 +857,7 @@ async function handleMaxServings(id) {
  * Show text-based AI macro estimation modal
  */
 function showTextAIModal() {
-    const modal = ui.showModal('AI Macro Estimation', `
+    const modal = ui.createModal('AI Macro Estimation', `
         <div class="photo-upload-container">
             <p class="help-text" style="margin-bottom: 12px;">Describe what you ate and AI will estimate the macros:</p>
 

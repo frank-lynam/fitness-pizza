@@ -140,8 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.13
-- **Fix AI from text error**: moved `_reverseDietIntervalId` declaration to after all import statements in macro-form.js (linter had inserted it between imports, causing a SyntaxError that prevented the module from loading)
+**Current**: v2.1.14
+- **Fix AI from text error**: `showTextAIModal` was calling `ui.showModal()` which doesn't exist — the exported function is `ui.createModal()`; caused a TypeError before the modal could open
+
+**Previous**: v2.1.13
+- **Fix macro-form.js import order**: moved `_reverseDietIntervalId` declaration to after all import statements (linter had inserted it between imports, invalid ES module syntax)
 
 **Previous**: v2.1.12
 - **Body fat forms pre-fill from Settings**: Navy and Caliper estimators now default height, age, and sex from the Body Stats section in Settings

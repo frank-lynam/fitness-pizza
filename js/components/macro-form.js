@@ -5,12 +5,12 @@
 
 import { db } from '../db.js';
 import { calculateMacroCalories } from '../utils/calorie-calc.js';
-
-// Module-level interval ID so it can be cleared when the screen is re-entered
-let _reverseDietIntervalId = null;
 import { validateMacros, showFieldError, clearFieldError, clearFormErrors } from '../utils/validation.js';
 import * as ui from '../ui.js';
 import { formatDateTime, getTodayDate } from '../utils/date-utils.js';
+
+// Module-level interval ID so it can be cleared when the screen is re-entered
+let _reverseDietIntervalId = null;
 
 /**
  * Initialize the macro form component

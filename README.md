@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.12
+**Current**: v2.1.13
+- **Fix AI from text error**: moved `_reverseDietIntervalId` declaration to after all import statements in macro-form.js (linter had inserted it between imports, causing a SyntaxError that prevented the module from loading)
+
+**Previous**: v2.1.12
 - **Body fat forms pre-fill from Settings**: Navy and Caliper estimators now default height, age, and sex from the Body Stats section in Settings
 - **Caliper technique hints**: each measurement site now shows a brief inline technique note (pinch direction, anatomical landmark)
 

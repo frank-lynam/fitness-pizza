@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.17
+**Current**: v2.1.18
+- **PI Controller label + UI polish**: renamed "Running Average Mode" to "PI Controller" throughout; moved the controller logic explanation inside the history accordion (below the per-day table, hidden by default); defined W (sum of exponential decay weights) in the explanation; α slider note now live-computes half-life and derived Ki from the current slider value instead of a hardcoded example.
+
+**Previous**: v2.1.17
 - **PI controller: limit-cycle fix + Ki derived from α**: I-term now references your stored displayed goal (what was actually shown to you each day) instead of the base+workout goal — eliminates the theoretical limit cycle where the controller raises your goal, you eat near base, I-memory fades, goal returns to base, and the cycle repeats. Ki is now derived from α automatically (Ki = α/(1-(1-α)^10)) guaranteeing Ki×W=1 (zero steady-state error) regardless of your α setting — one fewer knob to tune. Goals are stored daily (14-day rolling window) after all adjustments are applied. Per-day debug table shows ● (stored goal used) or ○ (base+workout fallback, before history exists).
 
 **Previous**: v2.1.16

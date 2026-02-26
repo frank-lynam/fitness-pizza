@@ -929,12 +929,6 @@ class FitnessTrackerApp {
         }).join('');
 
         content.innerHTML = `
-            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-                PI controller: Kp=${piDebug.Kp.toFixed(2)}, Ki=${piDebug.Ki.toFixed(3)} (derived from α=${piDebug.Ialpha.toFixed(2)}, Ki×W=${(piDebug.Ki * piDebug.W).toFixed(2)}=1 guaranteed), cap ±${(piDebug.cap * 100).toFixed(0)}%.
-                <strong>P corr</strong> = Kp × yesterday's deviation from base+workout goal.
-                <strong>I corr</strong> = Ki × 10-day weighted sum of deviations from your displayed goal (● stored history; ○ base+workout fallback before history exists).
-                Positive = goal raised (under-eating). Negative = goal lowered (over-eating). P corr + I corr = PI adj.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}
-            </p>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;">
                     <thead>
@@ -972,6 +966,13 @@ class FitnessTrackerApp {
                         <tbody>${dayRows}</tbody>
                     </table>
                 </div>
+                <p style="font-size:11px;color:var(--text-secondary);margin-top:10px;line-height:1.5;">
+                    <strong>Parameters:</strong> Kp=${piDebug.Kp.toFixed(2)}, Ki=${piDebug.Ki.toFixed(3)} (auto-derived), α=${piDebug.Ialpha.toFixed(2)}, cap ±${(piDebug.cap * 100).toFixed(0)}%.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}<br>
+                    <strong>W</strong> = Σ(1−α)<sup>i−1</sup> for i=1..10 = sum of exponential decay weights over the 10-day window = ${piDebug.W.toFixed(2)} (with current α). Ki is set to 1/W so that Ki×W=1, guaranteeing zero steady-state error regardless of α.<br>
+                    <strong>P corr</strong> = Kp × yesterday's deviation from base+workout goal (fast reaction to yesterday's intake).<br>
+                    <strong>I corr</strong> = Ki × 10-day weighted sum of deviations from your displayed goal (● stored history; ○ base+workout fallback before history exists). Using displayed goal prevents the limit cycle where a raised goal causes I-memory to fade once the person eats near base.<br>
+                    Positive = goal raised (under-eating). Negative = goal lowered (over-eating). P corr + I corr = PI adj.
+                </p>
             </details>
         `;
     }
@@ -1144,7 +1145,7 @@ class FitnessTrackerApp {
                 updatePiGainsVisibility(runningAvgCheckbox.checked);
                 if (this.currentScreen === 'dashboard') await this.loadDashboard();
                 ui.showSuccess(runningAvgCheckbox.checked ?
-                    'Running Average Mode enabled' : 'Running Average Mode disabled');
+                    'PI Controller enabled' : 'PI Controller disabled');
             });
         }
 
@@ -1165,11 +1166,21 @@ class FitnessTrackerApp {
         const ialphaSlider = document.getElementById('pi-ialpha');
         const ialphaValue = document.getElementById('pi-ialpha-value');
         const savedIalpha = parseFloat(await db.getSetting('pi_ialpha') || '0.25');
+        const updateIalphaHelp = (alpha) => {
+            const helpEl = document.getElementById('pi-ialpha-help');
+            const halfLife = (Math.log(0.5) / Math.log(1 - alpha)).toFixed(1);
+            const W = (1 - Math.pow(1 - alpha, 10)) / alpha;
+            const Ki = (1 / W).toFixed(3);
+            if (helpEl) helpEl.textContent = `Memory decay rate — Ki is auto-derived from α (currently Ki=${Ki}, Ki×W=1 guaranteed). Higher α = shorter memory (current: ~${halfLife}d half-life).`;
+        };
         if (ialphaSlider) {
             ialphaSlider.value = savedIalpha;
             if (ialphaValue) ialphaValue.textContent = savedIalpha.toFixed(2);
+            updateIalphaHelp(savedIalpha);
             ialphaSlider.addEventListener('input', async () => {
-                if (ialphaValue) ialphaValue.textContent = parseFloat(ialphaSlider.value).toFixed(2);
+                const alpha = parseFloat(ialphaSlider.value);
+                if (ialphaValue) ialphaValue.textContent = alpha.toFixed(2);
+                updateIalphaHelp(alpha);
                 await db.setSetting('pi_ialpha', ialphaSlider.value);
             });
         }

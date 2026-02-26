@@ -137,7 +137,7 @@
                     </div>
                     <div id="pi-controller-panel" class="hidden" style="margin-bottom: 12px;">
                         <div class="settings-section" style="margin: 0;">
-                            <h3>Running Average Controller — <span id="pi-panel-date"></span></h3>
+                            <h3>PI Controller — <span id="pi-panel-date"></span></h3>
                             <div id="pi-explanation-content"></div>
                         </div>
                     </div>
@@ -182,10 +182,10 @@
                         <div class="form-group" style="margin-top: 12px;">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="running-average-mode">
-                                <span>Running Average Mode</span>
+                                <span>PI Controller</span>
                             </label>
                             <p class="help-text" style="margin-top: 4px; font-size: 12px;">
-                                Adjusts daily targets using a PI controller based on recent intake history
+                                Automatically adjusts daily macro targets based on recent intake history
                             </p>
                         </div>
                         <div id="pi-gains-section" class="hidden" style="margin-top: 12px; padding: 10px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
@@ -203,7 +203,7 @@
                                     <input type="range" id="pi-ialpha" min="0.05" max="0.6" step="0.05" value="0.25" style="flex: 1;">
                                     <span id="pi-ialpha-value" style="font-size: 13px; min-width: 32px; text-align: right;">0.25</span>
                                 </div>
-                                <p class="help-text" style="margin: 2px 0 0; font-size: 11px;">Memory decay rate — Ki is derived from α to guarantee full compensation (Ki×W=1). Higher α = shorter memory (0.25 → ~2.4d half-life).</p>
+                                <p class="help-text" id="pi-ialpha-help" style="margin: 2px 0 0; font-size: 11px;">Memory decay rate — Ki is auto-derived from α to guarantee full compensation (Ki×W=1). Higher α = shorter memory.</p>
                             </div>
                         </div>
                     </div>
@@ -280,7 +280,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p>Fitness Pizza v2.1.17 🍕</p>
+                        <p>Fitness Pizza v2.1.18 🍕</p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

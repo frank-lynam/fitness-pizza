@@ -183,15 +183,18 @@ class FitnessTrackerApp {
         let goalProtein = baseProtein;
         let goalCarbs = baseCarbs;
         let piDebug = null;
+        let goalHistory = {};
 
         if (runningAvgEnabled) {
-            // PI controller gains (user-configurable in settings)
+            // PI controller gains (Kp is user-configurable; Ki is derived from Ialpha)
             const Kp = parseFloat(await db.getSetting('pi_kp') || '0.5');
-            const Ki = parseFloat(await db.getSetting('pi_ki') || '0.1');
             const Ialpha = parseFloat(await db.getSetting('pi_ialpha') || '0.25');
 
             const allMacros = await db.getAllMacros();
             const allWorkouts = await db.getAllWorkouts();
+
+            // Stored displayed goals for I-term reference (prevents limit cycles)
+            goalHistory = JSON.parse(await db.getSetting('pi_goal_history') || '{}');
 
             // PI controller operates on BASE goals; reverse diet applied afterwards
             // to prevent the inflated goals from skewing the error signal
@@ -200,7 +203,8 @@ class FitnessTrackerApp {
                 baseFat, baseProtein, baseCarbs,
                 reverseDietDates,
                 allWorkouts,
-                Kp, Ki, Ialpha
+                goalHistory,
+                Kp, Ialpha
             });
 
             goalFat     = result.goalFat;
@@ -236,6 +240,22 @@ class FitnessTrackerApp {
         }
 
         const goalCalories = calculateMacroCalories(goalProtein, goalCarbs, goalFat, 0);
+
+        // Store today's fully-adjusted displayed goal for future I-term lookback.
+        // The stored goal (base + RD + PI adj + workout credit) is used by the
+        // I-term as the reference, preventing the limit cycle where the controller
+        // raises the goal high enough that the person eats near base, fading I-memory
+        // and returning the goal to base indefinitely.
+        // Only saved when computing today's goal, not when querying historical dates.
+        if (runningAvgEnabled && date === today) {
+            goalHistory[today] = { fat: goalFat, protein: goalProtein, carbs: goalCarbs };
+            // Trim to last 14 days to bound storage size
+            const cutoff = new Date(today + 'T12:00:00');
+            cutoff.setDate(cutoff.getDate() - 14);
+            const cutoffStr = cutoff.toISOString().slice(0, 10);
+            Object.keys(goalHistory).forEach(k => { if (k < cutoffStr) delete goalHistory[k]; });
+            await db.setSetting('pi_goal_history', JSON.stringify(goalHistory));
+        }
 
         return {
             fat: goalFat,
@@ -892,8 +912,12 @@ class FitnessTrackerApp {
         // Per-day breakdown
         const dayRows = piDebug.dayData.map(d => {
             const errFmt = (e) => `<span style="color:${e >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(e)}</span>`;
+            // ● = I-err vs stored displayed goal; ○ = fallback to base+workout (no history yet)
+            const refDot = d.hasStoredGoal
+                ? `<span style="color:var(--accent-color);font-size:10px;" title="I-error vs stored displayed goal">●</span>`
+                : `<span style="color:var(--text-secondary);font-size:10px;" title="I-error vs base+workout (no stored goal yet)">○</span>`;
             return `<tr>
-                <td style="padding:3px 6px;">${d.date}</td>
+                <td style="padding:3px 6px;">${d.date} ${refDot}</td>
                 <td style="padding:3px 6px;text-align:right;color:var(--text-secondary);">${(d.decayWeight * 100).toFixed(0)}%</td>
                 <td style="padding:3px 6px;text-align:right;">${d.fat.toFixed(0)}g</td>
                 <td style="padding:3px 6px;text-align:right;">${errFmt(d.errFat)}</td>
@@ -906,11 +930,10 @@ class FitnessTrackerApp {
 
         content.innerHTML = `
             <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-                PI controller: Kp=${piDebug.Kp.toFixed(2)}, Ki=${piDebug.Ki.toFixed(2)} (α=${piDebug.Ialpha.toFixed(2)}, half-life ~${(Math.log(0.5)/Math.log(1-piDebug.Ialpha)).toFixed(1)} days), cap ±${(piDebug.cap * 100).toFixed(0)}%.
-                <strong>P corr</strong> = how much yesterday's over/under-eating adjusts today's goal.
-                <strong>I corr</strong> = adjustment from 10-day weighted history.
-                Positive = goal raised (you ate less than target). Negative = goal lowered (you ate more).
-                P corr + I corr = PI adj.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}
+                PI controller: Kp=${piDebug.Kp.toFixed(2)}, Ki=${piDebug.Ki.toFixed(3)} (derived from α=${piDebug.Ialpha.toFixed(2)}, Ki×W=${(piDebug.Ki * piDebug.W).toFixed(2)}=1 guaranteed), cap ±${(piDebug.cap * 100).toFixed(0)}%.
+                <strong>P corr</strong> = Kp × yesterday's deviation from base+workout goal.
+                <strong>I corr</strong> = Ki × 10-day weighted sum of deviations from your displayed goal (● stored history; ○ base+workout fallback before history exists).
+                Positive = goal raised (under-eating). Negative = goal lowered (over-eating). P corr + I corr = PI adj.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}
             </p>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;">
@@ -1135,19 +1158,6 @@ class FitnessTrackerApp {
             kpSlider.addEventListener('input', async () => {
                 if (kpValue) kpValue.textContent = parseFloat(kpSlider.value).toFixed(2);
                 await db.setSetting('pi_kp', kpSlider.value);
-            });
-        }
-
-        // Ki slider
-        const kiSlider = document.getElementById('pi-ki');
-        const kiValue = document.getElementById('pi-ki-value');
-        const savedKi = parseFloat(await db.getSetting('pi_ki') || '0.1');
-        if (kiSlider) {
-            kiSlider.value = savedKi;
-            if (kiValue) kiValue.textContent = savedKi.toFixed(2);
-            kiSlider.addEventListener('input', async () => {
-                if (kiValue) kiValue.textContent = parseFloat(kiSlider.value).toFixed(2);
-                await db.setSetting('pi_ki', kiSlider.value);
             });
         }
 

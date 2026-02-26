@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.16
+**Current**: v2.1.17
+- **PI controller: limit-cycle fix + Ki derived from α**: I-term now references your stored displayed goal (what was actually shown to you each day) instead of the base+workout goal — eliminates the theoretical limit cycle where the controller raises your goal, you eat near base, I-memory fades, goal returns to base, and the cycle repeats. Ki is now derived from α automatically (Ki = α/(1-(1-α)^10)) guaranteeing Ki×W=1 (zero steady-state error) regardless of your α setting — one fewer knob to tune. Goals are stored daily (14-day rolling window) after all adjustments are applied. Per-day debug table shows ● (stored goal used) or ○ (base+workout fallback, before history exists).
+
+**Previous**: v2.1.16
 - **PI table: intuitive sign convention**: "P err" and "I sum" columns replaced with "P corr" and "I corr" — values shown in goal-space (positive = goal raised because you under-ate, negative = goal lowered because you over-ate); P corr + I corr = PI adj exactly; colors updated to match (green = goal raised, red = goal lowered)
 
 **Previous**: v2.1.15

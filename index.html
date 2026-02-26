@@ -197,21 +197,13 @@
                                 </div>
                                 <p class="help-text" style="margin: 2px 0 0; font-size: 11px;">Correct this % of yesterday's deviation today</p>
                             </div>
-                            <div style="margin-bottom: 6px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <label for="pi-ki" style="font-size: 13px; min-width: 110px; white-space: nowrap;">Ki (integral)</label>
-                                    <input type="range" id="pi-ki" min="0" max="0.5" step="0.01" value="0.1" style="flex: 1;">
-                                    <span id="pi-ki-value" style="font-size: 13px; min-width: 32px; text-align: right;">0.10</span>
-                                </div>
-                                <p class="help-text" style="margin: 2px 0 0; font-size: 11px;">Correct this fraction of accumulated 10-day error</p>
-                            </div>
                             <div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <label for="pi-ialpha" style="font-size: 13px; min-width: 110px; white-space: nowrap;">α (decay rate)</label>
                                     <input type="range" id="pi-ialpha" min="0.05" max="0.6" step="0.05" value="0.25" style="flex: 1;">
                                     <span id="pi-ialpha-value" style="font-size: 13px; min-width: 32px; text-align: right;">0.25</span>
                                 </div>
-                                <p class="help-text" style="margin: 2px 0 0; font-size: 11px;">Error fade rate — higher = shorter memory (0.25 → ~2.4d half-life)</p>
+                                <p class="help-text" style="margin: 2px 0 0; font-size: 11px;">Memory decay rate — Ki is derived from α to guarantee full compensation (Ki×W=1). Higher α = shorter memory (0.25 → ~2.4d half-life).</p>
                             </div>
                         </div>
                     </div>
@@ -288,7 +280,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p>Fitness Pizza v2.1.16 🍕</p>
+                        <p>Fitness Pizza v2.1.17 🍕</p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

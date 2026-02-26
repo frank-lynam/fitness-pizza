@@ -831,7 +831,7 @@ class FitnessTrackerApp {
         const baseCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
 
         const fmt = (n) => (n >= 0 ? '+' : '') + n.toFixed(1) + 'g';
-        const fmtAdj = (n) => n === 0 ? '0g' : fmt(-n); // adjustment is subtracted, so display inverted
+        const fmtAdj = (n) => n === 0 ? '0g' : fmt(-n); // final_adj is subtracted from base, so invert for display
 
         // Workout credit in grams per macro: credit is proportional to each macro's share of total goal
         // goals.caloriesCredited = 50% of burned (what was actually added to goals)
@@ -847,7 +847,10 @@ class FitnessTrackerApp {
         ];
 
         const rows = macros.map(({ label, base, goal, d, workoutG }) => {
-            const clampNote = d.clamped ? ` <span style="color:var(--warning-color);" title="Raw adjustment ${fmt(-d.raw_adj)} was clamped to ±${(piDebug.cap * 100).toFixed(0)}% cap">⚠ capped</span>` : '';
+            // P corr and I corr are expressed in goal-space: positive = goal raised (under-eating), negative = goal lowered (over-eating)
+            const pCorr = -d.p_adj;
+            const iCorr = -d.i_adj;
+            const clampNote = d.clamped ? ` <span style="color:var(--warning-color);" title="Raw adjustment ${fmtAdj(d.raw_adj)} was clamped to ±${(piDebug.cap * 100).toFixed(0)}% cap">⚠ capped</span>` : '';
             const workoutCell = workoutG > 0.05
                 ? `<span style="color:var(--accent-color);">+${workoutG.toFixed(1)}g</span>`
                 : `<span style="color:var(--text-secondary);">—</span>`;
@@ -855,8 +858,8 @@ class FitnessTrackerApp {
                 <tr>
                     <td style="padding:4px 8px;font-weight:600;">${label}</td>
                     <td style="padding:4px 8px;text-align:right;">${base.toFixed(0)}g</td>
-                    <td style="padding:4px 8px;text-align:right;color:${d.p_err >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(d.p_err)}</td>
-                    <td style="padding:4px 8px;text-align:right;color:${d.i_sum >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(d.i_sum)}</td>
+                    <td style="padding:4px 8px;text-align:right;color:${pCorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmt(pCorr)}</td>
+                    <td style="padding:4px 8px;text-align:right;color:${iCorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmt(iCorr)}</td>
                     <td style="padding:4px 8px;text-align:right;">${fmtAdj(d.final_adj)}${clampNote}</td>
                     <td style="padding:4px 8px;text-align:right;">${workoutCell}</td>
                     <td style="padding:4px 8px;text-align:right;font-weight:600;">${goal.toFixed(0)}g</td>
@@ -866,8 +869,9 @@ class FitnessTrackerApp {
         // Calories row (calorie equivalents of all macro adjustments)
         const fmtCal = (n) => (n >= 0 ? '+' : '') + Math.round(n) + 'cal';
         const calBase = calculateMacroCalories(baseProtein, baseCarbs, baseFat, 0);
-        const calPErr = piDebug.fat.p_err * 9 + piDebug.protein.p_err * 4 + piDebug.carbs.p_err * 4;
-        const calISum = piDebug.fat.i_sum * 9 + piDebug.protein.i_sum * 4 + piDebug.carbs.i_sum * 4;
+        // P corr / I corr in calorie space: positive = goal raised (under-eating)
+        const calPCorr = -(piDebug.fat.p_adj * 9 + piDebug.protein.p_adj * 4 + piDebug.carbs.p_adj * 4);
+        const calICorr = -(piDebug.fat.i_adj * 9 + piDebug.protein.i_adj * 4 + piDebug.carbs.i_adj * 4);
         const calAdj  = piDebug.fat.final_adj * 9 + piDebug.protein.final_adj * 4 + piDebug.carbs.final_adj * 4;
         const calClamped = piDebug.fat.clamped || piDebug.protein.clamped || piDebug.carbs.clamped;
         const calClampNote = calClamped ? ` <span style="color:var(--warning-color);">⚠ capped</span>` : '';
@@ -878,8 +882,8 @@ class FitnessTrackerApp {
                 <tr style="border-top:1px solid var(--border-color);">
                     <td style="padding:4px 8px;font-weight:600;font-style:italic;">Calories</td>
                     <td style="padding:4px 8px;text-align:right;font-style:italic;">${Math.round(calBase)}cal</td>
-                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calPErr >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmtCal(calPErr)}</td>
-                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calISum >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmtCal(calISum)}</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calPCorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmtCal(calPCorr)}</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calICorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmtCal(calICorr)}</td>
                     <td style="padding:4px 8px;text-align:right;font-style:italic;">${calAdj === 0 ? '0cal' : fmtCal(-calAdj)}${calClampNote}</td>
                     <td style="padding:4px 8px;text-align:right;font-style:italic;">${calWorkoutCell}</td>
                     <td style="padding:4px 8px;text-align:right;font-weight:600;font-style:italic;">${Math.round(goals.calories)}cal</td>
@@ -902,9 +906,11 @@ class FitnessTrackerApp {
 
         content.innerHTML = `
             <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-                PI controller: Kp=${piDebug.Kp.toFixed(2)} (correct ${(piDebug.Kp * 100).toFixed(0)}% of yesterday's error today),
-                Ki=${piDebug.Ki.toFixed(2)} × exp-weighted 10-day sum (α=${piDebug.Ialpha.toFixed(2)}, half-life ~${(Math.log(0.5)/Math.log(1-piDebug.Ialpha)).toFixed(1)} days).
-                Adjustments capped at ±${(piDebug.cap * 100).toFixed(0)}% of base target.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}
+                PI controller: Kp=${piDebug.Kp.toFixed(2)}, Ki=${piDebug.Ki.toFixed(2)} (α=${piDebug.Ialpha.toFixed(2)}, half-life ~${(Math.log(0.5)/Math.log(1-piDebug.Ialpha)).toFixed(1)} days), cap ±${(piDebug.cap * 100).toFixed(0)}%.
+                <strong>P corr</strong> = how much yesterday's over/under-eating adjusts today's goal.
+                <strong>I corr</strong> = adjustment from 10-day weighted history.
+                Positive = goal raised (you ate less than target). Negative = goal lowered (you ate more).
+                P corr + I corr = PI adj.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}
             </p>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;">
@@ -912,8 +918,8 @@ class FitnessTrackerApp {
                         <tr style="border-bottom:1px solid var(--border-color);color:var(--text-secondary);">
                             <th style="padding:4px 8px;text-align:left;">Macro</th>
                             <th style="padding:4px 8px;text-align:right;">Base</th>
-                            <th style="padding:4px 8px;text-align:right;">P err (yday)</th>
-                            <th style="padding:4px 8px;text-align:right;">I sum (10d, exp)</th>
+                            <th style="padding:4px 8px;text-align:right;">P corr (yday)</th>
+                            <th style="padding:4px 8px;text-align:right;">I corr (10d)</th>
                             <th style="padding:4px 8px;text-align:right;">PI adj</th>
                             <th style="padding:4px 8px;text-align:right;">Workout+</th>
                             <th style="padding:4px 8px;text-align:right;">Today's goal</th>

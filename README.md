@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.15
+**Current**: v2.1.16
+- **PI table: intuitive sign convention**: "P err" and "I sum" columns replaced with "P corr" and "I corr" — values shown in goal-space (positive = goal raised because you under-ate, negative = goal lowered because you over-ate); P corr + I corr = PI adj exactly; colors updated to match (green = goal raised, red = goal lowered)
+
+**Previous**: v2.1.15
 - **Servings input: two decimal places**: serving size stepper on the macros tab now shows and accepts `0.01` increments instead of `0.1`
 - **PI controller: include workout credit in historical error**: when computing the Pd/Pi error for past days, the effective goal for each day now includes that day's workout calorie credit (50% of burned, distributed proportionally across macros) — previously the error was computed against the base goal only, making workout days look like under-eating and incorrectly biasing the controller
 

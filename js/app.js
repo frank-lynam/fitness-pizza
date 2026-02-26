@@ -191,6 +191,7 @@ class FitnessTrackerApp {
             const Ialpha = parseFloat(await db.getSetting('pi_ialpha') || '0.25');
 
             const allMacros = await db.getAllMacros();
+            const allWorkouts = await db.getAllWorkouts();
 
             // PI controller operates on BASE goals; reverse diet applied afterwards
             // to prevent the inflated goals from skewing the error signal
@@ -198,6 +199,7 @@ class FitnessTrackerApp {
                 allMacros, date, today,
                 baseFat, baseProtein, baseCarbs,
                 reverseDietDates,
+                allWorkouts,
                 Kp, Ki, Ialpha
             });
 

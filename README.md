@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.14
+**Current**: v2.1.15
+- **Servings input: two decimal places**: serving size stepper on the macros tab now shows and accepts `0.01` increments instead of `0.1`
+- **PI controller: include workout credit in historical error**: when computing the Pd/Pi error for past days, the effective goal for each day now includes that day's workout calorie credit (50% of burned, distributed proportionally across macros) — previously the error was computed against the base goal only, making workout days look like under-eating and incorrectly biasing the controller
+
+**Previous**: v2.1.14
 - **Fix AI from text error**: `showTextAIModal` was calling `ui.showModal()` which doesn't exist — the exported function is `ui.createModal()`; caused a TypeError before the modal could open
 
 **Previous**: v2.1.13

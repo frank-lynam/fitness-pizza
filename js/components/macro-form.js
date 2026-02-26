@@ -499,7 +499,7 @@ export async function loadTodaysMacros() {
                             F: ${macro.fat.toFixed(1)}g | C: ${macro.carbs.toFixed(1)}g | P: ${macro.protein.toFixed(1)}g | ${macro.calories.toFixed(0)} cal
                             <span class="servings-stepper">
                                 <button class="servings-btn-minus" data-id="${macro.id}">−</button>
-                                <input type="number" class="servings-input" data-id="${macro.id}" value="${(macro.servings || 1).toFixed(1)}" step="0.1" min="0.1">
+                                <input type="number" class="servings-input" data-id="${macro.id}" value="${(macro.servings || 1).toFixed(2)}" step="0.01" min="0.01">
                                 <button class="servings-btn-plus" data-id="${macro.id}">+</button>
                                 <button class="servings-btn-max" data-id="${macro.id}" title="Max servings before exceeding any macro">>></button>
                             </span>

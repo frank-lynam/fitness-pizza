@@ -21,6 +21,7 @@
  * @param {number} params.baseProtein  - Base protein goal (g)
  * @param {number} params.baseCarbs    - Base carb goal (g)
  * @param {Object} params.reverseDietDates - Map of {date: true} for reverse-diet days
+ * @param {Array}  params.allWorkouts  - All workout entries from the DB (for workout credit in error signal)
  * @param {number} params.Kp           - Proportional gain (default 0.5)
  * @param {number} params.Ki           - Integral gain (default 0.1)
  * @param {number} params.Ialpha       - Exponential decay rate for I-term (default 0.25)
@@ -34,6 +35,7 @@ export function computeGoalAdjustments({
     baseProtein,
     baseCarbs,
     reverseDietDates,
+    allWorkouts = [],
     Kp = 0.5,
     Ki = 0.1,
     Ialpha = 0.25
@@ -75,6 +77,20 @@ export function computeGoalAdjustments({
             eFat *= 1.2; eProtein *= 1.2; eCarbs *= 1.2;
         }
 
+        // Add workout credit for this past day so error is relative to the full
+        // workout-adjusted goal, not just the base goal
+        const dayWorkouts = allWorkouts.filter(w => w.date === pastDateStr);
+        const dayCalsBurned = dayWorkouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
+        const dayCalsCredited = dayCalsBurned / 2;
+        if (dayCalsCredited > 0) {
+            const baseGoalCal = eFat * 9 + eProtein * 4 + eCarbs * 4;
+            if (baseGoalCal > 0) {
+                eFat     += (dayCalsCredited * (eFat     * 9 / baseGoalCal)) / 9;
+                eProtein += (dayCalsCredited * (eProtein * 4 / baseGoalCal)) / 4;
+                eCarbs   += (dayCalsCredited * (eCarbs   * 4 / baseGoalCal)) / 4;
+            }
+        }
+
         const errFat = dayFat - eFat;
         const errProtein = dayProtein - eProtein;
         const errCarbs = dayCarbs - eCarbs;
@@ -85,6 +101,7 @@ export function computeGoalAdjustments({
         errors.protein.push(errProtein * decayWeight);
         errors.carbs.push(errCarbs * decayWeight);
         dayData.push({ date: pastDateStr, fat: dayFat, protein: dayProtein, carbs: dayCarbs,
+                       eFat, eProtein, eCarbs, workoutCalsCredited: dayCalsCredited,
                        errFat, errProtein, errCarbs, decayWeight, daysBack: i });
     }
 

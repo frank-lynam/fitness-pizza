@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.18
+**Current**: v2.1.19
+- **Mini macro progress bar on macros tab**: compact 4-row bar (Fat / Carb / Prot / Cal) sits between the form and the entry list, always visible. Completed entries shown solid, planned entries as a lighter overlay. Values show `done+plannedp / goal  (X left)` or `(X over)` in red. Goals reflect PI controller adjustments (same source as dashboard).
+
+**Previous**: v2.1.18
 - **PI Controller label + UI polish**: renamed "Running Average Mode" to "PI Controller" throughout; moved the controller logic explanation inside the history accordion (below the per-day table, hidden by default); defined W (sum of exponential decay weights) in the explanation; α slider note now live-computes half-life and derived Ki from the current slider value instead of a hardcoded example.
 
 **Previous**: v2.1.17

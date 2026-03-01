@@ -8,7 +8,7 @@ import * as ui from './ui.js';
 import { getTodayDate } from './utils/date-utils.js';
 import { calculateMacroCalories } from './utils/calorie-calc.js';
 import { computeGoalAdjustments } from './utils/pi-controller.js';
-import { initMacroForm, loadTodaysMacros } from './components/macro-form.js';
+import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
 import { initFoodLibrary } from './components/food-library.js';
@@ -796,6 +796,9 @@ class FitnessTrackerApp {
      */
     async loadMacros() {
         console.log('Loading macros screen...');
+        // Inject PI-adjusted goals so the progress summary matches the dashboard
+        const goals = await this.calculateEffectiveGoals(this.currentDate);
+        setDailyGoals(goals);
         await loadTodaysMacros();
     }
 

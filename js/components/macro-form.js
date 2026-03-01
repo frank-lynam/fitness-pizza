@@ -12,6 +12,18 @@ import { formatDateTime, getTodayDate } from '../utils/date-utils.js';
 // Module-level interval ID so it can be cleared when the screen is re-entered
 let _reverseDietIntervalId = null;
 
+// Cached effective daily goals (set by app.js before calling loadTodaysMacros)
+let _dailyGoals = null;
+
+/**
+ * Inject effective goals (including PI controller adjustments) from the caller.
+ * Called by app.js loadMacros() so the progress summary reflects the same goals
+ * shown on the dashboard.
+ */
+export function setDailyGoals(goals) {
+    _dailyGoals = goals;
+}
+
 /**
  * Initialize the macro form component
  */
@@ -455,6 +467,86 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
 }
 
 /**
+ * Render the mini macro progress summary bar above the entry list.
+ * Shows Fat / Carbs / Protein / Calories progress vs today's effective goals.
+ * Completed entries shown solid; planned entries shown as a lighter overlay.
+ */
+async function renderProgressSummary(macros) {
+    const el = document.getElementById('macro-progress-summary');
+    if (!el) return;
+
+    // Use injected goals (PI-adjusted) or fall back to base settings
+    let goals = _dailyGoals;
+    if (!goals) {
+        const fat      = parseFloat(await db.getSetting('goal_fat')     || 70);
+        const protein  = parseFloat(await db.getSetting('goal_protein') || 150);
+        const carbs    = parseFloat(await db.getSetting('goal_carbs')   || 200);
+        goals = { fat, protein, carbs, calories: fat * 9 + protein * 4 + carbs * 4 };
+    }
+
+    const completed = macros.filter(m => m.status === 'completed');
+    const planned   = macros.filter(m => m.status === 'planned');
+
+    const done = {
+        fat:      completed.reduce((s, m) => s + (m.fat      || 0), 0),
+        carbs:    completed.reduce((s, m) => s + (m.carbs    || 0), 0),
+        protein:  completed.reduce((s, m) => s + (m.protein  || 0), 0),
+        calories: completed.reduce((s, m) => s + (m.calories || 0), 0),
+    };
+    const pln = {
+        fat:      planned.reduce((s, m) => s + (m.fat      || 0), 0),
+        carbs:    planned.reduce((s, m) => s + (m.carbs    || 0), 0),
+        protein:  planned.reduce((s, m) => s + (m.protein  || 0), 0),
+        calories: planned.reduce((s, m) => s + (m.calories || 0), 0),
+    };
+
+    const rows = [
+        { label: 'Fat',      key: 'fat',      dec: 1, color: 'var(--accent-warning)' },
+        { label: 'Carb',     key: 'carbs',    dec: 1, color: 'var(--accent-success)' },
+        { label: 'Prot',     key: 'protein',  dec: 1, color: 'var(--accent-primary)' },
+        { label: 'Cal',      key: 'calories', dec: 0, color: 'var(--accent-primary)' },
+    ];
+
+    const barsHtml = rows.map(({ label, key, dec, color }) => {
+        const g         = goals[key] || 1;
+        const d         = done[key];
+        const p         = pln[key];
+        const total     = d + p;
+        const remaining = Math.max(0, g - total);
+        const over      = total > g;
+
+        const doneW = Math.min(100, (d / g) * 100);
+        const planW = Math.min(100 - doneW, (p / g) * 100);
+
+        // Right-side label: "50.0 + 10.0p / 70g  (20.0 left)" or "(3.5 over)"
+        const doneStr = d.toFixed(dec);
+        const plnStr  = p.toFixed(dec);
+        const goalStr = g.toFixed(0);
+        const unit    = dec > 0 ? 'g' : '';
+        const hasPlan = p > 0.05;
+        const leftStr = over
+            ? `<span style="color:var(--danger-color);">(${(total - g).toFixed(dec)} over)</span>`
+            : remaining < g * 0.05
+                ? `<span style="color:var(--success-color);">(${remaining.toFixed(dec)} left)</span>`
+                : `<span style="color:var(--text-secondary);">(${remaining.toFixed(dec)} left)</span>`;
+
+        return `
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:11px;min-width:30px;color:var(--text-secondary);">${label}</span>
+                <div style="flex:1;height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;position:relative;">
+                    <div style="width:${doneW}%;height:100%;position:absolute;left:0;top:0;background:${color};border-radius:4px;transition:width 0.3s;"></div>
+                    ${hasPlan ? `<div style="width:${planW}%;height:100%;position:absolute;left:${doneW}%;top:0;background:${color};opacity:0.35;border-radius:4px;transition:width 0.3s;"></div>` : ''}
+                </div>
+                <span style="font-size:11px;white-space:nowrap;">
+                    ${hasPlan ? `${doneStr}+${plnStr}p` : doneStr}${unit} / ${goalStr}${unit} ${leftStr}
+                </span>
+            </div>`;
+    }).join('');
+
+    el.innerHTML = `<div style="padding:8px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:6px;">${barsHtml}</div>`;
+}
+
+/**
  * Load and display today's macro entries
  */
 export async function loadTodaysMacros() {
@@ -510,6 +602,9 @@ export async function loadTodaysMacros() {
         }
 
         macroEntries.innerHTML = html;
+
+        // Render mini progress bars above the entry list
+        await renderProgressSummary(macros);
 
         // Set up button handlers
         const allMacros = [...starred, ...macros];

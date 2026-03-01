@@ -140,8 +140,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.22
-- **Photo AI fixes**: "Analyze Photo" button now disables and shows "Analyzing…" with a status message immediately on click (loading state shown inside the modal, avoiding z-index issues with global overlay); AI estimates now open a "Save Entry" form instead of "Update Entry" — fixed by gating edit mode on `existingEntry.id != null` rather than just `existingEntry !== null`
+**Current**: v2.1.23
+- **Photo AI loading modal**: "Analyze Photo" now closes the photo modal immediately and shows a full-screen loading overlay (spinner, "Analyzing photo…", Cancel button, grey backdrop at z-index 10000) while the API call is in flight; Cancel stops the flow cleanly before the macro form opens
+- **Macro bars red when planned goes over**: fixed string-coercion bug in `reduce` (changed `m.fat || 0` to `parseFloat(m.fat) || 0`) so planned entries reliably trigger red bars when total exceeds goal
+
+**Previous**: v2.1.22
+- **Photo AI fixes**: AI estimates now open a "Save Entry" form instead of "Update Entry" — fixed by gating edit mode on `existingEntry.id != null` rather than just `existingEntry !== null`
 
 **Previous**: v2.1.21
 - **Macro progress bars**: uniform length (fixed right-label width), bar fill turns red when over goal, taller bars (12px), tighter row gap

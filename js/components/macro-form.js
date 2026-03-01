@@ -488,16 +488,16 @@ async function renderProgressSummary(macros) {
     const planned   = macros.filter(m => m.status === 'planned');
 
     const done = {
-        fat:      completed.reduce((s, m) => s + (m.fat      || 0), 0),
-        carbs:    completed.reduce((s, m) => s + (m.carbs    || 0), 0),
-        protein:  completed.reduce((s, m) => s + (m.protein  || 0), 0),
-        calories: completed.reduce((s, m) => s + (m.calories || 0), 0),
+        fat:      completed.reduce((s, m) => s + (parseFloat(m.fat)      || 0), 0),
+        carbs:    completed.reduce((s, m) => s + (parseFloat(m.carbs)    || 0), 0),
+        protein:  completed.reduce((s, m) => s + (parseFloat(m.protein)  || 0), 0),
+        calories: completed.reduce((s, m) => s + (parseFloat(m.calories) || 0), 0),
     };
     const pln = {
-        fat:      planned.reduce((s, m) => s + (m.fat      || 0), 0),
-        carbs:    planned.reduce((s, m) => s + (m.carbs    || 0), 0),
-        protein:  planned.reduce((s, m) => s + (m.protein  || 0), 0),
-        calories: planned.reduce((s, m) => s + (m.calories || 0), 0),
+        fat:      planned.reduce((s, m) => s + (parseFloat(m.fat)      || 0), 0),
+        carbs:    planned.reduce((s, m) => s + (parseFloat(m.carbs)    || 0), 0),
+        protein:  planned.reduce((s, m) => s + (parseFloat(m.protein)  || 0), 0),
+        calories: planned.reduce((s, m) => s + (parseFloat(m.calories) || 0), 0),
     };
 
     const rows = [

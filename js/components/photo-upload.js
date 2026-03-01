@@ -59,6 +59,35 @@ export function showPhotoUploadModal() {
 }
 
 /**
+ * Show a full-screen loading overlay with spinner and cancel button.
+ * Returns the overlay element; caller removes it when done.
+ * @param {Function} onCancel - Called when the user taps Cancel
+ */
+function showAnalysisLoadingModal(onCancel) {
+    if (!document.getElementById('spinner-keyframes')) {
+        const style = document.createElement('style');
+        style.id = 'spinner-keyframes';
+        style.textContent = '@keyframes fp-spin { to { transform: rotate(360deg); } }';
+        document.head.appendChild(style);
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'analysis-loading-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:10000;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+        <div style="background:var(--bg-secondary);border-radius:var(--radius-lg);padding:32px 28px;text-align:center;max-width:280px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+            <div style="width:48px;height:48px;border:4px solid var(--bg-tertiary);border-top-color:var(--accent-primary);border-radius:50%;animation:fp-spin 0.8s linear infinite;margin:0 auto 18px;"></div>
+            <p style="color:var(--text-primary);font-size:15px;font-weight:600;margin:0 0 6px;">Analyzing photo…</p>
+            <p style="color:var(--text-secondary);font-size:13px;margin:0 0 22px;">Sending to AI · this may take a few seconds</p>
+            <button id="btn-cancel-analysis" style="background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:8px 24px;font-size:14px;cursor:pointer;">Cancel</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#btn-cancel-analysis').addEventListener('click', onCancel);
+    return overlay;
+}
+
+/**
  * Set up photo upload event listeners
  * @param {HTMLElement} modal - Modal element
  */
@@ -142,28 +171,25 @@ function setupPhotoUploadListeners(modal) {
     analyzeBtn.addEventListener('click', async () => {
         if (!currentImageData) return;
 
-        // Show loading state inside the modal immediately (avoids z-index issues
-        // with global ui.showLoading being hidden behind the modal overlay)
-        const origText = analyzeBtn.textContent;
-        analyzeBtn.disabled = true;
-        analyzeBtn.textContent = 'Analyzing…';
-        const photoActions = modal.querySelector('.photo-actions');
-        let spinnerEl = null;
-        if (photoActions) {
-            spinnerEl = document.createElement('p');
-            spinnerEl.style.cssText = 'font-size:13px;color:var(--text-secondary);margin:8px 0 0;';
-            spinnerEl.textContent = 'Sending to AI — this may take a few seconds…';
-            photoActions.appendChild(spinnerEl);
-        }
+        // Capture context before closing the photo modal
+        const contextInput = modal.querySelector('#food-context');
+        const context = contextInput ? contextInput.value.trim() : '';
+
+        // Close the photo modal immediately, then show the dedicated loading overlay
+        ui.closeModal(modal);
+
+        let cancelled = false;
+        const loadingOverlay = showAnalysisLoadingModal(() => {
+            cancelled = true;
+            loadingOverlay.remove();
+        });
 
         try {
-            const contextInput = modal.querySelector('#food-context');
-            const context = contextInput ? contextInput.value.trim() : '';
-
             const estimates = await estimateMacrosFromPhoto(currentImageData, context);
 
-            // Close modal before opening form
-            ui.closeModal(modal);
+            loadingOverlay.remove();
+
+            if (cancelled) return;
 
             // Open macro form pre-filled with AI estimates (new entry, not edit)
             showMacroForm({
@@ -172,10 +198,8 @@ function setupPhotoUploadListeners(modal) {
             });
 
         } catch (error) {
-            // Restore button so user can retry
-            analyzeBtn.disabled = false;
-            analyzeBtn.textContent = origText;
-            if (spinnerEl) spinnerEl.remove();
+            loadingOverlay.remove();
+            if (cancelled) return;
             console.error('Analysis error:', error);
             ui.showError(error.message);
         }

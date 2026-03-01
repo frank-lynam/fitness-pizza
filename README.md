@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.23
+**Current**: v2.1.24
+- **Macro bars actually turn red**: `--danger-color` → `--accent-danger` (the correct CSS variable name); bars now visibly go red when completed + planned total exceeds the goal
+- **Photo AI retry modal**: when the API call fails, a modal now appears with the error message and a Retry button to re-run the same photo/context without re-selecting the image; Cancel dismisses
+
+**Previous**: v2.1.23
 - **Photo AI loading modal**: "Analyze Photo" now closes the photo modal immediately and shows a full-screen loading overlay (spinner, "Analyzing photo…", Cancel button, grey backdrop at z-index 10000) while the API call is in flight; Cancel stops the flow cleanly before the macro form opens
 - **Macro bars red when planned goes over**: fixed string-coercion bug in `reduce` (changed `m.fat || 0` to `parseFloat(m.fat) || 0`) so planned entries reliably trigger red bars when total exceeds goal
 

@@ -515,7 +515,7 @@ async function renderProgressSummary(macros) {
         const hasPlan = p > 0.05;
 
         // Bar fills: red when over (full width), otherwise normal color
-        const fillColor = over ? 'var(--danger-color)' : color;
+        const fillColor = over ? 'var(--accent-danger)' : color;
         const doneW = over ? 100 : Math.min(100, (d / g) * 100);
         const planW = over ? 0   : Math.min(100 - doneW, (p / g) * 100);
 
@@ -525,7 +525,7 @@ async function renderProgressSummary(macros) {
         const goalStr = g.toFixed(0);
         const unit    = 'g';
         const labelText = hasPlan ? `${doneStr}+${plnStr}p / ${goalStr}${unit}` : `${doneStr} / ${goalStr}${unit}`;
-        const labelColor = over ? 'var(--danger-color)' : 'var(--text-secondary)';
+        const labelColor = over ? 'var(--accent-danger)' : 'var(--text-secondary)';
 
         return `
             <div style="display:flex;align-items:center;gap:8px;">

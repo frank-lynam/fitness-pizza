@@ -88,6 +88,55 @@ function showAnalysisLoadingModal(onCancel) {
 }
 
 /**
+ * Run photo analysis and handle success/failure.
+ * Extracted so the retry modal can call it with the same data.
+ * @param {string} imageData - base64 data-URL of the image
+ * @param {string} context   - optional text context from the user
+ */
+async function runPhotoAnalysis(imageData, context) {
+    let cancelled = false;
+    const loadingOverlay = showAnalysisLoadingModal(() => {
+        cancelled = true;
+        loadingOverlay.remove();
+    });
+
+    try {
+        const estimates = await estimateMacrosFromPhoto(imageData, context);
+        loadingOverlay.remove();
+        if (cancelled) return;
+        showMacroForm({ ...estimates, status: 'completed' });
+    } catch (error) {
+        loadingOverlay.remove();
+        if (cancelled) return;
+        console.error('Analysis error:', error);
+        showPhotoRetryModal(error.message, imageData, context);
+    }
+}
+
+/**
+ * Show an error modal that lets the user retry the same photo analysis.
+ * @param {string} errorMessage - Human-readable error from the API
+ * @param {string} imageData    - base64 data-URL kept for retry
+ * @param {string} context      - optional text context kept for retry
+ */
+function showPhotoRetryModal(errorMessage, imageData, context) {
+    ui.createModal('Analysis Failed', `
+        <p style="margin-bottom:10px;color:var(--text-primary);">${errorMessage}</p>
+        <p style="font-size:13px;color:var(--text-secondary);">Would you like to retry with the same photo?</p>
+    `, [
+        {
+            text: 'Retry',
+            className: 'btn-primary',
+            onClick: () => runPhotoAnalysis(imageData, context)
+        },
+        {
+            text: 'Cancel',
+            className: 'btn-secondary'
+        }
+    ]);
+}
+
+/**
  * Set up photo upload event listeners
  * @param {HTMLElement} modal - Modal element
  */
@@ -175,33 +224,8 @@ function setupPhotoUploadListeners(modal) {
         const contextInput = modal.querySelector('#food-context');
         const context = contextInput ? contextInput.value.trim() : '';
 
-        // Close the photo modal immediately, then show the dedicated loading overlay
+        // Close the photo modal immediately, then run analysis
         ui.closeModal(modal);
-
-        let cancelled = false;
-        const loadingOverlay = showAnalysisLoadingModal(() => {
-            cancelled = true;
-            loadingOverlay.remove();
-        });
-
-        try {
-            const estimates = await estimateMacrosFromPhoto(currentImageData, context);
-
-            loadingOverlay.remove();
-
-            if (cancelled) return;
-
-            // Open macro form pre-filled with AI estimates (new entry, not edit)
-            showMacroForm({
-                ...estimates,
-                status: 'completed'
-            });
-
-        } catch (error) {
-            loadingOverlay.remove();
-            if (cancelled) return;
-            console.error('Analysis error:', error);
-            ui.showError(error.message);
-        }
+        await runPhotoAnalysis(currentImageData, context);
     });
 }

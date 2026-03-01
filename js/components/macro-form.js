@@ -507,42 +507,38 @@ async function renderProgressSummary(macros) {
     ];
 
     const barsHtml = rows.map(({ label, key, dec, color }) => {
-        const g         = goals[key] || 1;
-        const d         = done[key];
-        const p         = pln[key];
-        const total     = d + p;
-        const remaining = Math.max(0, g - total);
-        const over      = total > g;
+        const g     = goals[key] || 1;
+        const d     = done[key];
+        const p     = pln[key];
+        const total = d + p;
+        const over  = total > g;
+        const hasPlan = p > 0.05;
 
-        const doneW = Math.min(100, (d / g) * 100);
-        const planW = Math.min(100 - doneW, (p / g) * 100);
+        // Bar fills: red when over (full width), otherwise normal color
+        const fillColor = over ? 'var(--danger-color)' : color;
+        const doneW = over ? 100 : Math.min(100, (d / g) * 100);
+        const planW = over ? 0   : Math.min(100 - doneW, (p / g) * 100);
 
-        // Right-side label: "50.0 + 10.0p / 70g  (20.0 left)" or "(3.5 over)"
+        // Right label — fixed min-width so all bars are the same length
         const doneStr = d.toFixed(dec);
         const plnStr  = p.toFixed(dec);
         const goalStr = g.toFixed(0);
-        const unit    = dec > 0 ? 'g' : '';
-        const hasPlan = p > 0.05;
-        const leftStr = over
-            ? `<span style="color:var(--danger-color);">(${(total - g).toFixed(dec)} over)</span>`
-            : remaining < g * 0.05
-                ? `<span style="color:var(--success-color);">(${remaining.toFixed(dec)} left)</span>`
-                : `<span style="color:var(--text-secondary);">(${remaining.toFixed(dec)} left)</span>`;
+        const unit    = 'g';
+        const labelText = hasPlan ? `${doneStr}+${plnStr}p / ${goalStr}${unit}` : `${doneStr} / ${goalStr}${unit}`;
+        const labelColor = over ? 'var(--danger-color)' : 'var(--text-secondary)';
 
         return `
             <div style="display:flex;align-items:center;gap:8px;">
                 <span style="font-size:11px;min-width:30px;color:var(--text-secondary);">${label}</span>
-                <div style="flex:1;height:8px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;position:relative;">
-                    <div style="width:${doneW}%;height:100%;position:absolute;left:0;top:0;background:${color};border-radius:4px;transition:width 0.3s;"></div>
-                    ${hasPlan ? `<div style="width:${planW}%;height:100%;position:absolute;left:${doneW}%;top:0;background:${color};opacity:0.35;border-radius:4px;transition:width 0.3s;"></div>` : ''}
+                <div style="flex:1;height:12px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;position:relative;">
+                    <div style="width:${doneW}%;height:100%;position:absolute;left:0;top:0;background:${fillColor};border-radius:4px;transition:width 0.3s,background 0.3s;"></div>
+                    ${hasPlan && !over ? `<div style="width:${planW}%;height:100%;position:absolute;left:${doneW}%;top:0;background:${fillColor};opacity:0.35;border-radius:4px;transition:width 0.3s;"></div>` : ''}
                 </div>
-                <span style="font-size:11px;white-space:nowrap;">
-                    ${hasPlan ? `${doneStr}+${plnStr}p` : doneStr}${unit} / ${goalStr}${unit} ${leftStr}
-                </span>
+                <span style="font-size:11px;min-width:105px;text-align:right;white-space:nowrap;color:${labelColor};">${labelText}</span>
             </div>`;
     }).join('');
 
-    el.innerHTML = `<div style="padding:6px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:3px;">${barsHtml}</div>`;
+    el.innerHTML = `<div style="padding:6px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:2px;">${barsHtml}</div>`;
 }
 
 /**

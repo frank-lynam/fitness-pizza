@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.20
+**Current**: v2.1.21
+- **Macro progress bars**: uniform length (fixed right-label width), bar fill turns red when over goal, taller bars (12px), tighter row gap
+
+**Previous**: v2.1.20
 - **Macro tab progress bars**: tightened row spacing, removed calorie bar (Fat / Carb / Prot only)
 
 **Previous**: v2.1.19

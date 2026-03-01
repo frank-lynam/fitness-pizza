@@ -115,7 +115,7 @@ export function showMacroForm(existingEntry = null) {
     const formContainer = document.getElementById('macro-form-container');
     if (!formContainer) return;
 
-    const isEdit = existingEntry !== null;
+    const isEdit = existingEntry !== null && existingEntry.id != null;
     const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
     const entry = existingEntry || {
         protein: '',

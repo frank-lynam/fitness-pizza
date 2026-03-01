@@ -142,32 +142,40 @@ function setupPhotoUploadListeners(modal) {
     analyzeBtn.addEventListener('click', async () => {
         if (!currentImageData) return;
 
-        try {
-            // Show loading immediately
-            ui.showLoading('Analyzing photo...');
+        // Show loading state inside the modal immediately (avoids z-index issues
+        // with global ui.showLoading being hidden behind the modal overlay)
+        const origText = analyzeBtn.textContent;
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = 'Analyzing…';
+        const photoActions = modal.querySelector('.photo-actions');
+        let spinnerEl = null;
+        if (photoActions) {
+            spinnerEl = document.createElement('p');
+            spinnerEl.style.cssText = 'font-size:13px;color:var(--text-secondary);margin:8px 0 0;';
+            spinnerEl.textContent = 'Sending to AI — this may take a few seconds…';
+            photoActions.appendChild(spinnerEl);
+        }
 
-            // Get optional context from user
+        try {
             const contextInput = modal.querySelector('#food-context');
             const context = contextInput ? contextInput.value.trim() : '';
 
-            // Use setTimeout to ensure loading UI renders before blocking fetch
-            await new Promise(resolve => setTimeout(resolve, 50));
-
             const estimates = await estimateMacrosFromPhoto(currentImageData, context);
 
-            ui.hideLoading();
-
-            // Close modal
+            // Close modal before opening form
             ui.closeModal(modal);
 
-            // Open macro form with AI estimates pre-filled
+            // Open macro form pre-filled with AI estimates (new entry, not edit)
             showMacroForm({
                 ...estimates,
                 status: 'completed'
             });
 
         } catch (error) {
-            ui.hideLoading();
+            // Restore button so user can retry
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = origText;
+            if (spinnerEl) spinnerEl.remove();
             console.error('Analysis error:', error);
             ui.showError(error.message);
         }

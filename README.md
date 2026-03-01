@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.21
+**Current**: v2.1.22
+- **Photo AI fixes**: "Analyze Photo" button now disables and shows "Analyzing…" with a status message immediately on click (loading state shown inside the modal, avoiding z-index issues with global overlay); AI estimates now open a "Save Entry" form instead of "Update Entry" — fixed by gating edit mode on `existingEntry.id != null` rather than just `existingEntry !== null`
+
+**Previous**: v2.1.21
 - **Macro progress bars**: uniform length (fixed right-label width), bar fill turns red when over goal, taller bars (12px), tighter row gap
 
 **Previous**: v2.1.20

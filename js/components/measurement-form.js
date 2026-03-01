@@ -549,7 +549,7 @@ async function showCaliperEstimatorForm() {
                 <div class="form-row">
                     <div class="form-group">
                         <label for="caliper-chest">Chest (mm)</label>
-                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Diagonal pinch, center of pec — halfway between nipple and front armpit crease</p>
+                        <p class="help-text" style="margin:1px 0 4px;font-size:11px;">Diagonal pinch, halfway between nipple and front armpit crease</p>
                         <input type="number" id="caliper-chest" step="0.5" min="1" max="80" placeholder="10">
                     </div>
                     <div class="form-group">

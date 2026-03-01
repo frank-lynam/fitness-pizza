@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.19
+**Current**: v2.1.20
+- **Macro tab progress bars**: tightened row spacing, removed calorie bar (Fat / Carb / Prot only)
+
+**Previous**: v2.1.19
 - **Mini macro progress bar on macros tab**: compact 4-row bar (Fat / Carb / Prot / Cal) sits between the form and the entry list, always visible. Completed entries shown solid, planned entries as a lighter overlay. Values show `done+plannedp / goal  (X left)` or `(X over)` in red. Goals reflect PI controller adjustments (same source as dashboard).
 
 **Previous**: v2.1.18

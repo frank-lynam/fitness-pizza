@@ -501,10 +501,9 @@ async function renderProgressSummary(macros) {
     };
 
     const rows = [
-        { label: 'Fat',      key: 'fat',      dec: 1, color: 'var(--accent-warning)' },
-        { label: 'Carb',     key: 'carbs',    dec: 1, color: 'var(--accent-success)' },
-        { label: 'Prot',     key: 'protein',  dec: 1, color: 'var(--accent-primary)' },
-        { label: 'Cal',      key: 'calories', dec: 0, color: 'var(--accent-primary)' },
+        { label: 'Fat',  key: 'fat',     dec: 1, color: 'var(--accent-warning)' },
+        { label: 'Carb', key: 'carbs',   dec: 1, color: 'var(--accent-success)' },
+        { label: 'Prot', key: 'protein', dec: 1, color: 'var(--accent-primary)' },
     ];
 
     const barsHtml = rows.map(({ label, key, dec, color }) => {
@@ -543,7 +542,7 @@ async function renderProgressSummary(macros) {
             </div>`;
     }).join('');
 
-    el.innerHTML = `<div style="padding:8px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:6px;">${barsHtml}</div>`;
+    el.innerHTML = `<div style="padding:6px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:3px;">${barsHtml}</div>`;
 }
 
 /**

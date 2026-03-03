@@ -562,12 +562,18 @@ function computePlanIntensities(macros, goals) {
 
     if (ov.fat === 0 && ov.protein === 0 && ov.carbs === 0) return {};
 
+    // Scale factor: 0 when overage ≤5g, ramps linearly to 1 at 10g+
+    const scale = (x) => Math.min(1, Math.max(0, (x - 5) / 5));
+    const fs = scale(ov.fat);
+    const ps = scale(ov.protein);
+    const cs = scale(ov.carbs);
+
     const result = {};
     for (const m of macros) {
         if (m.status !== 'planned') continue;
-        const fi = ov.fat     > 0 ? Math.min(1, (parseFloat(m.fat)     || 0) / ov.fat)     : 0;
-        const pi = ov.protein > 0 ? Math.min(1, (parseFloat(m.protein) || 0) / ov.protein) : 0;
-        const ci = ov.carbs   > 0 ? Math.min(1, (parseFloat(m.carbs)   || 0) / ov.carbs)   : 0;
+        const fi = ov.fat     > 0 ? Math.min(1, (parseFloat(m.fat)     || 0) / ov.fat)     * fs : 0;
+        const pi = ov.protein > 0 ? Math.min(1, (parseFloat(m.protein) || 0) / ov.protein) * ps : 0;
+        const ci = ov.carbs   > 0 ? Math.min(1, (parseFloat(m.carbs)   || 0) / ov.carbs)   * cs : 0;
         result[m.id] = Math.max(fi, pi, ci);
     }
     return result;

@@ -143,6 +143,133 @@ Be conservative in your estimates. If you're unsure, provide a range and use the
 }
 
 /**
+ * Estimate macros from a nutrition label photo using Gemini Vision.
+ * Returns per-serving values; sets is_per_100g: true only when no per-serving column exists.
+ * @param {string} imageData - Base64 encoded image data (data-URL)
+ * @returns {Promise<Object>} Label data {product_name, serving_size, serving_size_grams, calories, protein, carbs, fat, fiber, is_per_100g, confidence, notes, ai_estimated}
+ */
+export async function estimateMacrosFromLabel(imageData) {
+    const apiKey = getAPIKey();
+
+    if (!apiKey) {
+        throw new Error('Gemini API key not configured. Please add your API key in Settings.');
+    }
+
+    const matches = imageData.match(/^data:([^;]+);base64,(.+)$/);
+    if (!matches) {
+        throw new Error('Invalid image data format');
+    }
+
+    const mimeType = matches[1];
+    const base64Data = matches[2];
+
+    const prompt = `Read this nutrition label image and extract the macronutrient values.
+
+Prefer per-serving values if a "Per Serving" column exists. Only use per-100g values (set is_per_100g: true) if no per-serving column is present.
+
+Provide your response in JSON format with these exact fields:
+{
+  "product_name": "name of the product",
+  "serving_size": "serving size description (e.g. '1 cup (240ml)')",
+  "serving_size_grams": number or null (grams equivalent of one serving),
+  "calories": number,
+  "protein": number (grams),
+  "carbs": number (grams, total carbohydrates),
+  "fat": number (grams, total fat),
+  "fiber": number (grams, 0 if not listed),
+  "is_per_100g": false,
+  "confidence": "high" | "medium" | "low",
+  "notes": "any relevant notes about the label or ambiguities"
+}
+
+Transcribe the numbers literally from the label. Do not estimate.`;
+
+    try {
+        const response = await fetch(GEMINI_API_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': apiKey
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [
+                        { text: prompt },
+                        {
+                            inline_data: {
+                                mime_type: mimeType,
+                                data: base64Data
+                            }
+                        }
+                    ]
+                }],
+                generationConfig: {
+                    temperature: 0.1,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+
+        if (!response.ok) {
+            let errorMessage = `API request failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error?.message || errorMessage;
+
+                if (response.status === 401 || response.status === 403) {
+                    errorMessage = 'Invalid API key. Please check your Gemini API key in Settings.';
+                } else if (response.status === 429) {
+                    errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+                } else if (response.status === 400) {
+                    errorMessage = `Bad request: ${errorMessage}`;
+                }
+            } catch (e) {
+                // use default message
+            }
+            throw new Error(errorMessage);
+        }
+
+        const data = await response.json();
+        const text = data.candidates[0].content.parts[0].text;
+
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('Could not parse label data from API response');
+        }
+
+        const result = JSON.parse(jsonMatch[0]);
+
+        if (result.protein === undefined || result.carbs === undefined || result.fat === undefined) {
+            throw new Error('Invalid label data received from API');
+        }
+
+        return {
+            product_name: result.product_name || 'Unknown Product',
+            serving_size: result.serving_size || '',
+            serving_size_grams: result.serving_size_grams ? parseFloat(result.serving_size_grams) : null,
+            calories: parseFloat(result.calories) || 0,
+            protein: parseFloat(result.protein),
+            carbs: parseFloat(result.carbs),
+            fat: parseFloat(result.fat),
+            fiber: parseFloat(result.fiber) || 0,
+            is_per_100g: result.is_per_100g === true,
+            confidence: result.confidence || 'medium',
+            notes: result.notes || '',
+            ai_estimated: true
+        };
+
+    } catch (error) {
+        console.error('Label API Error:', error);
+
+        if (error.message === 'Failed to fetch') {
+            throw new Error('Network error: Unable to reach Gemini API. Check your internet connection.');
+        }
+
+        throw new Error(`Failed to read label: ${error.message}`);
+    }
+}
+
+/**
  * Test API key validity
  * @returns {Promise<{valid: boolean, error?: string, status?: number}>} Test result with details
  */

@@ -3,7 +3,7 @@
  * Handles photo capture/upload and macro estimation
  */
 
-import { estimateMacrosFromPhoto } from '../api.js';
+import { estimateMacrosFromPhoto, estimateMacrosFromLabel } from '../api.js';
 import * as ui from '../ui.js';
 import { showMacroForm } from './macro-form.js';
 
@@ -30,6 +30,8 @@ export function showPhotoUploadModal() {
                     <button id="btn-choose-photo" class="btn-secondary btn-large">
                         🖼️ Choose from Gallery
                     </button>
+                    <input type="file" id="label-input" accept="image/*" style="display: none;">
+                    <button id="btn-scan-label" class="btn-secondary btn-large">📋 Scan Label</button>
                 </div>
 
                 <div id="photo-preview" class="photo-preview hidden">
@@ -137,6 +139,113 @@ function showPhotoRetryModal(errorMessage, imageData, context) {
 }
 
 /**
+ * Run label analysis and handle success/failure.
+ * @param {string} imageData - base64 data-URL of the label image
+ */
+async function runLabelAnalysis(imageData) {
+    let cancelled = false;
+    const loadingOverlay = showAnalysisLoadingModal(() => {
+        cancelled = true;
+        loadingOverlay.remove();
+    });
+
+    try {
+        const result = await estimateMacrosFromLabel(imageData);
+        loadingOverlay.remove();
+        if (cancelled) return;
+
+        if (result.is_per_100g) {
+            showGramsPrompt(result);
+        } else {
+            const servingNote = result.serving_size
+                ? `Serving: ${result.serving_size}`
+                : '';
+            showMacroForm({
+                meal_name: result.product_name,
+                protein: result.protein,
+                carbs: result.carbs,
+                fat: result.fat,
+                fiber: result.fiber,
+                notes: servingNote,
+                status: 'completed',
+                ai_estimated: true
+            });
+        }
+    } catch (error) {
+        loadingOverlay.remove();
+        if (cancelled) return;
+        console.error('Label analysis error:', error);
+        showLabelRetryModal(error.message, imageData);
+    }
+}
+
+/**
+ * Show a prompt asking how many grams the user ate, for per-100g labels.
+ * Scales all macros by grams/100 before calling showMacroForm.
+ * @param {Object} labelResult - Result from estimateMacrosFromLabel
+ */
+function showGramsPrompt(labelResult) {
+    const defaultGrams = labelResult.serving_size_grams || 100;
+    ui.createModal('How many grams did you eat?', `
+        <p style="margin-bottom:10px;color:var(--text-secondary);font-size:13px;">
+            This label shows per-100g values. Enter the amount you ate to scale the macros.
+        </p>
+        <div class="form-group">
+            <label>Grams eaten</label>
+            <input type="number" id="grams-eaten-input" min="1" max="9999" step="1"
+                value="${defaultGrams}" style="width:100%;">
+        </div>
+    `, [
+        {
+            text: 'Confirm',
+            className: 'btn-primary',
+            onClick: () => {
+                const gramsInput = document.getElementById('grams-eaten-input');
+                const grams = parseFloat(gramsInput ? gramsInput.value : defaultGrams) || defaultGrams;
+                const factor = grams / 100;
+                const servingNote = `${grams}g of ${labelResult.product_name}`;
+                showMacroForm({
+                    meal_name: labelResult.product_name,
+                    protein: Math.round(labelResult.protein * factor * 10) / 10,
+                    carbs: Math.round(labelResult.carbs * factor * 10) / 10,
+                    fat: Math.round(labelResult.fat * factor * 10) / 10,
+                    fiber: Math.round(labelResult.fiber * factor * 10) / 10,
+                    notes: servingNote,
+                    status: 'completed',
+                    ai_estimated: true
+                });
+            }
+        },
+        {
+            text: 'Cancel',
+            className: 'btn-secondary'
+        }
+    ]);
+}
+
+/**
+ * Show an error modal that lets the user retry the same label scan.
+ * @param {string} errorMessage - Human-readable error from the API
+ * @param {string} imageData    - base64 data-URL kept for retry
+ */
+function showLabelRetryModal(errorMessage, imageData) {
+    ui.createModal('Label Scan Failed', `
+        <p style="margin-bottom:10px;color:var(--text-primary);">${errorMessage}</p>
+        <p style="font-size:13px;color:var(--text-secondary);">Would you like to retry with the same image?</p>
+    `, [
+        {
+            text: 'Retry',
+            className: 'btn-primary',
+            onClick: () => runLabelAnalysis(imageData)
+        },
+        {
+            text: 'Cancel',
+            className: 'btn-secondary'
+        }
+    ]);
+}
+
+/**
  * Set up photo upload event listeners
  * @param {HTMLElement} modal - Modal element
  */
@@ -144,6 +253,8 @@ function setupPhotoUploadListeners(modal) {
     const photoInput = modal.querySelector('#photo-input');
     const takePhotoBtn = modal.querySelector('#btn-take-photo');
     const choosePhotoBtn = modal.querySelector('#btn-choose-photo');
+    const scanLabelBtn = modal.querySelector('#btn-scan-label');
+    const labelInput = modal.querySelector('#label-input');
     const closeBtn = modal.querySelector('#close-photo-upload');
     const previewSection = modal.querySelector('#photo-preview');
     const previewImage = modal.querySelector('#preview-image');
@@ -228,4 +339,34 @@ function setupPhotoUploadListeners(modal) {
         ui.closeModal(modal);
         await runPhotoAnalysis(currentImageData, context);
     });
+
+    // Scan Label button — opens gallery picker (no capture attr)
+    if (scanLabelBtn && labelInput) {
+        scanLabelBtn.addEventListener('click', () => {
+            labelInput.removeAttribute('capture');
+            labelInput.click();
+        });
+
+        labelInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (file.size > 5 * 1024 * 1024) {
+                ui.showError('Image too large. Please choose an image under 5MB.');
+                return;
+            }
+
+            if (!file.type.startsWith('image/')) {
+                ui.showError('Please select an image file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                ui.closeModal(modal);
+                await runLabelAnalysis(event.target.result);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 }

@@ -69,6 +69,7 @@ async function renderCharts(days) {
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderMacroDelta(filteredMacros, days);
+        await renderMacroCorrelation(filteredMacros, filteredMeasurements);
 
     } catch (error) {
         console.error('Error rendering charts:', error);
@@ -454,6 +455,70 @@ async function renderMacroDelta(macros, days) {
                     },
                     grid: { color: colors.border + '40' }
                 }
+            }
+        }
+    });
+}
+
+/**
+ * Render protein vs next-day weight change scatter chart.
+ * For each day with a completed protein total, look up weight on that day
+ * AND the next day. If both exist, emit point { x: dailyProtein, y: weightDelta }.
+ * @param {Array} macros - Filtered completed macro entries
+ * @param {Array} measurements - Filtered measurement entries
+ */
+async function renderMacroCorrelation(macros, measurements) {
+    const ctx = document.getElementById('macro-correlation-chart');
+    if (!ctx) return;
+    if (charts.macroCorrelation) charts.macroCorrelation.destroy();
+
+    const proteinByDate = {};
+    macros.forEach(m => {
+        proteinByDate[m.date] = (proteinByDate[m.date] || 0) + (m.protein || 0);
+    });
+
+    const weightByDate = {};
+    measurements.filter(m => m.type === 'weight').forEach(m => {
+        weightByDate[m.date] = m.unit === 'kg' ? m.value * 2.20462 : m.value;
+    });
+
+    const points = [];
+    for (const date of Object.keys(proteinByDate)) {
+        const nextDay = localDateStr(new Date(new Date(date + 'T12:00:00').getTime() + 86400000));
+        if (weightByDate[date] !== undefined && weightByDate[nextDay] !== undefined) {
+            points.push({
+                x: Math.round(proteinByDate[date] * 10) / 10,
+                y: Math.round((weightByDate[nextDay] - weightByDate[date]) * 100) / 100
+            });
+        }
+    }
+
+    const colors = getThemeColors();
+    if (points.length < 3) {
+        charts.macroCorrelation = new Chart(ctx, {
+            type: 'scatter', data: { datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: true,
+                plugins: {
+                    legend: { labels: { color: colors.text } },
+                    title: { display: true, text: 'Need more data (log weight on consecutive days)', color: colors.textSecondary }
+                }
+            }
+        });
+        return;
+    }
+
+    charts.macroCorrelation = new Chart(ctx, {
+        type: 'scatter',
+        data: { datasets: [{ label: 'Protein vs Next-Day Weight Δ', data: points, backgroundColor: colors.primary + 'aa', pointRadius: 5 }] },
+        options: {
+            responsive: true, maintainAspectRatio: true,
+            plugins: { legend: { labels: { color: colors.text } } },
+            scales: {
+                x: { title: { display: true, text: 'Daily Protein (g)', color: colors.textSecondary }, ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
+                y: { title: { display: true, text: 'Next-Day Weight Δ (lbs)', color: colors.textSecondary },
+                     ticks: { color: colors.textSecondary, callback: v => (v >= 0 ? '+' : '') + v.toFixed(2) + ' lbs' },
+                     grid: { color: colors.border + '40' } }
             }
         }
     });

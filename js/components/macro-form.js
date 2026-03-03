@@ -519,12 +519,9 @@ async function renderProgressSummary(macros) {
         const doneW = over ? 100 : Math.min(100, (d / g) * 100);
         const planW = over ? 0   : Math.min(100 - doneW, (p / g) * 100);
 
-        // Right label — fixed min-width so all bars are the same length
-        const doneStr = d.toFixed(dec);
-        const plnStr  = p.toFixed(dec);
-        const goalStr = g.toFixed(0);
-        const unit    = 'g';
-        const labelText = hasPlan ? `${doneStr}+${plnStr}p / ${goalStr}${unit}` : `${doneStr} / ${goalStr}${unit}`;
+        // Right label: net delta vs goal (+over / -under)
+        const net = total - g;
+        const labelText = (net >= 0 ? '+' : '') + net.toFixed(dec) + 'g';
         const labelColor = over ? 'var(--accent-danger)' : 'var(--text-secondary)';
 
         return `
@@ -534,11 +531,46 @@ async function renderProgressSummary(macros) {
                     <div style="width:${doneW}%;height:100%;position:absolute;left:0;top:0;background:${fillColor};border-radius:4px;transition:width 0.3s,background 0.3s;"></div>
                     ${hasPlan && !over ? `<div style="width:${planW}%;height:100%;position:absolute;left:${doneW}%;top:0;background:${fillColor};opacity:0.35;border-radius:4px;transition:width 0.3s;"></div>` : ''}
                 </div>
-                <span style="font-size:11px;min-width:105px;text-align:right;white-space:nowrap;color:${labelColor};">${labelText}</span>
+                <span style="font-size:11px;min-width:56px;text-align:right;white-space:nowrap;color:${labelColor};">${labelText}</span>
             </div>`;
     }).join('');
 
     el.innerHTML = `<div style="padding:6px 10px;background:var(--bg-secondary);border-radius:var(--radius-md);display:flex;flex-direction:column;gap:2px;">${barsHtml}</div>`;
+}
+
+/**
+ * For each planned macro entry, compute a danger highlight intensity [0, 1]
+ * based on how much it contributes to resolving a macro overage.
+ *   intensity = 1 → this item alone covers the full overage (removing 1 serving fixes it)
+ *   intensity = 0 → removing this item entirely has no effect on the overage
+ */
+function computePlanIntensities(macros, goals) {
+    if (!goals) return {};
+
+    const total = { fat: 0, protein: 0, carbs: 0 };
+    for (const m of macros) {
+        total.fat     += parseFloat(m.fat)     || 0;
+        total.protein += parseFloat(m.protein) || 0;
+        total.carbs   += parseFloat(m.carbs)   || 0;
+    }
+
+    const ov = {
+        fat:     Math.max(0, total.fat     - goals.fat),
+        protein: Math.max(0, total.protein - goals.protein),
+        carbs:   Math.max(0, total.carbs   - goals.carbs),
+    };
+
+    if (ov.fat === 0 && ov.protein === 0 && ov.carbs === 0) return {};
+
+    const result = {};
+    for (const m of macros) {
+        if (m.status !== 'planned') continue;
+        const fi = ov.fat     > 0 ? Math.min(1, (parseFloat(m.fat)     || 0) / ov.fat)     : 0;
+        const pi = ov.protein > 0 ? Math.min(1, (parseFloat(m.protein) || 0) / ov.protein) : 0;
+        const ci = ov.carbs   > 0 ? Math.min(1, (parseFloat(m.carbs)   || 0) / ov.carbs)   : 0;
+        result[m.id] = Math.max(fi, pi, ci);
+    }
+    return result;
 }
 
 /**
@@ -563,8 +595,18 @@ export async function loadTodaysMacros() {
             // Sort by timestamp (most recent first)
             macros.sort((a, b) => b.timestamp - a.timestamp);
 
-            html += macros.map(macro => `
-                <div class="entry-item ${macro.status === 'planned' ? 'planned' : ''}" data-id="${macro.id}">
+            const planIntensities = computePlanIntensities(macros, _dailyGoals);
+            html += macros.map(macro => {
+                let itemStyle = '';
+                if (macro.status === 'planned') {
+                    const intensity = planIntensities[macro.id] || 0;
+                    if (intensity > 0.02) {
+                        const pct = Math.round(intensity * 50);
+                        itemStyle = `background:color-mix(in srgb,var(--accent-danger) ${pct}%,var(--bg-card));opacity:1;`;
+                    }
+                }
+                return `
+                <div class="entry-item ${macro.status === 'planned' ? 'planned' : ''}" data-id="${macro.id}"${itemStyle ? ` style="${itemStyle}"` : ''}>
                     <div class="entry-item-header">
                         <label class="checkbox-inline">
                             <input type="checkbox" class="entry-checkbox" data-id="${macro.id}"
@@ -593,7 +635,8 @@ export async function loadTodaysMacros() {
                         </div>
                     </div>
                 </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         macroEntries.innerHTML = html;

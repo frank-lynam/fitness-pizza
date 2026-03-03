@@ -140,7 +140,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.24
+**Current**: v2.1.25
+- **Mini macro bars**: labels simplified to net delta only (`+4.2g` over / `-7.1g` under), wider bar area
+- **Planned item danger highlighting**: when any macro is over target, planned food items are tinted in `--accent-danger` with intensity proportional to how much that item alone covers the overage (full saturation = removing 1 serving resolves it; no tint = removing it entirely has no effect)
+- **Contrast fix**: dashboard over-target labels now use `var(--accent-danger)` instead of hardcoded `#ff4444` so all themes render correctly
+
+**Previous**: v2.1.24
 - **Macro bars actually turn red**: `--danger-color` → `--accent-danger` (the correct CSS variable name); bars now visibly go red when completed + planned total exceeds the goal
 - **Photo AI retry modal**: when the API call fails, a modal now appears with the error message and a Retry button to re-run the same photo/context without re-selecting the image; Cancel dismisses
 

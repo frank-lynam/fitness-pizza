@@ -1529,7 +1529,7 @@ button {
 }
 
 .progress-value.over-target {
-    color: #ff4444;
+    color: var(--accent-danger);
     font-weight: 800;
 }
 

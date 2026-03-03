@@ -285,7 +285,7 @@ class FitnessTrackerApp {
     async loadDashboard() {
         const { loadDashboard } = await import('./components/dashboard.js');
         await loadDashboard(
-            () => this.calculateEffectiveGoals(),
+            () => this.calculateEffectiveGoals(this.currentDate),
             () => this.loadRecentActivity()
         );
     }

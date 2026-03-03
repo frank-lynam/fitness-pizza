@@ -944,7 +944,7 @@ class FitnessTrackerApp {
             if (tdeeActivityLabelEl) tdeeActivityLabelEl.textContent = activityFactorLabel(savedActivityFactor);
         }
 
-        const updateTDEE = async () => {
+        const updateTDEE = async (updateTarget = false) => {
             const sex = userSexSelect ? userSexSelect.value : savedSex;
             const age = parseFloat(userAgeInput ? userAgeInput.value : savedAge);
             const heightIn = parseFloat(userHeightInput ? userHeightInput.value : savedHeight);
@@ -982,8 +982,8 @@ class FitnessTrackerApp {
 
             if (tdeeComputeHelper) {
                 tdeeComputeHelper.style.display = 'block';
-                // Default target to TDEE only on first show (don't overwrite user's value)
-                if (goalTargetKcalInput && !goalTargetKcalInput.value) {
+                // Set target to TDEE on first show, or whenever the slider moves
+                if (goalTargetKcalInput && (!goalTargetKcalInput.value || updateTarget)) {
                     goalTargetKcalInput.value = tdee;
                 }
             }
@@ -1006,7 +1006,7 @@ class FitnessTrackerApp {
                 if (tdeeActivityValueEl) tdeeActivityValueEl.textContent = factor.toFixed(2);
                 if (tdeeActivityLabelEl) tdeeActivityLabelEl.textContent = activityFactorLabel(factor);
                 await db.setSetting('tdee_activity_factor', factor);
-                await updateTDEE();
+                await updateTDEE(true);
             });
         }
 

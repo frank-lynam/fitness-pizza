@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.32
+**Current**: v2.1.33
+- **Fix: activity slider now updates "Fill carbs to" target**: moving the slider always pushes the new TDEE into the target kcal input; typing a custom value still works as before
+
+**Previous**: v2.1.32
 - **Fix phantom user_weight_lbs**: `user_weight_lbs` setting was never written anywhere — TDEE display and workout calorie estimator both read it but it was always 0/154; TDEE now uses 7-day rolling average of logged weight measurements (same source as the chart); workout calorie estimator uses most recent logged weight with 154 lb fallback
 
 **Previous**: v2.1.31

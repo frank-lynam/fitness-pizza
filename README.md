@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.27
+**Current**: v2.1.28
+- **Fix workout credit bug**: `calculateEffectiveGoals` was called without a date argument, causing `getWorkoutsByDate(undefined)` to return all workouts ever logged — inflating the calorie credit by an arbitrary factor
+
+**Previous**: v2.1.27
 - **Label OCR**: new "📋 Scan Label" button in the photo modal — takes a photo of any nutrition label and pre-fills the macro form with transcribed values; per-100g labels prompt for grams eaten before scaling; error modal with Retry on failure
 - **Macro correlation chart**: new "Protein vs Next-Day Weight Change" scatter chart in the Trends tab; plots daily protein intake against overnight weight delta; shows "Need more data" until 3+ consecutive weight days exist
 - **Dashboard component extract**: `loadDashboard()` extracted to `js/components/dashboard.js` for better code organization

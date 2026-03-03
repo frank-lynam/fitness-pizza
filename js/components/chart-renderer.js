@@ -142,6 +142,12 @@ async function renderBodyComposition(allMeasurements, days) {
         return;
     }
 
+    // Load body stats for BMI and TDEE computation
+    const heightIn  = parseFloat(await db.getSetting('user_height_in') || 0);
+    const age       = parseFloat(await db.getSetting('user_age') || 0);
+    const sex       = await db.getSetting('user_sex') || 'male';
+    const canComputeBodyStats = heightIn > 0 && age > 0;
+
     // Build daily value maps (last reading of each day)
     const weightByDate = {};
     for (const r of weightReadings) {
@@ -168,6 +174,8 @@ async function renderBodyComposition(allMeasurements, days) {
     const labels = [];
     const weightData = [];
     const leanMassData = [];
+    const bmiData = [];
+    const tdeeData = [];
 
     const cur = new Date(minDateStr + 'T12:00:00');
     const end = new Date(todayStr + 'T12:00:00');
@@ -190,29 +198,78 @@ async function renderBodyComposition(allMeasurements, days) {
             leanMassData.push(bfCount > 0
                 ? Math.round(avgWeight * (1 - (bfSum / bfCount) / 100) * 10) / 10
                 : null);
+
+            if (canComputeBodyStats) {
+                // BMI: 703 × lbs / in²
+                bmiData.push(Math.round((703 * avgWeight / (heightIn * heightIn)) * 10) / 10);
+
+                // Mifflin-St Jeor BMR, then ×1.55 (moderate activity) for TDEE
+                const weightKg = avgWeight * 0.453592;
+                const heightCm = heightIn * 2.54;
+                const bmr = sex === 'female'
+                    ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
+                    : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
+                tdeeData.push(Math.round(bmr * 1.55));
+            } else {
+                bmiData.push(null);
+                tdeeData.push(null);
+            }
         }
         cur.setDate(cur.getDate() + 1);
     }
 
     const colors = getThemeColors();
-    const datasets = [{
-        label: 'Weight (lbs, 7d avg)',
-        data: weightData,
-        borderColor: colors.secondary,
-        backgroundColor: colors.secondary + '20',
-        tension: 0,
-        pointRadius: 2,
-        spanGaps: false
-    }];
+
+    // y  — left axis: weight + lean mass (lbs)
+    // y1 — right axis: BMI
+    // y2 — right axis (stacked): TDEE (kcal)
+    const datasets = [
+        {
+            label: 'Weight (lbs, 7d avg)',
+            data: weightData,
+            yAxisID: 'y',
+            borderColor: colors.secondary,
+            backgroundColor: colors.secondary + '20',
+            tension: 0,
+            pointRadius: 2,
+            spanGaps: false
+        }
+    ];
 
     if (leanMassData.some(v => v !== null)) {
         datasets.push({
             label: 'Lean Mass (lbs, 7d avg)',
             data: leanMassData,
+            yAxisID: 'y',
             borderColor: colors.success,
             backgroundColor: colors.success + '20',
             tension: 0,
             pointRadius: 2,
+            spanGaps: false
+        });
+    }
+
+    if (canComputeBodyStats && bmiData.some(v => v !== null)) {
+        datasets.push({
+            label: 'BMI',
+            data: bmiData,
+            yAxisID: 'y1',
+            borderColor: colors.warning,
+            backgroundColor: 'transparent',
+            tension: 0,
+            pointRadius: 2,
+            borderDash: [4, 3],
+            spanGaps: false
+        });
+        datasets.push({
+            label: 'TDEE (kcal, moderate)',
+            data: tdeeData,
+            yAxisID: 'y2',
+            borderColor: colors.danger,
+            backgroundColor: 'transparent',
+            tension: 0,
+            pointRadius: 2,
+            borderDash: [2, 4],
             spanGaps: false
         });
     }
@@ -226,12 +283,45 @@ async function renderBodyComposition(allMeasurements, days) {
             plugins: {
                 legend: { labels: { color: colors.text } },
                 tooltip: {
-                    callbacks: { label: ctx => `${ctx.parsed.y?.toFixed(1)} lbs` }
+                    callbacks: {
+                        label: ctx => {
+                            const v = ctx.parsed.y;
+                            if (v === null || v === undefined) return null;
+                            if (ctx.dataset.yAxisID === 'y1') return `${ctx.dataset.label}: ${v.toFixed(1)}`;
+                            if (ctx.dataset.yAxisID === 'y2') return `${ctx.dataset.label}: ${Math.round(v)} kcal`;
+                            return `${ctx.dataset.label}: ${v.toFixed(1)} lbs`;
+                        }
+                    }
                 }
             },
             scales: {
-                x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
-                y: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } }
+                x: {
+                    ticks: { color: colors.textSecondary },
+                    grid: { color: colors.border + '40' }
+                },
+                y: {
+                    position: 'left',
+                    ticks: { color: colors.textSecondary },
+                    grid: { color: colors.border + '40' },
+                    title: { display: true, text: 'lbs', color: colors.textSecondary }
+                },
+                y1: {
+                    position: 'right',
+                    display: canComputeBodyStats,
+                    ticks: { color: colors.warning },
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'BMI', color: colors.warning }
+                },
+                y2: {
+                    position: 'right',
+                    display: canComputeBodyStats,
+                    ticks: {
+                        color: colors.danger,
+                        callback: v => `${Math.round(v / 100) * 100}`
+                    },
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'TDEE kcal', color: colors.danger }
+                }
             }
         }
     });

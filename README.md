@@ -140,8 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.29
-- **TDEE + BMI trends on body composition chart**: the Weight & Lean Mass chart now has three Y-axes — lbs (left), BMI (right, dashed amber), TDEE at moderate activity (right, dashed red); computed from Mifflin-St Jeor using height/age/sex from Settings; axes hidden when body stats not yet entered
+**Current**: v2.1.30
+- **BMR chart: remove activity factor**: body composition chart third axis now shows raw Mifflin-St Jeor BMR (kcal) instead of TDEE × 1.55; label updated from "TDEE (kcal, moderate)" to "BMR (kcal)"
+
+**Previous**: v2.1.29
+- **TDEE + BMI trends on body composition chart**: the Weight & Lean Mass chart now has three Y-axes — lbs (left), BMI (right, dashed amber), BMR/TDEE (right, dashed red); computed from Mifflin-St Jeor using height/age/sex from Settings; axes hidden when body stats not yet entered
 
 **Previous**: v2.1.28
 - **Fix workout credit bug**: `calculateEffectiveGoals` was called without a date argument, causing `getWorkoutsByDate(undefined)` to return all workouts ever logged — inflating the calorie credit by an arbitrary factor

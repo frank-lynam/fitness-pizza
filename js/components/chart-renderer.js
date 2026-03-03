@@ -203,13 +203,13 @@ async function renderBodyComposition(allMeasurements, days) {
                 // BMI: 703 × lbs / in²
                 bmiData.push(Math.round((703 * avgWeight / (heightIn * heightIn)) * 10) / 10);
 
-                // Mifflin-St Jeor BMR, then ×1.55 (moderate activity) for TDEE
+                // Mifflin-St Jeor BMR
                 const weightKg = avgWeight * 0.453592;
                 const heightCm = heightIn * 2.54;
                 const bmr = sex === 'female'
                     ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
                     : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
-                tdeeData.push(Math.round(bmr * 1.55));
+                tdeeData.push(Math.round(bmr));
             } else {
                 bmiData.push(null);
                 tdeeData.push(null);
@@ -262,7 +262,7 @@ async function renderBodyComposition(allMeasurements, days) {
             spanGaps: false
         });
         datasets.push({
-            label: 'TDEE (kcal, moderate)',
+            label: 'BMR (kcal)',
             data: tdeeData,
             yAxisID: 'y2',
             borderColor: colors.danger,
@@ -320,7 +320,7 @@ async function renderBodyComposition(allMeasurements, days) {
                         callback: v => `${Math.round(v / 100) * 100}`
                     },
                     grid: { drawOnChartArea: false },
-                    title: { display: true, text: 'TDEE kcal', color: colors.danger }
+                    title: { display: true, text: 'BMR kcal', color: colors.danger }
                 }
             }
         }

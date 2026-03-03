@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.25
+**Current**: v2.1.26
+- **Planned item highlight threshold**: no tinting when overage ≤5g; ramps linearly from transparent to full highlight intensity as overage goes from 5g to 10g; full behavior above 10g
+
+**Previous**: v2.1.25
 - **Mini macro bars**: labels simplified to net delta only (`+4.2g` over / `-7.1g` under), wider bar area
 - **Planned item danger highlighting**: when any macro is over target, planned food items are tinted in `--accent-danger` with intensity proportional to how much that item alone covers the overage (full saturation = removing 1 serving resolves it; no tint = removing it entirely has no effect)
 - **Contrast fix**: dashboard over-target labels now use `var(--accent-danger)` instead of hardcoded `#ff4444` so all themes render correctly

@@ -13,6 +13,14 @@ import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from '.
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
 import { initFoodLibrary } from './components/food-library.js';
 
+function activityFactorLabel(f) {
+    if (f <= 1.2)    return 'Sedentary (desk job)';
+    if (f <= 1.375)  return 'Lightly active (1–3 days/wk)';
+    if (f <= 1.55)   return 'Moderately active (3–5 days/wk)';
+    if (f <= 1.725)  return 'Very active (6–7 days/wk)';
+    return 'Extra active (2×/day)';
+}
+
 class FitnessTrackerApp {
     constructor() {
         this.currentScreen = 'dashboard';
@@ -907,55 +915,66 @@ class FitnessTrackerApp {
             });
         }
 
-        // Body stats & TDEE display
+        // Body stats, activity factor & TDEE display
         const userSexSelect = document.getElementById('user-sex');
         const userAgeInput = document.getElementById('user-age');
         const userHeightInput = document.getElementById('user-height');
-        const tdeeDisplay = document.getElementById('tdee-display');
-        const tdeeBmrRow = document.getElementById('tdee-bmr-row');
-        const tdeeTbody = document.getElementById('tdee-tbody');
+        const tdeeActivitySlider = document.getElementById('tdee-activity-factor');
+        const tdeeActivityValueEl = document.getElementById('tdee-activity-value');
+        const tdeeActivityLabelEl = document.getElementById('tdee-activity-label');
+        const tdeeSummary = document.getElementById('tdee-summary');
+        const tdeeBmrValueEl = document.getElementById('tdee-bmr-value');
+        const tdeeTdeeValueEl = document.getElementById('tdee-value');
+        const tdeeComputeHelper = document.getElementById('tdee-compute-helper');
+        const goalTargetKcalInput = document.getElementById('goal-target-kcal');
+        const btnComputeCarbs = document.getElementById('btn-compute-carbs');
+        const computeCarbsError = document.getElementById('compute-carbs-error');
 
         const savedSex = await db.getSetting('user_sex') || 'male';
         const savedAge = await db.getSetting('user_age') || '';
         const savedHeight = await db.getSetting('user_height_in') || '';
+        const savedActivityFactor = parseFloat(await db.getSetting('tdee_activity_factor') || 0) || 1.55;
+
         if (userSexSelect) userSexSelect.value = savedSex;
         if (userAgeInput) userAgeInput.value = savedAge;
         if (userHeightInput) userHeightInput.value = savedHeight;
+        if (tdeeActivitySlider) {
+            tdeeActivitySlider.value = savedActivityFactor;
+            if (tdeeActivityValueEl) tdeeActivityValueEl.textContent = savedActivityFactor.toFixed(2);
+            if (tdeeActivityLabelEl) tdeeActivityLabelEl.textContent = activityFactorLabel(savedActivityFactor);
+        }
 
         const updateTDEE = async () => {
             const sex = userSexSelect ? userSexSelect.value : savedSex;
             const age = parseFloat(userAgeInput ? userAgeInput.value : savedAge);
             const heightIn = parseFloat(userHeightInput ? userHeightInput.value : savedHeight);
             const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 0);
+            const factor = parseFloat(tdeeActivitySlider ? tdeeActivitySlider.value : savedActivityFactor);
 
-            if (!age || !heightIn || !weightLbs || !tdeeDisplay) return;
+            const canCompute = age > 0 && heightIn > 0 && weightLbs > 0;
+            if (!canCompute) {
+                if (tdeeSummary) tdeeSummary.style.display = 'none';
+                if (tdeeComputeHelper) tdeeComputeHelper.style.display = 'none';
+                return;
+            }
 
             const weightKg = weightLbs * 0.453592;
             const heightCm = heightIn * 2.54;
-
-            // Mifflin-St Jeor BMR
             const bmr = sex === 'female'
                 ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
                 : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
+            const tdee = Math.round(bmr * factor);
 
-            const activityLevels = [
-                { label: 'Sedentary (desk job)', multiplier: 1.2 },
-                { label: 'Lightly active (1-3 days/wk)', multiplier: 1.375 },
-                { label: 'Moderately active (3-5 days/wk)', multiplier: 1.55 },
-                { label: 'Very active (6-7 days/wk)', multiplier: 1.725 },
-                { label: 'Extra active (2×/day)', multiplier: 1.9 }
-            ];
+            if (tdeeSummary) tdeeSummary.style.display = 'block';
+            if (tdeeBmrValueEl) tdeeBmrValueEl.textContent = `${Math.round(bmr)} kcal/day`;
+            if (tdeeTdeeValueEl) tdeeTdeeValueEl.textContent = `${tdee} kcal/day`;
 
-            tdeeDisplay.style.display = 'block';
-            if (tdeeBmrRow) tdeeBmrRow.textContent = `BMR: ${Math.round(bmr)} cal/day`;
-            if (tdeeTbody) {
-                tdeeTbody.innerHTML = activityLevels.map(({ label, multiplier }) => {
-                    const tdee = Math.round(bmr * multiplier);
-                    return `<tr>
-                        <td style="padding: 3px 0; color: var(--text-secondary); font-size: 12px;">${label}</td>
-                        <td style="padding: 3px 0; text-align: right; font-weight: 600;">${tdee} cal</td>
-                    </tr>`;
-                }).join('');
+            if (tdeeComputeHelper) {
+                tdeeComputeHelper.style.display = 'block';
+                // Default target to TDEE only on first show (don't overwrite user's value)
+                if (goalTargetKcalInput && !goalTargetKcalInput.value) {
+                    goalTargetKcalInput.value = tdee;
+                }
             }
         };
 
@@ -969,6 +988,39 @@ class FitnessTrackerApp {
         if (userSexSelect) userSexSelect.addEventListener('change', saveBodyStats);
         if (userAgeInput) userAgeInput.addEventListener('change', saveBodyStats);
         if (userHeightInput) userHeightInput.addEventListener('change', saveBodyStats);
+
+        if (tdeeActivitySlider) {
+            tdeeActivitySlider.addEventListener('input', async () => {
+                const factor = parseFloat(tdeeActivitySlider.value);
+                if (tdeeActivityValueEl) tdeeActivityValueEl.textContent = factor.toFixed(2);
+                if (tdeeActivityLabelEl) tdeeActivityLabelEl.textContent = activityFactorLabel(factor);
+                await db.setSetting('tdee_activity_factor', factor);
+                await updateTDEE();
+            });
+        }
+
+        if (btnComputeCarbs && goalTargetKcalInput) {
+            btnComputeCarbs.addEventListener('click', () => {
+                const targetKcal = parseFloat(goalTargetKcalInput.value);
+                const protein = parseFloat(proteinInput ? proteinInput.value : 0) || 0;
+                const fat = parseFloat(fatInput ? fatInput.value : 0) || 0;
+                if (!targetKcal) return;
+                const carbs = Math.round((targetKcal - (protein * 4) - (fat * 9)) / 4);
+                if (computeCarbsError) computeCarbsError.style.display = 'none';
+                if (carbs < 0) {
+                    if (computeCarbsError) {
+                        computeCarbsError.textContent = 'Protein + fat exceed target — lower protein/fat or raise the target.';
+                        computeCarbsError.style.display = 'block';
+                    }
+                    return;
+                }
+                if (carbsInput) {
+                    carbsInput.value = carbs;
+                    carbsInput.dispatchEvent(new Event('input'));  // update calorie display
+                    carbsInput.dispatchEvent(new Event('change')); // trigger autoSaveGoals
+                }
+            });
+        }
 
         await updateTDEE();
 

@@ -142,10 +142,11 @@ async function renderBodyComposition(allMeasurements, days) {
         return;
     }
 
-    // Load body stats for BMI and TDEE computation
-    const heightIn  = parseFloat(await db.getSetting('user_height_in') || 0);
-    const age       = parseFloat(await db.getSetting('user_age') || 0);
-    const sex       = await db.getSetting('user_sex') || 'male';
+    // Load body stats for BMI and BMR/TDEE computation
+    const heightIn      = parseFloat(await db.getSetting('user_height_in') || 0);
+    const age           = parseFloat(await db.getSetting('user_age') || 0);
+    const sex           = await db.getSetting('user_sex') || 'male';
+    const activityFactor = parseFloat(await db.getSetting('tdee_activity_factor') || 0);
     const canComputeBodyStats = heightIn > 0 && age > 0;
 
     // Build daily value maps (last reading of each day)
@@ -203,13 +204,13 @@ async function renderBodyComposition(allMeasurements, days) {
                 // BMI: 703 × lbs / in²
                 bmiData.push(Math.round((703 * avgWeight / (heightIn * heightIn)) * 10) / 10);
 
-                // Mifflin-St Jeor BMR
+                // Mifflin-St Jeor BMR, optionally scaled by activity factor → TDEE
                 const weightKg = avgWeight * 0.453592;
                 const heightCm = heightIn * 2.54;
                 const bmr = sex === 'female'
                     ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
                     : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
-                tdeeData.push(Math.round(bmr));
+                tdeeData.push(Math.round(activityFactor > 0 ? bmr * activityFactor : bmr));
             } else {
                 bmiData.push(null);
                 tdeeData.push(null);
@@ -262,7 +263,7 @@ async function renderBodyComposition(allMeasurements, days) {
             spanGaps: false
         });
         datasets.push({
-            label: 'BMR (kcal)',
+            label: activityFactor > 0 ? 'TDEE (kcal)' : 'BMR (kcal)',
             data: tdeeData,
             yAxisID: 'y2',
             borderColor: colors.danger,
@@ -320,7 +321,7 @@ async function renderBodyComposition(allMeasurements, days) {
                         callback: v => `${Math.round(v / 100) * 100}`
                     },
                     grid: { drawOnChartArea: false },
-                    title: { display: true, text: 'BMR kcal', color: colors.danger }
+                    title: { display: true, text: activityFactor > 0 ? 'TDEE kcal' : 'BMR kcal', color: colors.danger }
                 }
             }
         }

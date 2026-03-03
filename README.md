@@ -140,7 +140,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.30
+**Current**: v2.1.31
+- **Activity factor slider + macro planner**: Settings → Body Stats now has an activity factor slider (1.2–1.9) replacing the old 5-row TDEE table; shows BMR and TDEE on one line; stored as `tdee_activity_factor`
+- **Fill-carbs helper in Daily Goals**: "Fill carbs to [kcal] Apply" row appears in the Goals section once TDEE is computable; protein and fat are fixed, carbs auto-computed as remainder and saved directly to goals; shows error if protein+fat exceed target
+- **Chart axis**: body composition chart third axis auto-labels as "TDEE (kcal)" when activity factor is set, "BMR (kcal)" otherwise
+
+**Previous**: v2.1.30
 - **BMR chart: remove activity factor**: body composition chart third axis now shows raw Mifflin-St Jeor BMR (kcal) instead of TDEE × 1.55; label updated from "TDEE (kcal, moderate)" to "BMR (kcal)"
 
 **Previous**: v2.1.29

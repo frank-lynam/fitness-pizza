@@ -270,7 +270,14 @@ function setupSetListeners() {
  */
 async function computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, pace) {
     if (exerciseType === 'Cardio') {
-        const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 154);
+        // Use most recent logged weight; fall back to 154 lbs if none recorded
+        const allMeasurements = await db.getAllMeasurements();
+        const lastWeight = allMeasurements
+            .filter(m => m.type === 'weight')
+            .sort((a, b) => b.timestamp - a.timestamp)[0];
+        const weightLbs = lastWeight
+            ? (lastWeight.unit === 'kg' ? lastWeight.value * 2.20462 : lastWeight.value)
+            : 154;
         if (pace > 0 && durationMinutes > 0) {
             // Continuous MET from pace: speed (mph) = 60/pace
             const speedMph = 60 / pace;

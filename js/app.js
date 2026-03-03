@@ -948,7 +948,18 @@ class FitnessTrackerApp {
             const sex = userSexSelect ? userSexSelect.value : savedSex;
             const age = parseFloat(userAgeInput ? userAgeInput.value : savedAge);
             const heightIn = parseFloat(userHeightInput ? userHeightInput.value : savedHeight);
-            const weightLbs = parseFloat(await db.getSetting('user_weight_lbs') || 0);
+            // 7-day rolling average weight from measurements (same source as the chart)
+            const allMeasurements = await db.getAllMeasurements();
+            const weightReadings = allMeasurements
+                .filter(m => m.type === 'weight')
+                .sort((a, b) => b.timestamp - a.timestamp);
+            const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+            const recentWeights = weightReadings.filter(m => m.timestamp >= sevenDaysAgo);
+            const weightSample = recentWeights.length > 0 ? recentWeights : weightReadings.slice(0, 1);
+            const weightLbs = weightSample.length > 0
+                ? weightSample.reduce((s, m) => s + (m.unit === 'kg' ? m.value * 2.20462 : m.value), 0) / weightSample.length
+                : 0;
+
             const factor = parseFloat(tdeeActivitySlider ? tdeeActivitySlider.value : savedActivityFactor);
 
             const canCompute = age > 0 && heightIn > 0 && weightLbs > 0;

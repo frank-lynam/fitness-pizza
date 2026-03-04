@@ -5,18 +5,18 @@
 
 import { db } from '../db.js';
 import * as ui from '../ui.js';
-import { getTodayDate } from '../utils/date-utils.js';
 
 /**
  * Load dashboard screen
+ * @param {string} date - Date to display (YYYY-MM-DD), i.e. this.currentDate
  * @param {Function} getGoals - Returns effective goals (replaces this.calculateEffectiveGoals())
  * @param {Function} loadRecentActivity - Loads recent activity (replaces this.loadRecentActivity())
  */
-export async function loadDashboard(getGoals, loadRecentActivity) {
+export async function loadDashboard(date, getGoals, loadRecentActivity) {
     console.log('Loading dashboard...');
 
     try {
-        const today = getTodayDate();
+        const today = date;
 
         // Load today's macros (completed and planned separately)
         const macros = await db.getMacrosByDate(today);

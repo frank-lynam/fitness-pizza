@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.33
+**Current**: v2.1.34
+- **Fix: past-day dashboard showed today's data**: dashboard.js used `getTodayDate()` instead of `this.currentDate`, so navigating to a past date always showed today's macros/workouts in the progress bars; now passes the selected date as an explicit parameter
+
+**Previous**: v2.1.33
 - **Fix: activity slider now updates "Fill carbs to" target**: moving the slider always pushes the new TDEE into the target kcal input; typing a custom value still works as before
 
 **Previous**: v2.1.32

@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.34
+**Current**: v2.1.35
+- **Fix: macro over/under chart now accounts for workout credit**: `renderMacroDelta` previously used static goal values; now builds a per-day workout-calories map and adjusts goals the same way `calculateEffectiveGoals` does, so bars reflect your actual workout-credited targets
+- **Label scan: add camera option**: "📋 Take Label Photo" button now captures directly from camera alongside the existing "🖼️ Label from Gallery" option
+
+**Previous**: v2.1.34
 - **Fix: past-day dashboard showed today's data**: dashboard.js used `getTodayDate()` instead of `this.currentDate`, so navigating to a past date always showed today's macros/workouts in the progress bars; now passes the selected date as an explicit parameter
 
 **Previous**: v2.1.33

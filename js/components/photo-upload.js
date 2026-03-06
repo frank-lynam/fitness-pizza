@@ -31,7 +31,8 @@ export function showPhotoUploadModal() {
                         🖼️ Choose from Gallery
                     </button>
                     <input type="file" id="label-input" accept="image/*" style="display: none;">
-                    <button id="btn-scan-label" class="btn-secondary btn-large">📋 Scan Label</button>
+                    <button id="btn-take-label-photo" class="btn-secondary btn-large">📋 Take Label Photo</button>
+                    <button id="btn-scan-label" class="btn-secondary btn-large">🖼️ Label from Gallery</button>
                 </div>
 
                 <div id="photo-preview" class="photo-preview hidden">
@@ -253,6 +254,7 @@ function setupPhotoUploadListeners(modal) {
     const photoInput = modal.querySelector('#photo-input');
     const takePhotoBtn = modal.querySelector('#btn-take-photo');
     const choosePhotoBtn = modal.querySelector('#btn-choose-photo');
+    const takeLabelPhotoBtn = modal.querySelector('#btn-take-label-photo');
     const scanLabelBtn = modal.querySelector('#btn-scan-label');
     const labelInput = modal.querySelector('#label-input');
     const closeBtn = modal.querySelector('#close-photo-upload');
@@ -340,7 +342,13 @@ function setupPhotoUploadListeners(modal) {
         await runPhotoAnalysis(currentImageData, context);
     });
 
-    // Scan Label button — opens gallery picker (no capture attr)
+    // Scan Label buttons — camera and gallery
+    if (takeLabelPhotoBtn && labelInput) {
+        takeLabelPhotoBtn.addEventListener('click', () => {
+            labelInput.setAttribute('capture', 'environment');
+            labelInput.click();
+        });
+    }
     if (scanLabelBtn && labelInput) {
         scanLabelBtn.addEventListener('click', () => {
             labelInput.removeAttribute('capture');

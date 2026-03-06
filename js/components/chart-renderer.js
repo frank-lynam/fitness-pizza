@@ -68,7 +68,7 @@ async function renderCharts(days) {
         // Render individual charts
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
-        await renderMacroDelta(filteredMacros, days);
+        await renderMacroDelta(filteredMacros, filteredWorkouts, days);
         await renderMacroCorrelation(filteredMacros, filteredMeasurements);
 
     } catch (error) {
@@ -446,17 +446,25 @@ async function renderCalorieBalance(macros, workouts, days) {
  * Shows daily (actual − goal) in grams for fat, protein, and carbs.
  * Zero = goal met; positive = over; negative = under.
  * @param {Array} macros - Filtered completed macro entries
+ * @param {Array} workouts - Filtered workout entries (for per-day goal adjustment)
  * @param {number|null} days - Number of days to show, or null for all time
  */
-async function renderMacroDelta(macros, days) {
+async function renderMacroDelta(macros, workouts, days) {
     const ctx = document.getElementById('macro-delta-chart');
     if (!ctx) return;
 
     if (charts.macroDelta) charts.macroDelta.destroy();
 
-    const goalFat     = parseFloat(await db.getSetting('goal_fat')     || 70);
-    const goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-    const goalCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
+    const baseGoalFat     = parseFloat(await db.getSetting('goal_fat')     || 70);
+    const baseGoalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+    const baseGoalCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
+    const baseGoalCal     = baseGoalFat * 9 + baseGoalProtein * 4 + baseGoalCarbs * 4;
+
+    // Build per-day workout credit map (same formula as calculateEffectiveGoals)
+    const caloriesBurnedByDate = {};
+    workouts.forEach(w => {
+        caloriesBurnedByDate[w.date] = (caloriesBurnedByDate[w.date] || 0) + (w.estimated_calories_burned || 0);
+    });
 
     // Determine date range using local dates
     const today = new Date();
@@ -496,9 +504,23 @@ async function renderMacroDelta(macros, days) {
 
     const sortedDates = Object.keys(byDate).sort();
     const labels = sortedDates;
-    const fatDelta     = sortedDates.map(d => Math.round((byDate[d].fat     - goalFat)     * 10) / 10);
-    const proteinDelta = sortedDates.map(d => Math.round((byDate[d].protein - goalProtein) * 10) / 10);
-    const carbsDelta   = sortedDates.map(d => Math.round((byDate[d].carbs   - goalCarbs)   * 10) / 10);
+
+    // Per-day delta: actual − (base goal + workout credit for that day)
+    const fatDelta = sortedDates.map(d => {
+        const credited = (caloriesBurnedByDate[d] || 0) / 2;
+        const goalFat = baseGoalFat + (baseGoalCal > 0 ? (credited * (baseGoalFat * 9 / baseGoalCal)) / 9 : 0);
+        return Math.round((byDate[d].fat - goalFat) * 10) / 10;
+    });
+    const proteinDelta = sortedDates.map(d => {
+        const credited = (caloriesBurnedByDate[d] || 0) / 2;
+        const goalProtein = baseGoalProtein + (baseGoalCal > 0 ? (credited * (baseGoalProtein * 4 / baseGoalCal)) / 4 : 0);
+        return Math.round((byDate[d].protein - goalProtein) * 10) / 10;
+    });
+    const carbsDelta = sortedDates.map(d => {
+        const credited = (caloriesBurnedByDate[d] || 0) / 2;
+        const goalCarbs = baseGoalCarbs + (baseGoalCal > 0 ? (credited * (baseGoalCarbs * 4 / baseGoalCal)) / 4 : 0);
+        return Math.round((byDate[d].carbs - goalCarbs) * 10) / 10;
+    });
 
     const colors = getThemeColors();
 

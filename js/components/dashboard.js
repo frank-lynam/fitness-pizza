@@ -102,13 +102,11 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const totalCaloriesPercent = (totalCalories / goalCalories) * 100;
         const totalWithPlannedCaloriesPercent = totalCaloriesPercent + plannedCaloriesPercent;
 
-        // Workout credit marker: left dashed line showing how much of the goal
-        // was earned by the workout. Appears at caloriesBurned/goalCalories from the left.
-        // Same fractional position applies to all macro bars (credit is proportional).
-        const workoutCreditPercent = goals.caloriesCredited > 0 && goalCalories > 0
-            ? (goals.caloriesCredited / goalCalories) * 100
-            : 0;
-        console.log('[WorkoutCredit] burned:', goals.caloriesBurned, 'credited (50%):', goals.caloriesCredited, 'goalCal:', goalCalories, 'creditPct:', workoutCreditPercent);
+        // Per-macro workout credit marker positions (only shown on bars that received credit).
+        // Position = (credit grams / goal grams) — the fraction of the bar that is "workout bonus".
+        const workoutCreditFat_g     = goals.workoutCreditFat_g     || 0;
+        const workoutCreditProtein_g = goals.workoutCreditProtein_g || 0;
+        const workoutCreditCarbs_g   = goals.workoutCreditCarbs_g   || 0;
 
         // Find the maximum percentage across ALL bars (to determine if scaling is needed)
         const maxPercent = Math.max(
@@ -125,8 +123,12 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         // Calculate the position of the 100% marker (as percentage of bar width)
         const marker100Percent = needsScaling ? (100 / scale) * 100 : 100;
 
-        // Scaled workout credit marker position (same fraction applies to all bars)
-        const scaledWorkoutCredit = (workoutCreditPercent / scale) * 100;
+        // Scaled per-macro workout credit marker positions (0 = no marker for that bar)
+        const scaledFatWorkoutCredit     = workoutCreditFat_g     > 0 && goalFat     > 0 ? (workoutCreditFat_g     / goalFat     * 100 / scale) * 100 : 0;
+        const scaledProteinWorkoutCredit = workoutCreditProtein_g > 0 && goalProtein > 0 ? (workoutCreditProtein_g / goalProtein * 100 / scale) * 100 : 0;
+        const scaledCarbsWorkoutCredit   = workoutCreditCarbs_g   > 0 && goalCarbs   > 0 ? (workoutCreditCarbs_g   / goalCarbs   * 100 / scale) * 100 : 0;
+        // Calories bar uses total credited calories (sum of all macro contributions)
+        const scaledCaloriesWorkoutCredit = goals.caloriesCredited > 0 && goalCalories > 0 ? (goals.caloriesCredited / goalCalories * 100 / scale) * 100 : 0;
 
         // Helper function to calculate bar dimensions with scaling
         function calculateBarDimensions(completedPercent, plannedPercent) {
@@ -173,8 +175,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${fatDim.hasOverflow ? `<div class="progress-fill-overflow fat" style="left: ${marker100Percent}%; width: ${fatDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                             <!-- 100% marker line -->
                             ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
-                            <!-- Workout credit marker -->
-                            ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
+                            <!-- Workout credit marker (only shown if fat receives workout credit) -->
+                            ${scaledFatWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledFatWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Fat: ${plannedFat > 0 ? totalFat.toFixed(0) + ' / ' : ''}${(totalFat + plannedFat).toFixed(0)}g</span>
                             <span class="progress-value ${goalFat - totalFat - plannedFat < 0 ? 'over-target' : ''}">${
@@ -195,8 +197,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${carbsDim.hasOverflow ? `<div class="progress-fill-overflow carbs" style="left: ${marker100Percent}%; width: ${carbsDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                             <!-- 100% marker -->
                             ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
-                            <!-- Workout credit marker -->
-                            ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
+                            <!-- Workout credit marker (only shown if carbs receives workout credit) -->
+                            ${scaledCarbsWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledCarbsWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Carbs: ${plannedCarbs > 0 ? totalCarbs.toFixed(0) + ' / ' : ''}${(totalCarbs + plannedCarbs).toFixed(0)}g</span>
                             <span class="progress-value ${goalCarbs - totalCarbs - plannedCarbs < 0 ? 'over-target' : ''}">${
@@ -217,8 +219,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${proteinDim.hasOverflow ? `<div class="progress-fill-overflow protein" style="left: ${marker100Percent}%; width: ${proteinDim.scaledTotal - marker100Percent}%; z-index: 2;"></div>` : ''}
                             <!-- 100% marker -->
                             ${needsScaling ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
-                            <!-- Workout credit marker -->
-                            ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
+                            <!-- Workout credit marker (only shown if protein receives workout credit) -->
+                            ${scaledProteinWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledProteinWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Protein: ${plannedProtein > 0 ? totalProtein.toFixed(0) + ' / ' : ''}${(totalProtein + plannedProtein).toFixed(0)}g</span>
                             <span class="progress-value ${goalProtein - totalProtein - plannedProtein < 0 ? 'over-target' : ''}">${
@@ -255,8 +257,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                                     <!-- Overflow portion if calories exceed 100% -->
                                     ${caloriesDim.hasOverflow ? `<div class="progress-fill-overflow calories" style="position: absolute; left: ${marker100Percent}%; width: ${caloriesDim.scaledTotal - marker100Percent}%; z-index: 3;"></div>` : ''}
 
-                                    <!-- Workout credit marker (same scaledWorkoutCredit as other bars) -->
-                                    ${scaledWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledWorkoutCredit}%;"></div>` : ''}
+                                    <!-- Workout credit marker (total credited calories vs total goal) -->
+                                    ${scaledCaloriesWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledCaloriesWorkoutCredit}%;"></div>` : ''}
                                 `;
                             })()}
                             <!-- 100% marker -->

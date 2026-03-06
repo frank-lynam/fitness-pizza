@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.36
+**Current**: v2.1.37
+- **Fix: workout credit marker on dashboard now per-macro**: the cyan dashed line only appears on progress bars for macros that actually receive workout credit; the marker position is computed per-macro from the credit grams returned by calculateEffectiveGoals
+
+**Previous**: v2.1.36
 - **Workout Credit settings**: new Settings section lets you set what fraction of workout calories to apply (0–100% slider, default 50%) and choose which macros receive the credit (Protein / Carbs / Fat checkboxes, all on by default); credit is distributed proportionally among selected macros only; PI controller and macro over/under chart both honor the same settings
 
 **Previous**: v2.1.35

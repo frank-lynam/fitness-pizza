@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.35
+**Current**: v2.1.36
+- **Workout Credit settings**: new Settings section lets you set what fraction of workout calories to apply (0–100% slider, default 50%) and choose which macros receive the credit (Protein / Carbs / Fat checkboxes, all on by default); credit is distributed proportionally among selected macros only; PI controller and macro over/under chart both honor the same settings
+
+**Previous**: v2.1.35
 - **Fix: macro over/under chart now accounts for workout credit**: `renderMacroDelta` previously used static goal values; now builds a per-day workout-calories map and adjusts goals the same way `calculateEffectiveGoals` does, so bars reflect your actual workout-credited targets
 - **Label scan: add camera option**: "📋 Take Label Photo" button now captures directly from camera alongside the existing "🖼️ Label from Gallery" option
 

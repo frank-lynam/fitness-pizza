@@ -255,6 +255,33 @@
                     </div>
 
                     <div class="settings-section">
+                        <h3>Workout Credit</h3>
+                        <div class="form-group-inline" style="align-items: center;">
+                            <label for="workout-credit-fraction" style="padding-top: 0;">Credit %</label>
+                            <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+                                <input type="range" id="workout-credit-fraction" min="0" max="1" step="0.05" value="0.5" style="flex: 1;">
+                                <span id="workout-credit-fraction-value" style="min-width: 36px; text-align: right; font-size: 13px; font-weight: 600;">50%</span>
+                            </div>
+                        </div>
+                        <p class="help-text" style="margin: 2px 0 10px; font-size: 11px;">Fraction of estimated workout calories added to your daily macro goals</p>
+                        <div style="display: flex; gap: 20px;">
+                            <label class="checkbox-label" style="font-size: 13px;">
+                                <input type="checkbox" id="workout-credit-protein" checked>
+                                <span>Protein</span>
+                            </label>
+                            <label class="checkbox-label" style="font-size: 13px;">
+                                <input type="checkbox" id="workout-credit-carbs" checked>
+                                <span>Carbs</span>
+                            </label>
+                            <label class="checkbox-label" style="font-size: 13px;">
+                                <input type="checkbox" id="workout-credit-fat" checked>
+                                <span>Fat</span>
+                            </label>
+                        </div>
+                        <p class="help-text" style="margin-top: 4px; font-size: 11px;">Which macros receive the workout calorie credit (distributed proportionally among selected)</p>
+                    </div>
+
+                    <div class="settings-section">
                         <h3>Preferences</h3>
                         <div class="form-group-inline">
                             <label for="theme-toggle">Theme</label>
@@ -300,7 +327,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p>Fitness Pizza v2.1.35 🍕</p>
+                        <p>Fitness Pizza v2.1.36 🍕</p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

@@ -4,6 +4,7 @@
  */
 
 import { db } from '../db.js';
+import { applyWorkoutCredit } from '../utils/calorie-calc.js';
 
 let charts = {};
 
@@ -458,9 +459,16 @@ async function renderMacroDelta(macros, workouts, days) {
     const baseGoalFat     = parseFloat(await db.getSetting('goal_fat')     || 70);
     const baseGoalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
     const baseGoalCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
-    const baseGoalCal     = baseGoalFat * 9 + baseGoalProtein * 4 + baseGoalCarbs * 4;
 
-    // Build per-day workout credit map (same formula as calculateEffectiveGoals)
+    // Read workout credit settings (must match calculateEffectiveGoals)
+    const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
+    const workoutCreditMacros = {
+        fat:     (await db.getSetting('workout_credit_fat'))     !== 'false',
+        protein: (await db.getSetting('workout_credit_protein')) !== 'false',
+        carbs:   (await db.getSetting('workout_credit_carbs'))   !== 'false',
+    };
+
+    // Build per-day workout calories map
     const caloriesBurnedByDate = {};
     workouts.forEach(w => {
         caloriesBurnedByDate[w.date] = (caloriesBurnedByDate[w.date] || 0) + (w.estimated_calories_burned || 0);
@@ -505,22 +513,20 @@ async function renderMacroDelta(macros, workouts, days) {
     const sortedDates = Object.keys(byDate).sort();
     const labels = sortedDates;
 
-    // Per-day delta: actual − (base goal + workout credit for that day)
-    const fatDelta = sortedDates.map(d => {
-        const credited = (caloriesBurnedByDate[d] || 0) / 2;
-        const goalFat = baseGoalFat + (baseGoalCal > 0 ? (credited * (baseGoalFat * 9 / baseGoalCal)) / 9 : 0);
-        return Math.round((byDate[d].fat - goalFat) * 10) / 10;
+    // Per-day effective goals (base + workout credit using user-configured settings)
+    const effectiveGoalsByDate = {};
+    sortedDates.forEach(d => {
+        effectiveGoalsByDate[d] = applyWorkoutCredit(
+            baseGoalFat, baseGoalProtein, baseGoalCarbs,
+            caloriesBurnedByDate[d] || 0,
+            workoutCreditFraction, workoutCreditMacros
+        );
     });
-    const proteinDelta = sortedDates.map(d => {
-        const credited = (caloriesBurnedByDate[d] || 0) / 2;
-        const goalProtein = baseGoalProtein + (baseGoalCal > 0 ? (credited * (baseGoalProtein * 4 / baseGoalCal)) / 4 : 0);
-        return Math.round((byDate[d].protein - goalProtein) * 10) / 10;
-    });
-    const carbsDelta = sortedDates.map(d => {
-        const credited = (caloriesBurnedByDate[d] || 0) / 2;
-        const goalCarbs = baseGoalCarbs + (baseGoalCal > 0 ? (credited * (baseGoalCarbs * 4 / baseGoalCal)) / 4 : 0);
-        return Math.round((byDate[d].carbs - goalCarbs) * 10) / 10;
-    });
+
+    // Per-day delta: actual − effective goal
+    const fatDelta     = sortedDates.map(d => Math.round((byDate[d].fat     - effectiveGoalsByDate[d].fat)     * 10) / 10);
+    const proteinDelta = sortedDates.map(d => Math.round((byDate[d].protein - effectiveGoalsByDate[d].protein) * 10) / 10);
+    const carbsDelta   = sortedDates.map(d => Math.round((byDate[d].carbs   - effectiveGoalsByDate[d].carbs)   * 10) / 10);
 
     const colors = getThemeColors();
 

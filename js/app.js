@@ -6,7 +6,7 @@
 import { db } from './db.js';
 import * as ui from './ui.js';
 import { getTodayDate } from './utils/date-utils.js';
-import { calculateMacroCalories } from './utils/calorie-calc.js';
+import { calculateMacroCalories, applyWorkoutCredit } from './utils/calorie-calc.js';
 import { computeGoalAdjustments } from './utils/pi-controller.js';
 import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
@@ -184,6 +184,14 @@ class FitnessTrackerApp {
 
         const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
 
+        // Workout credit settings (used in PI controller and final goal calc)
+        const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
+        const workoutCreditMacros = {
+            fat:     (await db.getSetting('workout_credit_fat'))     !== 'false',
+            protein: (await db.getSetting('workout_credit_protein')) !== 'false',
+            carbs:   (await db.getSetting('workout_credit_carbs'))   !== 'false',
+        };
+
         // Check if running average mode is enabled
         const runningAvgEnabled = await db.getSetting('running_average_mode') === 'true';
 
@@ -212,7 +220,8 @@ class FitnessTrackerApp {
                 reverseDietDates,
                 allWorkouts,
                 goalHistory,
-                Kp, Ialpha
+                Kp, Ialpha,
+                workoutCreditFraction, workoutCreditMacros
             });
 
             goalFat     = result.goalFat;
@@ -230,21 +239,20 @@ class FitnessTrackerApp {
         }
 
         // Add workout credit: distribute burned calories as additional macro allowance
-        // proportional to each macro's caloric contribution to the goal
+        // using the user-configured fraction and macro selection
         const workouts = await db.getWorkoutsByDate(date);
         const caloriesBurned = workouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
+        const caloriesCredited = caloriesBurned * workoutCreditFraction;
 
-        // Only credit 50% of calories burned (conservative — accounts for estimation error,
-        // and prevents over-eating from overestimated workout burns)
-        const caloriesCredited = caloriesBurned / 2;
+        const goalFatBeforeCredit     = goalFat;
+        const goalProteinBeforeCredit = goalProtein;
+        const goalCarbsBeforeCredit   = goalCarbs;
 
-        if (caloriesCredited > 0) {
-            const baseGoalCal = calculateMacroCalories(goalProtein, goalCarbs, goalFat, 0);
-            if (baseGoalCal > 0) {
-                goalFat     += (caloriesCredited * (goalFat * 9 / baseGoalCal)) / 9;
-                goalProtein += (caloriesCredited * (goalProtein * 4 / baseGoalCal)) / 4;
-                goalCarbs   += (caloriesCredited * (goalCarbs * 4 / baseGoalCal)) / 4;
-            }
+        if (caloriesBurned > 0) {
+            const credited = applyWorkoutCredit(goalFat, goalProtein, goalCarbs, caloriesBurned, workoutCreditFraction, workoutCreditMacros);
+            goalFat     = credited.fat;
+            goalProtein = credited.protein;
+            goalCarbs   = credited.carbs;
         }
 
         const goalCalories = calculateMacroCalories(goalProtein, goalCarbs, goalFat, 0);
@@ -270,8 +278,13 @@ class FitnessTrackerApp {
             protein: goalProtein,
             carbs: goalCarbs,
             calories: goalCalories,
-            caloriesBurned,       // actual estimated burn
-            caloriesCredited,     // 50% of burned — what was actually added to goals
+            caloriesBurned,
+            caloriesCredited,
+            // Per-macro workout credit in grams (for display in PI debug table)
+            workoutCreditFat_g:     goalFat     - goalFatBeforeCredit,
+            workoutCreditProtein_g: goalProtein - goalProteinBeforeCredit,
+            workoutCreditCarbs_g:   goalCarbs   - goalCarbsBeforeCredit,
+            workoutCreditFraction,
             piDebug
         };
     }
@@ -584,12 +597,11 @@ class FitnessTrackerApp {
         const fmt = (n) => (n >= 0 ? '+' : '') + n.toFixed(1) + 'g';
         const fmtAdj = (n) => n === 0 ? '0g' : fmt(-n); // final_adj is subtracted from base, so invert for display
 
-        // Workout credit in grams per macro: credit is proportional to each macro's share of total goal
-        // goals.caloriesCredited = 50% of burned (what was actually added to goals)
+        // Per-macro workout credit in grams (returned directly by calculateEffectiveGoals)
         const caloriesCredited = goals.caloriesCredited || 0;
-        const workoutCreditFat_g     = caloriesCredited > 0 && goals.calories > 0 ? goals.fat     * caloriesCredited / goals.calories : 0;
-        const workoutCreditProtein_g = caloriesCredited > 0 && goals.calories > 0 ? goals.protein * caloriesCredited / goals.calories : 0;
-        const workoutCreditCarbs_g   = caloriesCredited > 0 && goals.calories > 0 ? goals.carbs   * caloriesCredited / goals.calories : 0;
+        const workoutCreditFat_g     = goals.workoutCreditFat_g     || 0;
+        const workoutCreditProtein_g = goals.workoutCreditProtein_g || 0;
+        const workoutCreditCarbs_g   = goals.workoutCreditCarbs_g   || 0;
 
         const macros = [
             { key: 'fat',     label: 'Fat',     base: baseFat,     goal: goals.fat,     d: piDebug.fat,     workoutG: workoutCreditFat_g },
@@ -698,7 +710,7 @@ class FitnessTrackerApp {
                     </table>
                 </div>
                 <p style="font-size:11px;color:var(--text-secondary);margin-top:10px;line-height:1.5;">
-                    <strong>Parameters:</strong> Kp=${piDebug.Kp.toFixed(2)}, Ki=${piDebug.Ki.toFixed(3)} (auto-derived), α=${piDebug.Ialpha.toFixed(2)}, cap ±${(piDebug.cap * 100).toFixed(0)}%.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (50%).` : ''}<br>
+                    <strong>Parameters:</strong> Kp=${piDebug.Kp.toFixed(2)}, Ki=${piDebug.Ki.toFixed(3)} (auto-derived), α=${piDebug.Ialpha.toFixed(2)}, cap ±${(piDebug.cap * 100).toFixed(0)}%.${goals.caloriesBurned > 0 ? ` Workout: ${goals.caloriesBurned.toFixed(0)} cal burned → ${goals.caloriesCredited.toFixed(0)} cal credited (${Math.round((goals.workoutCreditFraction || 0.5) * 100)}%).` : ''}<br>
                     <strong>W</strong> = Σ(1−α)<sup>i−1</sup> for i=1..10 = sum of exponential decay weights over the 10-day window = ${piDebug.W.toFixed(2)} (with current α). Ki is set to 1/W so that Ki×W=1, guaranteeing zero steady-state error regardless of α.<br>
                     <strong>P corr</strong> = Kp × yesterday's deviation from base+workout goal (fast reaction to yesterday's intake).<br>
                     <strong>I corr</strong> = Ki × 10-day weighted sum of deviations from your displayed goal (● stored history; ○ base+workout fallback before history exists). Using displayed goal prevents the limit cycle where a raised goal causes I-memory to fade once the person eats near base.<br>
@@ -913,6 +925,33 @@ class FitnessTrackerApp {
                 if (ialphaValue) ialphaValue.textContent = alpha.toFixed(2);
                 updateIalphaHelp(alpha);
                 await db.setSetting('pi_ialpha', ialphaSlider.value);
+            });
+        }
+
+        // Workout credit fraction slider
+        const workoutCreditFractionSlider = document.getElementById('workout-credit-fraction');
+        const workoutCreditFractionValueEl = document.getElementById('workout-credit-fraction-value');
+        const savedCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
+        if (workoutCreditFractionSlider) {
+            workoutCreditFractionSlider.value = savedCreditFraction;
+            if (workoutCreditFractionValueEl) workoutCreditFractionValueEl.textContent = `${Math.round(savedCreditFraction * 100)}%`;
+            workoutCreditFractionSlider.addEventListener('input', async () => {
+                const v = parseFloat(workoutCreditFractionSlider.value);
+                if (workoutCreditFractionValueEl) workoutCreditFractionValueEl.textContent = `${Math.round(v * 100)}%`;
+                await db.setSetting('workout_credit_fraction', String(v));
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+            });
+        }
+
+        // Workout credit macro checkboxes
+        for (const macro of ['protein', 'carbs', 'fat']) {
+            const cb = document.getElementById(`workout-credit-${macro}`);
+            if (!cb) continue;
+            const saved = await db.getSetting(`workout_credit_${macro}`);
+            cb.checked = saved !== 'false'; // default true
+            cb.addEventListener('change', async () => {
+                await db.setSetting(`workout_credit_${macro}`, cb.checked ? 'true' : 'false');
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
             });
         }
 

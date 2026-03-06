@@ -11,7 +11,11 @@
  * - Ki is derived from Ialpha to guarantee Ki × W = 1 (zero steady-state error).
  *   Users only tune Kp and Ialpha; Ki is never a free parameter.
  * - Reverse diet multiplier must be applied AFTER PI adjustments by the caller.
+ * - workoutCreditFraction and workoutCreditMacros must match calculateEffectiveGoals
+ *   so that the PI error signals are relative to the same adjusted goals the user saw.
  */
+
+import { applyWorkoutCredit } from './calorie-calc.js';
 
 /**
  * Compute PI-controller macro adjustments for a given target date.
@@ -33,6 +37,10 @@
  * @param {number} params.Ialpha       - Exponential decay rate for I-term (default 0.25).
  *                                       Ki is derived: Ki = α/(1-(1-α)^N), guaranteeing
  *                                       Ki × W = 1 (zero steady-state error regardless of α).
+ * @param {number} params.workoutCreditFraction - Fraction of burned calories credited (default 0.5).
+ *                                               Must match calculateEffectiveGoals.
+ * @param {Object} params.workoutCreditMacros   - Which macros receive credit (default all true).
+ *                                               Must match calculateEffectiveGoals.
  * @returns {Object} { goalFat, goalProtein, goalCarbs, piDebug }
  */
 export function computeGoalAdjustments({
@@ -46,7 +54,9 @@ export function computeGoalAdjustments({
     allWorkouts = [],
     goalHistory = {},
     Kp = 0.5,
-    Ialpha = 0.25
+    Ialpha = 0.25,
+    workoutCreditFraction = 0.5,
+    workoutCreditMacros = { fat: true, protein: true, carbs: true }
 }) {
     const N = 10; // history window (days)
 
@@ -97,17 +107,15 @@ export function computeGoalAdjustments({
         }
 
         // Add workout credit for this past day so error is relative to the full
-        // workout-adjusted goal, not just the base goal
+        // workout-adjusted goal, not just the base goal.
+        // Uses the same fraction and macro selection as calculateEffectiveGoals.
         const dayWorkouts = allWorkouts.filter(w => w.date === pastDateStr);
         const dayCalsBurned = dayWorkouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
-        const dayCalsCredited = dayCalsBurned / 2;
-        if (dayCalsCredited > 0) {
-            const baseGoalCal = eFat * 9 + eProtein * 4 + eCarbs * 4;
-            if (baseGoalCal > 0) {
-                eFat     += (dayCalsCredited * (eFat     * 9 / baseGoalCal)) / 9;
-                eProtein += (dayCalsCredited * (eProtein * 4 / baseGoalCal)) / 4;
-                eCarbs   += (dayCalsCredited * (eCarbs   * 4 / baseGoalCal)) / 4;
-            }
+        if (dayCalsBurned > 0) {
+            const creditedGoals = applyWorkoutCredit(eFat, eProtein, eCarbs, dayCalsBurned, workoutCreditFraction, workoutCreditMacros);
+            eFat     = creditedGoals.fat;
+            eProtein = creditedGoals.protein;
+            eCarbs   = creditedGoals.carbs;
         }
 
         // P-term: yesterday only, base+workout reference
@@ -134,7 +142,7 @@ export function computeGoalAdjustments({
 
         dayData.push({
             date: pastDateStr, fat: dayFat, protein: dayProtein, carbs: dayCarbs,
-            eFat, eProtein, eCarbs, workoutCalsCredited: dayCalsCredited,
+            eFat, eProtein, eCarbs, workoutCalsBurned: dayCalsBurned,
             hasStoredGoal: !!stored,
             errFat: iErrFat, errProtein: iErrProtein, errCarbs: iErrCarbs,
             decayWeight, daysBack: i

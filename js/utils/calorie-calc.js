@@ -233,6 +233,34 @@ export function validateMacros(protein, carbs, fat, fiber) {
 }
 
 /**
+ * Apply workout calorie credit to macro goals.
+ * Distributes credited calories proportionally among the selected macros only.
+ *
+ * @param {number} fat      - Current fat goal (g)
+ * @param {number} protein  - Current protein goal (g)
+ * @param {number} carbs    - Current carbs goal (g)
+ * @param {number} caloriesBurned - Calories burned from workouts
+ * @param {number} fraction - Fraction of burned calories to credit (0–1, default 0.5)
+ * @param {{fat:boolean, protein:boolean, carbs:boolean}} creditMacros - Which macros receive credit
+ * @returns {{fat: number, protein: number, carbs: number}}
+ */
+export function applyWorkoutCredit(fat, protein, carbs, caloriesBurned, fraction = 0.5, creditMacros = { fat: true, protein: true, carbs: true }) {
+    const { fat: creditFat = true, protein: creditProtein = true, carbs: creditCarbs = true } = creditMacros;
+    const credited = caloriesBurned * fraction;
+    if (credited <= 0) return { fat, protein, carbs };
+    const selectedCal =
+        (creditFat     ? fat     * 9 : 0) +
+        (creditProtein ? protein * 4 : 0) +
+        (creditCarbs   ? carbs   * 4 : 0);
+    if (selectedCal <= 0) return { fat, protein, carbs };
+    return {
+        fat:     fat     + (creditFat     ? (credited * (fat     * 9 / selectedCal)) / 9 : 0),
+        protein: protein + (creditProtein ? (credited * (protein * 4 / selectedCal)) / 4 : 0),
+        carbs:   carbs   + (creditCarbs   ? (credited * (carbs   * 4 / selectedCal)) / 4 : 0),
+    };
+}
+
+/**
  * Get macro percentage breakdown
  *
  * @param {number} protein - Grams of protein

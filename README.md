@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.38
+**Current**: v2.1.39
+- **Inferred TDEE chart tweaks**: rolling average widened from 4-window to 14-window for a smoother trend line; formula BMR is now always plotted as a separate reference line (red dashed); formula TDEE shown additionally when activity factor is set (orange dashed)
+
+**Previous**: v2.1.38
 - **Inferred TDEE chart in Trends**: empirically estimates your TDEE from energy balance — for each consecutive pair of weight readings ≥5 days apart, computes `TDEE = (scaled_intake − ΔW_lbs × 3500) / days`; plots individual estimates sized by window length, 4-window weighted rolling average, overall weighted mean, and formula TDEE reference line; stats block shows mean ± std-dev, avg window length, % days logged, and weight trend rate
 
 **Previous**: v2.1.37

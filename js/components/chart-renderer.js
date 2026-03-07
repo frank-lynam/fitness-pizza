@@ -760,15 +760,15 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
     const wVar     = estimates.reduce((s, e) => s + e.daysGap * (e.tdee - wMean) ** 2, 0) / totalW;
     const wStdDev  = Math.round(Math.sqrt(wVar));
 
-    // 4-window weighted rolling average over the full estimate list
+    // 14-window weighted rolling average over the full estimate list
     const rollingAvg = estimates.map((_, j) => {
-        const win = estimates.slice(Math.max(0, j - 3), j + 1);
+        const win = estimates.slice(Math.max(0, j - 13), j + 1);
         const wt  = win.reduce((s, e) => s + e.daysGap, 0);
         return wt > 0 ? Math.round(win.reduce((s, e) => s + e.tdee * e.daysGap, 0) / wt) : null;
     });
 
-    // Load formula TDEE (Mifflin-St Jeor) using most recent weight, if body stats set
-    let formulaTDEE = null, formulaLabel = 'Formula TDEE';
+    // Load formula BMR and optionally TDEE (Mifflin-St Jeor) using most recent weight
+    let formulaBMR = null, formulaTDEE = null;
     const heightIn       = parseFloat(await db.getSetting('user_height_in') || 0);
     const age            = parseFloat(await db.getSetting('user_age') || 0);
     const sex            = await db.getSetting('user_sex') || 'male';
@@ -780,8 +780,8 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
         const bmr = sex === 'female'
             ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
             : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
-        formulaTDEE  = Math.round(activityFactor > 0 ? bmr * activityFactor : bmr);
-        formulaLabel = activityFactor > 0 ? 'Formula TDEE' : 'Formula BMR';
+        formulaBMR  = Math.round(bmr);
+        if (activityFactor > 0) formulaTDEE = Math.round(bmr * activityFactor);
     }
 
     // Clip display to selected date range
@@ -805,7 +805,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
             tension: 0
         },
         {
-            label: '4-window rolling avg',
+            label: '14-window rolling avg',
             data: dispRoll,
             borderColor: colors.primary,
             backgroundColor: 'transparent',
@@ -826,14 +826,26 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
         }
     ];
 
+    if (formulaBMR !== null && labels.length > 0) {
+        datasets.push({
+            label: `Formula BMR (${formulaBMR.toLocaleString()} kcal)`,
+            data: Array(labels.length).fill(formulaBMR),
+            borderColor: colors.danger + 'bb',
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            borderDash: [3, 5],
+            borderWidth: 1.5,
+            tension: 0
+        });
+    }
     if (formulaTDEE !== null && labels.length > 0) {
         datasets.push({
-            label: `${formulaLabel} (${formulaTDEE.toLocaleString()} kcal)`,
+            label: `Formula TDEE (${formulaTDEE.toLocaleString()} kcal)`,
             data: Array(labels.length).fill(formulaTDEE),
             borderColor: colors.warning + 'bb',
             backgroundColor: 'transparent',
             pointRadius: 0,
-            borderDash: [3, 5],
+            borderDash: [6, 4],
             borderWidth: 1.5,
             tension: 0
         });
@@ -888,12 +900,14 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
             return totalDays > 0 ? (deltaW / totalDays * 7) : 0; // lbs per week
         })();
 
-        const formulaCmp = formulaTDEE !== null
+        const formulaRef = formulaTDEE ?? formulaBMR;
+        const formulaRefLabel = formulaTDEE !== null ? 'Formula TDEE' : (formulaBMR !== null ? 'Formula BMR' : null);
+        const formulaCmp = formulaRef !== null
             ? (() => {
-                const diff = formulaTDEE - wMean;
+                const diff = formulaRef - wMean;
                 const sign = diff >= 0 ? '+' : '−';
                 const col  = Math.abs(diff) < 100 ? colors.success : colors.warning;
-                return `<span style="color:${col};font-size:12px;">&ensp;·&ensp;${formulaLabel} ${sign}${Math.abs(diff).toLocaleString()} kcal vs data</span>`;
+                return `<span style="color:${col};font-size:12px;">&ensp;·&ensp;${formulaRefLabel} ${sign}${Math.abs(diff).toLocaleString()} kcal vs data</span>`;
               })()
             : '';
 

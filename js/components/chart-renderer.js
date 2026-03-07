@@ -72,7 +72,7 @@ async function renderCharts(days) {
         await renderMacroDelta(filteredMacros, filteredWorkouts, days);
         await renderMacroCorrelation(filteredMacros, filteredMeasurements);
         // All-time data for TDEE inference (more history = better estimates)
-        await renderInferredTDEE(macros.filter(m => m.status === 'completed'), measurements, days);
+        await renderInferredTDEE(macros.filter(m => m.status === 'completed'), measurements, workouts, days);
 
     } catch (error) {
         console.error('Error rendering charts:', error);
@@ -660,7 +660,7 @@ async function renderMacroCorrelation(macros, measurements) {
  * @param {Array}       allMeasurements    - All measurement entries (unfiltered)
  * @param {number|null} days               - Display window (null = all time)
  */
-async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
+async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkouts, days) {
     const ctx     = document.getElementById('inferred-tdee-chart');
     const statsEl = document.getElementById('inferred-tdee-stats');
     if (!ctx) return;
@@ -673,6 +673,14 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
     allCompletedMacros.forEach(m => {
         const cal = (m.protein || 0) * 4 + (m.carbs || 0) * 4 + (m.fat || 0) * 9;
         caloriesByDate[m.date] = (caloriesByDate[m.date] || 0) + cal;
+    });
+
+    // Build daily workout calorie burn map
+    const workoutCalsByDate = {};
+    (allWorkouts || []).forEach(w => {
+        if (w.estimated_calories_burned > 0) {
+            workoutCalsByDate[w.date] = (workoutCalsByDate[w.date] || 0) + w.estimated_calories_burned;
+        }
     });
 
     // Deduplicated, sorted weight readings (last reading per day → lbs)
@@ -720,12 +728,13 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
         const endDt    = new Date(endW.date + 'T12:00:00');
         const daysGap  = Math.round((endDt - startDt) / 86400000);
 
-        // Sum calories and count logged days in [startDate, endDate)
-        let totalIntake = 0, daysWithData = 0;
+        // Sum calories, workout cals, and count logged days in [startDate, endDate)
+        let totalIntake = 0, daysWithData = 0, totalWorkoutCals = 0;
         const cur = new Date(startDt);
         while (cur < endDt) {
             const d = localDateStr(cur);
             if (caloriesByDate[d] !== undefined) { totalIntake += caloriesByDate[d]; daysWithData++; }
+            if (workoutCalsByDate[d] !== undefined) { totalWorkoutCals += workoutCalsByDate[d]; }
             cur.setDate(cur.getDate() + 1);
         }
 
@@ -737,14 +746,20 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
         const tdee   = (scaledIntake - deltaW * 3500) / daysGap;
         if (tdee < 800 || tdee > 6000) continue;        // sanity filter
 
+        // Inferred BMR = TDEE − avg workout calories per day (removes exercise component)
+        const avgWorkoutPerDay = totalWorkoutCals / daysGap;
+        const bmrEst = tdee - avgWorkoutPerDay;
+
         estimates.push({
             date: endW.date,
             tdee: Math.round(tdee),
+            bmr: (bmrEst >= 800 && bmrEst <= 5000) ? Math.round(bmrEst) : null,
             daysGap,
             daysWithData,
             pctLogged: Math.round(daysWithData / daysGap * 100),
             deltaW: Math.round(deltaW * 100) / 100,
-            avgIntake: Math.round(scaledIntake / daysGap)
+            avgIntake: Math.round(scaledIntake / daysGap),
+            avgWorkoutCals: Math.round(avgWorkoutPerDay)
         });
     }
 
@@ -767,6 +782,21 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
         return wt > 0 ? Math.round(win.reduce((s, e) => s + e.tdee * e.daysGap, 0) / wt) : null;
     });
 
+    // 14-window weighted rolling average for inferred BMR (only windows with valid bmr)
+    const bmrRollingAvg = estimates.map((_, j) => {
+        const win = estimates.slice(Math.max(0, j - 13), j + 1).filter(e => e.bmr !== null);
+        if (win.length < 2) return null;
+        const wt = win.reduce((s, e) => s + e.daysGap, 0);
+        return wt > 0 ? Math.round(win.reduce((s, e) => s + e.bmr * e.daysGap, 0) / wt) : null;
+    });
+
+    // Overall weighted mean BMR across all estimates
+    const bmrEstimates = estimates.filter(e => e.bmr !== null);
+    const totalWbmr    = bmrEstimates.reduce((s, e) => s + e.daysGap, 0);
+    const wMeanBmr     = bmrEstimates.length > 0 && totalWbmr > 0
+        ? Math.round(bmrEstimates.reduce((s, e) => s + e.bmr * e.daysGap, 0) / totalWbmr)
+        : null;
+
     // Load formula BMR and optionally TDEE (Mifflin-St Jeor) using most recent weight
     let formulaBMR = null, formulaTDEE = null;
     const heightIn       = parseFloat(await db.getSetting('user_height_in') || 0);
@@ -787,10 +817,11 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
     // Clip display to selected date range
     const todayStr  = localDateStr(new Date());
     const cutoffStr = days ? localDateStr(new Date(Date.now() - days * 86400000)) : null;
-    const dispIdx   = estimates.map((e, i) => i).filter(i => !cutoffStr || estimates[i].date >= cutoffStr);
-    const dispEst   = dispIdx.map(i => estimates[i]);
-    const dispRoll  = dispIdx.map(i => rollingAvg[i]);
-    const labels    = dispEst.map(e => e.date);
+    const dispIdx     = estimates.map((e, i) => i).filter(i => !cutoffStr || estimates[i].date >= cutoffStr);
+    const dispEst     = dispIdx.map(i => estimates[i]);
+    const dispRoll    = dispIdx.map(i => rollingAvg[i]);
+    const dispBmrRoll = dispIdx.map(i => bmrRollingAvg[i]);
+    const labels      = dispEst.map(e => e.date);
 
     // Build datasets
     const datasets = [
@@ -805,7 +836,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
             tension: 0
         },
         {
-            label: '14-window rolling avg',
+            label: 'TDEE rolling avg (14-window)',
             data: dispRoll,
             borderColor: colors.primary,
             backgroundColor: 'transparent',
@@ -813,6 +844,17 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
             tension: 0.35,
             borderWidth: 2.5,
             spanGaps: true
+        },
+        {
+            label: 'Inferred BMR rolling avg (TDEE − workout cals)',
+            data: dispBmrRoll,
+            borderColor: colors.danger + 'dd',
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            tension: 0.35,
+            borderWidth: 2,
+            borderDash: [5, 3],
+            spanGaps: false
         },
         {
             label: `Overall inferred (${wMean.toLocaleString()} kcal)`,
@@ -864,13 +906,17 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
                         label: (item) => {
                             if (item.datasetIndex === 0) {
                                 const e = dispEst[item.dataIndex];
-                                return [
+                                const lines = [
                                     `TDEE: ${item.raw.toLocaleString()} kcal/day`,
                                     `Window: ${e.daysGap}d  (${e.pctLogged}% days logged)`,
                                     `Avg intake: ${e.avgIntake.toLocaleString()} kcal/day`,
                                     `Weight Δ: ${e.deltaW >= 0 ? '+' : ''}${e.deltaW.toFixed(2)} lbs`
                                 ];
+                                if (e.avgWorkoutCals > 0) lines.push(`Avg workout: ${e.avgWorkoutCals.toLocaleString()} kcal/day`);
+                                if (e.bmr !== null) lines.push(`Inferred BMR: ${e.bmr.toLocaleString()} kcal/day`);
+                                return lines;
                             }
+                            if (item.raw === null) return null;
                             return `${item.dataset.label.split(' (')[0]}: ${Number(item.raw).toLocaleString()} kcal`;
                         }
                     }
@@ -915,6 +961,19 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
             ? 'weight stable'
             : `${avgRate >= 0 ? '+' : ''}${avgRate.toFixed(2)} lbs/wk`;
 
+        const bmrRow = wMeanBmr !== null ? `
+                <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin-top:4px;">
+                    <span style="color:var(--text-secondary);font-size:13px;">Inferred BMR:</span>
+                    <strong style="font-size:16px;">${wMeanBmr.toLocaleString()} kcal/day</strong>
+                    <span style="color:var(--text-secondary);font-size:12px;">(TDEE − logged workout cals)</span>
+                    ${formulaBMR !== null ? (() => {
+                        const diff = formulaBMR - wMeanBmr;
+                        const sign = diff >= 0 ? '+' : '−';
+                        const col  = Math.abs(diff) < 100 ? colors.success : colors.warning;
+                        return `<span style="color:${col};font-size:12px;">· Formula BMR ${sign}${Math.abs(diff).toLocaleString()} kcal</span>`;
+                    })() : ''}
+                </div>` : '';
+
         statsEl.innerHTML = `
             <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:10px 14px;margin-top:8px;">
                 <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;">
@@ -923,6 +982,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
                     <span style="color:var(--text-secondary);font-size:13px;">± ${wStdDev.toLocaleString()}</span>
                     ${formulaCmp}
                 </div>
+                ${bmrRow}
                 <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;line-height:1.6;">
                     ${estimates.length} windows · ${avgGap}d avg window · ${avgLog}% days logged · ${rateStr} · ${span}
                 </div>

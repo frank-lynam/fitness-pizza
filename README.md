@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.39
+**Current**: v2.1.40
+- **Inferred BMR from workout data**: the Inferred TDEE chart now also plots an inferred BMR line computed as `BMR = TDEE − avg_workout_cals_per_day` for each measurement window; the 14-window weighted rolling average and overall mean BMR are displayed; tooltip shows per-window BMR alongside TDEE; stats block shows both inferred TDEE and inferred BMR (with comparison to formula BMR); no activity factor is used — the BMR/TDEE split is derived purely from logged workout data
+
+**Previous**: v2.1.39
 - **Inferred TDEE chart tweaks**: rolling average widened from 4-window to 14-window for a smoother trend line; formula BMR is now always plotted as a separate reference line (red dashed); formula TDEE shown additionally when activity factor is set (orange dashed)
 
 **Previous**: v2.1.38

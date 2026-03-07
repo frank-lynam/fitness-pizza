@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.41
+**Current**: v2.1.42
+- **Chart height increases**: Inferred TDEE chart is 60% taller (aspectRatio 1.25 vs default 2); macro delta and macro correlation scatter charts are 33% taller (aspectRatio 1.5); simpler charts (calorie balance, weight trend, workout volume) unchanged
+
+**Previous**: v2.1.41
 - **Fix: inferred BMR always ≤ inferred TDEE**: BMR rolling avg and overall mean are now computed over the exact same window as TDEE (BMR = TDEE − workout contribution at each window), eliminating the apples-to-oranges comparison that occurred when averaging BMR and TDEE over different subsets of estimates
 
 **Previous**: v2.1.40

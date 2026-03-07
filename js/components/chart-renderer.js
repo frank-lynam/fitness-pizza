@@ -566,6 +566,7 @@ async function renderMacroDelta(macros, workouts, days) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: 1.5,
             plugins: { legend: { labels: { color: colors.text } } },
             scales: {
                 x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
@@ -619,7 +620,7 @@ async function renderMacroCorrelation(macros, measurements) {
         charts.macroCorrelation = new Chart(ctx, {
             type: 'scatter', data: { datasets: [] },
             options: {
-                responsive: true, maintainAspectRatio: true,
+                responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
                 plugins: {
                     legend: { labels: { color: colors.text } },
                     title: { display: true, text: 'Need more data (log weight on consecutive days)', color: colors.textSecondary }
@@ -633,7 +634,7 @@ async function renderMacroCorrelation(macros, measurements) {
         type: 'scatter',
         data: { datasets: [{ label: 'Protein vs Next-Day Weight Δ', data: points, backgroundColor: colors.primary + 'aa', pointRadius: 5 }] },
         options: {
-            responsive: true, maintainAspectRatio: true,
+            responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
             plugins: { legend: { labels: { color: colors.text } } },
             scales: {
                 x: { title: { display: true, text: 'Daily Protein (g)', color: colors.textSecondary }, ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
@@ -695,7 +696,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         if (statsEl) statsEl.innerHTML = `<p style="color:var(--text-secondary);font-size:13px;text-align:center;margin-top:8px;">${msg}</p>`;
         charts.inferredTDEE = new Chart(ctx, {
             type: 'line', data: { labels: [], datasets: [] },
-            options: { responsive: true, maintainAspectRatio: true,
+            options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.25,
                 plugins: { legend: { labels: { color: colors.text } } } }
         });
     };
@@ -901,6 +902,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: 1.25,
             plugins: {
                 legend: { labels: { color: colors.text } },
                 tooltip: {

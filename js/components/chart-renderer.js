@@ -782,20 +782,22 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         return wt > 0 ? Math.round(win.reduce((s, e) => s + e.tdee * e.daysGap, 0) / wt) : null;
     });
 
-    // 14-window weighted rolling average for inferred BMR (only windows with valid bmr)
+    // 14-window weighted rolling BMR avg = TDEE rolling avg − workout rolling avg
+    // Uses the SAME window as the TDEE avg (guarantees BMR ≤ TDEE at every point)
     const bmrRollingAvg = estimates.map((_, j) => {
-        const win = estimates.slice(Math.max(0, j - 13), j + 1).filter(e => e.bmr !== null);
-        if (win.length < 2) return null;
-        const wt = win.reduce((s, e) => s + e.daysGap, 0);
-        return wt > 0 ? Math.round(win.reduce((s, e) => s + e.bmr * e.daysGap, 0) / wt) : null;
+        const win        = estimates.slice(Math.max(0, j - 13), j + 1);
+        const wt         = win.reduce((s, e) => s + e.daysGap, 0);
+        if (wt === 0) return null;
+        const avgTdee    = win.reduce((s, e) => s + e.tdee           * e.daysGap, 0) / wt;
+        const avgWorkout = win.reduce((s, e) => s + e.avgWorkoutCals * e.daysGap, 0) / wt;
+        const bmr        = Math.round(avgTdee - avgWorkout);
+        return (bmr >= 800 && bmr <= 5000) ? bmr : null;
     });
 
-    // Overall weighted mean BMR across all estimates
-    const bmrEstimates = estimates.filter(e => e.bmr !== null);
-    const totalWbmr    = bmrEstimates.reduce((s, e) => s + e.daysGap, 0);
-    const wMeanBmr     = bmrEstimates.length > 0 && totalWbmr > 0
-        ? Math.round(bmrEstimates.reduce((s, e) => s + e.bmr * e.daysGap, 0) / totalWbmr)
-        : null;
+    // Overall weighted mean BMR = overall TDEE mean − overall workout mean (same weights)
+    const avgWorkoutAll = estimates.reduce((s, e) => s + e.avgWorkoutCals * e.daysGap, 0) / totalW;
+    const hasWorkoutData = estimates.some(e => e.avgWorkoutCals > 0);
+    const wMeanBmr = hasWorkoutData ? Math.round(wMean - avgWorkoutAll) : null;
 
     // Load formula BMR and optionally TDEE (Mifflin-St Jeor) using most recent weight
     let formulaBMR = null, formulaTDEE = null;

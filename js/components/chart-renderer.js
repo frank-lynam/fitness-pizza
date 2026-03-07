@@ -71,6 +71,8 @@ async function renderCharts(days) {
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderMacroDelta(filteredMacros, filteredWorkouts, days);
         await renderMacroCorrelation(filteredMacros, filteredMeasurements);
+        // All-time data for TDEE inference (more history = better estimates)
+        await renderInferredTDEE(macros.filter(m => m.status === 'completed'), measurements, days);
 
     } catch (error) {
         console.error('Error rendering charts:', error);
@@ -641,4 +643,275 @@ async function renderMacroCorrelation(macros, measurements) {
             }
         }
     });
+}
+
+/**
+ * Render empirically inferred TDEE from energy balance.
+ *
+ * For each pair of consecutive unique-date weight readings separated by
+ * MIN_DAYS–MAX_DAYS, computes:
+ *   TDEE = (scaled_calorie_intake − ΔW_lbs × 3500) / days
+ * where scaled_intake adjusts for unlogged days proportionally.
+ *
+ * Uses ALL historical macro/weight data regardless of the date-range selector
+ * so older data improves the estimate. Display is clipped to the selected range.
+ *
+ * @param {Array}       allCompletedMacros - All completed macro entries (unfiltered)
+ * @param {Array}       allMeasurements    - All measurement entries (unfiltered)
+ * @param {number|null} days               - Display window (null = all time)
+ */
+async function renderInferredTDEE(allCompletedMacros, allMeasurements, days) {
+    const ctx     = document.getElementById('inferred-tdee-chart');
+    const statsEl = document.getElementById('inferred-tdee-stats');
+    if (!ctx) return;
+    if (charts.inferredTDEE) charts.inferredTDEE.destroy();
+
+    const colors = getThemeColors();
+
+    // Build daily calorie intake map (protein×4 + carbs×4 + fat×9)
+    const caloriesByDate = {};
+    allCompletedMacros.forEach(m => {
+        const cal = (m.protein || 0) * 4 + (m.carbs || 0) * 4 + (m.fat || 0) * 9;
+        caloriesByDate[m.date] = (caloriesByDate[m.date] || 0) + cal;
+    });
+
+    // Deduplicated, sorted weight readings (last reading per day → lbs)
+    const rawWeights = allMeasurements
+        .filter(m => m.type === 'weight')
+        .sort((a, b) => a.timestamp - b.timestamp);
+    const weightByDate = {};
+    rawWeights.forEach(r => { weightByDate[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+    const weights = Object.keys(weightByDate).sort().map(d => ({ date: d, lbs: weightByDate[d] }));
+
+    const noDataMsg = (msg) => {
+        if (statsEl) statsEl.innerHTML = `<p style="color:var(--text-secondary);font-size:13px;text-align:center;margin-top:8px;">${msg}</p>`;
+        charts.inferredTDEE = new Chart(ctx, {
+            type: 'line', data: { labels: [], datasets: [] },
+            options: { responsive: true, maintainAspectRatio: true,
+                plugins: { legend: { labels: { color: colors.text } } } }
+        });
+    };
+
+    if (weights.length < 2) {
+        noDataMsg('Log weight on at least 2 different days (≥5 days apart) with food logged in between to infer TDEE.');
+        return;
+    }
+
+    const MIN_DAYS = 5;
+    const MAX_DAYS = 60;
+    const estimates = [];
+
+    for (let j = 1; j < weights.length; j++) {
+        // Find the closest start measurement that is at least MIN_DAYS before weights[j]
+        // and no more than MAX_DAYS (stale eating patterns beyond that).
+        let bestI = -1;
+        for (let i = j - 1; i >= 0; i--) {
+            const gap = Math.round(
+                (new Date(weights[j].date + 'T12:00:00') - new Date(weights[i].date + 'T12:00:00')) / 86400000
+            );
+            if (gap > MAX_DAYS) break;
+            if (gap >= MIN_DAYS) { bestI = i; break; }
+        }
+        if (bestI === -1) continue;
+
+        const startW   = weights[bestI];
+        const endW     = weights[j];
+        const startDt  = new Date(startW.date + 'T12:00:00');
+        const endDt    = new Date(endW.date + 'T12:00:00');
+        const daysGap  = Math.round((endDt - startDt) / 86400000);
+
+        // Sum calories and count logged days in [startDate, endDate)
+        let totalIntake = 0, daysWithData = 0;
+        const cur = new Date(startDt);
+        while (cur < endDt) {
+            const d = localDateStr(cur);
+            if (caloriesByDate[d] !== undefined) { totalIntake += caloriesByDate[d]; daysWithData++; }
+            cur.setDate(cur.getDate() + 1);
+        }
+
+        // Require ≥40% of days to have food logged; scale up for the rest
+        if (daysWithData < Math.max(1, Math.ceil(daysGap * 0.4))) continue;
+        const scaledIntake = totalIntake * daysGap / daysWithData;
+
+        const deltaW = endW.lbs - startW.lbs;           // positive = gained weight
+        const tdee   = (scaledIntake - deltaW * 3500) / daysGap;
+        if (tdee < 800 || tdee > 6000) continue;        // sanity filter
+
+        estimates.push({
+            date: endW.date,
+            tdee: Math.round(tdee),
+            daysGap,
+            daysWithData,
+            pctLogged: Math.round(daysWithData / daysGap * 100),
+            deltaW: Math.round(deltaW * 100) / 100,
+            avgIntake: Math.round(scaledIntake / daysGap)
+        });
+    }
+
+    if (estimates.length === 0) {
+        const nWeigh = weights.length, nLog = Object.keys(caloriesByDate).length;
+        noDataMsg(`No estimate yet — need weight on 2+ days ≥${MIN_DAYS} days apart with ≥40% of days with food logged. (${nWeigh} weigh-ins, ${nLog} days logged)`);
+        return;
+    }
+
+    // Weighted mean & std-dev over ALL estimates (weight = daysGap = proxy for reliability)
+    const totalW   = estimates.reduce((s, e) => s + e.daysGap, 0);
+    const wMean    = Math.round(estimates.reduce((s, e) => s + e.tdee * e.daysGap, 0) / totalW);
+    const wVar     = estimates.reduce((s, e) => s + e.daysGap * (e.tdee - wMean) ** 2, 0) / totalW;
+    const wStdDev  = Math.round(Math.sqrt(wVar));
+
+    // 4-window weighted rolling average over the full estimate list
+    const rollingAvg = estimates.map((_, j) => {
+        const win = estimates.slice(Math.max(0, j - 3), j + 1);
+        const wt  = win.reduce((s, e) => s + e.daysGap, 0);
+        return wt > 0 ? Math.round(win.reduce((s, e) => s + e.tdee * e.daysGap, 0) / wt) : null;
+    });
+
+    // Load formula TDEE (Mifflin-St Jeor) using most recent weight, if body stats set
+    let formulaTDEE = null, formulaLabel = 'Formula TDEE';
+    const heightIn       = parseFloat(await db.getSetting('user_height_in') || 0);
+    const age            = parseFloat(await db.getSetting('user_age') || 0);
+    const sex            = await db.getSetting('user_sex') || 'male';
+    const activityFactor = parseFloat(await db.getSetting('tdee_activity_factor') || 0);
+    if (heightIn > 0 && age > 0) {
+        const recentLbs = weights[weights.length - 1].lbs;
+        const weightKg  = recentLbs * 0.453592;
+        const heightCm  = heightIn * 2.54;
+        const bmr = sex === 'female'
+            ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
+            : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
+        formulaTDEE  = Math.round(activityFactor > 0 ? bmr * activityFactor : bmr);
+        formulaLabel = activityFactor > 0 ? 'Formula TDEE' : 'Formula BMR';
+    }
+
+    // Clip display to selected date range
+    const todayStr  = localDateStr(new Date());
+    const cutoffStr = days ? localDateStr(new Date(Date.now() - days * 86400000)) : null;
+    const dispIdx   = estimates.map((e, i) => i).filter(i => !cutoffStr || estimates[i].date >= cutoffStr);
+    const dispEst   = dispIdx.map(i => estimates[i]);
+    const dispRoll  = dispIdx.map(i => rollingAvg[i]);
+    const labels    = dispEst.map(e => e.date);
+
+    // Build datasets
+    const datasets = [
+        {
+            label: 'TDEE estimate per window',
+            data: dispEst.map(e => e.tdee),
+            borderColor: colors.primary + 'cc',
+            backgroundColor: colors.primary + '66',
+            pointRadius: dispEst.map(e => Math.max(3, Math.min(9, 2 + e.daysGap / 5))),
+            pointHoverRadius: 10,
+            showLine: false,
+            tension: 0
+        },
+        {
+            label: '4-window rolling avg',
+            data: dispRoll,
+            borderColor: colors.primary,
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            tension: 0.35,
+            borderWidth: 2.5,
+            spanGaps: true
+        },
+        {
+            label: `Overall inferred (${wMean.toLocaleString()} kcal)`,
+            data: Array(labels.length).fill(wMean),
+            borderColor: colors.success + 'bb',
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            borderDash: [7, 4],
+            borderWidth: 1.5,
+            tension: 0
+        }
+    ];
+
+    if (formulaTDEE !== null && labels.length > 0) {
+        datasets.push({
+            label: `${formulaLabel} (${formulaTDEE.toLocaleString()} kcal)`,
+            data: Array(labels.length).fill(formulaTDEE),
+            borderColor: colors.warning + 'bb',
+            backgroundColor: 'transparent',
+            pointRadius: 0,
+            borderDash: [3, 5],
+            borderWidth: 1.5,
+            tension: 0
+        });
+    }
+
+    charts.inferredTDEE = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { labels: { color: colors.text } },
+                tooltip: {
+                    callbacks: {
+                        label: (item) => {
+                            if (item.datasetIndex === 0) {
+                                const e = dispEst[item.dataIndex];
+                                return [
+                                    `TDEE: ${item.raw.toLocaleString()} kcal/day`,
+                                    `Window: ${e.daysGap}d  (${e.pctLogged}% days logged)`,
+                                    `Avg intake: ${e.avgIntake.toLocaleString()} kcal/day`,
+                                    `Weight Δ: ${e.deltaW >= 0 ? '+' : ''}${e.deltaW.toFixed(2)} lbs`
+                                ];
+                            }
+                            return `${item.dataset.label.split(' (')[0]}: ${Number(item.raw).toLocaleString()} kcal`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
+                y: {
+                    ticks: { color: colors.textSecondary, callback: v => v.toLocaleString() + ' kcal' },
+                    grid: { color: colors.border + '40' }
+                }
+            }
+        }
+    });
+
+    // Stats summary block (always uses all-time estimates)
+    if (statsEl) {
+        const span    = `${estimates[0].date} → ${estimates[estimates.length - 1].date}`;
+        const avgGap  = Math.round(totalW / estimates.length);
+        const avgLog  = Math.round(estimates.reduce((s, e) => s + e.pctLogged, 0) / estimates.length);
+        const avgRate = (() => {
+            // overall weight change rate: (last - first) / total days
+            const totalDays = Math.round(
+                (new Date(weights[weights.length - 1].date + 'T12:00:00') - new Date(weights[0].date + 'T12:00:00')) / 86400000
+            );
+            const deltaW = weights[weights.length - 1].lbs - weights[0].lbs;
+            return totalDays > 0 ? (deltaW / totalDays * 7) : 0; // lbs per week
+        })();
+
+        const formulaCmp = formulaTDEE !== null
+            ? (() => {
+                const diff = formulaTDEE - wMean;
+                const sign = diff >= 0 ? '+' : '−';
+                const col  = Math.abs(diff) < 100 ? colors.success : colors.warning;
+                return `<span style="color:${col};font-size:12px;">&ensp;·&ensp;${formulaLabel} ${sign}${Math.abs(diff).toLocaleString()} kcal vs data</span>`;
+              })()
+            : '';
+
+        const rateStr = Math.abs(avgRate) < 0.05
+            ? 'weight stable'
+            : `${avgRate >= 0 ? '+' : ''}${avgRate.toFixed(2)} lbs/wk`;
+
+        statsEl.innerHTML = `
+            <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:10px 14px;margin-top:8px;">
+                <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;">
+                    <span style="color:var(--text-secondary);font-size:13px;">Inferred TDEE:</span>
+                    <strong style="font-size:16px;">${wMean.toLocaleString()} kcal/day</strong>
+                    <span style="color:var(--text-secondary);font-size:13px;">± ${wStdDev.toLocaleString()}</span>
+                    ${formulaCmp}
+                </div>
+                <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;line-height:1.6;">
+                    ${estimates.length} windows · ${avgGap}d avg window · ${avgLog}% days logged · ${rateStr} · ${span}
+                </div>
+            </div>`;
+    }
 }

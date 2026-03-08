@@ -601,6 +601,26 @@ export async function loadTodaysMacros() {
             // Sort by timestamp (most recent first)
             macros.sort((a, b) => b.timestamp - a.timestamp);
 
+            // Pre-fetch named foods for library-linked entries so we can show serving badges
+            const foodIds = [...new Set(macros.filter(m => m.food_id).map(m => m.food_id))];
+            const namedFoodsMap = {};
+            await Promise.all(foodIds.map(async fid => {
+                const food = await db.getNamedFood(fid);
+                if (food) namedFoodsMap[fid] = food;
+            }));
+            const servingBadge = (macro) => {
+                const food = macro.food_id ? namedFoodsMap[macro.food_id] : null;
+                if (!food) return '';
+                let label;
+                switch (food.format_type) {
+                    case 'per_gram':    label = 'per 100g'; break;
+                    case 'per_serving': label = food.serving_size || 'serving'; break;
+                    case 'per_batch':   label = `${food.batch_servings} servings/batch`; break;
+                    default: return '';
+                }
+                return `<span class="food-format-badge">${label}</span>`;
+            };
+
             const planIntensities = computePlanIntensities(macros, _dailyGoals);
             html += macros.map(macro => {
                 let itemStyle = '';
@@ -618,7 +638,7 @@ export async function loadTodaysMacros() {
                             <input type="checkbox" class="entry-checkbox" data-id="${macro.id}"
                                    ${macro.status === 'completed' ? 'checked' : ''}>
                             <span class="entry-item-title">
-                                ${macro.starred ? '⭐ ' : ''}${macro.meal_name || 'Meal'}${macro.food_description ? `<span style="font-size:0.78em;color:var(--text-secondary);margin-left:5px;font-weight:400;">${macro.food_description}</span>` : ''}
+                                ${macro.starred ? '⭐ ' : ''}${macro.meal_name || 'Meal'} ${servingBadge(macro)}
                             </span>
                         </label>
                         <div class="entry-item-actions">

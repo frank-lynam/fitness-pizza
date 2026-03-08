@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.43
+**Current**: v2.1.44
+- **Fix: macro tab serving badges now actually visible**: previously used unreliable food_description field; now looks up the named food via food_id at render time and shows a proper food-format-badge (same colored label as the food library) — "per 100g", "1 scoop", "12 servings/batch" etc.
+
+**Previous**: v2.1.43
 - **Macro tab: check off all servings at once**: tapping the checkbox now marks the entire entry as complete regardless of serving count (previously peeled off one serving at a time)
 - **Macro tab: show serving size info**: food entries now display their serving description (e.g. "150 g", "2 1 scoop", "3 servings") as a small subtitle next to the meal name when the field is present (set automatically when logging from the food library)
 

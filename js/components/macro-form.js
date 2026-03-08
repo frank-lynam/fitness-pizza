@@ -618,7 +618,7 @@ export async function loadTodaysMacros() {
                             <input type="checkbox" class="entry-checkbox" data-id="${macro.id}"
                                    ${macro.status === 'completed' ? 'checked' : ''}>
                             <span class="entry-item-title">
-                                ${macro.starred ? '⭐ ' : ''}${macro.meal_name || 'Meal'}
+                                ${macro.starred ? '⭐ ' : ''}${macro.meal_name || 'Meal'}${macro.food_description ? `<span style="font-size:0.78em;color:var(--text-secondary);margin-left:5px;font-weight:400;">${macro.food_description}</span>` : ''}
                             </span>
                         </label>
                         <div class="entry-item-actions">
@@ -754,52 +754,9 @@ async function handleToggleCompletion(id, completed) {
     try {
         const entry = await db.get('macros', id);
         if (!entry) return;
-
-        if (completed && entry.status === 'planned' && entry.servings > 1) {
-            // Checking off a planned item with multiple servings
-            // Calculate macros per serving
-            const perServing = {
-                protein: entry.protein / entry.servings,
-                carbs: entry.carbs / entry.servings,
-                fat: entry.fat / entry.servings,
-                fiber: entry.fiber / entry.servings,
-                calories: entry.calories / entry.servings
-            };
-
-            // Create a new completed entry with 1 serving
-            const completedEntry = {
-                ...entry,
-                servings: 1,
-                protein: perServing.protein,
-                carbs: perServing.carbs,
-                fat: perServing.fat,
-                fiber: perServing.fiber,
-                calories: perServing.calories,
-                status: 'completed',
-                timestamp: Date.now() // Set current time for completed entry
-            };
-            delete completedEntry.id; // Remove id so it creates a new entry
-            await db.addMacroEntry(completedEntry);
-
-            // Update the planned entry: reduce servings and adjust macros
-            const remainingServings = entry.servings - 1;
-            entry.servings = remainingServings;
-            entry.protein = perServing.protein * remainingServings;
-            entry.carbs = perServing.carbs * remainingServings;
-            entry.fat = perServing.fat * remainingServings;
-            entry.fiber = perServing.fiber * remainingServings;
-            entry.calories = perServing.calories * remainingServings;
-            await db.updateMacroEntry(entry);
-        } else if (!completed && entry.status === 'completed' && entry.servings === 1) {
-            // Unchecking a completed item with 1 serving - just toggle back to planned
-            entry.status = 'planned';
-            await db.updateMacroEntry(entry);
-        } else {
-            // For all other cases (single serving, or going from completed to planned, etc.)
-            entry.status = completed ? 'completed' : 'planned';
-            await db.updateMacroEntry(entry);
-        }
-
+        // On the macro tab, checking off marks the entire entry (all servings) at once
+        entry.status = completed ? 'completed' : 'planned';
+        await db.updateMacroEntry(entry);
         await loadTodaysMacros();
     } catch (error) {
         console.error('Error toggling completion:', error);

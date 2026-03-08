@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.42
+**Current**: v2.1.43
+- **Macro tab: check off all servings at once**: tapping the checkbox now marks the entire entry as complete regardless of serving count (previously peeled off one serving at a time)
+- **Macro tab: show serving size info**: food entries now display their serving description (e.g. "150 g", "2 1 scoop", "3 servings") as a small subtitle next to the meal name when the field is present (set automatically when logging from the food library)
+
+**Previous**: v2.1.42
 - **Chart height increases**: Inferred TDEE chart is 60% taller (aspectRatio 1.25 vs default 2); macro delta and macro correlation scatter charts are 33% taller (aspectRatio 1.5); simpler charts (calorie balance, weight trend, workout volume) unchanged
 
 **Previous**: v2.1.41

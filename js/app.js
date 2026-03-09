@@ -1367,18 +1367,28 @@ class FitnessTrackerApp {
         // Previous day button
         if (btnPrevDay) {
             btnPrevDay.addEventListener('click', async () => {
-                const date = new Date(this.currentDate);
+                // Use T12:00:00 (local noon) so getDate()/setDate() always operate
+                // on the correct local calendar day regardless of UTC offset
+                const date = new Date(this.currentDate + 'T12:00:00');
                 date.setDate(date.getDate() - 1);
-                await this.setDate(date.toISOString().split('T')[0]);
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                await this.setDate(`${y}-${m}-${d}`);
             });
         }
 
         // Next day button
         if (btnNextDay) {
             btnNextDay.addEventListener('click', async () => {
-                const date = new Date(this.currentDate);
+                // Use T12:00:00 (local noon) so getDate()/setDate() always operate
+                // on the correct local calendar day regardless of UTC offset
+                const date = new Date(this.currentDate + 'T12:00:00');
                 date.setDate(date.getDate() + 1);
-                await this.setDate(date.toISOString().split('T')[0]);
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                await this.setDate(`${y}-${m}-${d}`);
             });
         }
 
@@ -1404,10 +1414,12 @@ class FitnessTrackerApp {
         }
 
         // Update screen title to show date if not today
+        // Use T12:00:00 (local noon) to ensure toLocaleDateString shows the
+        // correct local calendar day in all UTC offsets
         const today = getTodayDate();
         const screenTitle = document.getElementById('screen-title');
         if (screenTitle && date !== today) {
-            const dateObj = new Date(date);
+            const dateObj = new Date(date + 'T12:00:00');
             const dateStr = dateObj.toLocaleDateString('en-US', {
                 weekday: 'short',
                 month: 'short',

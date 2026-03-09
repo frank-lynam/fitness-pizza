@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.44
+**Current**: v2.1.45
+- **Fix: date navigation reliability**: prev/next-day buttons now use local-noon date arithmetic (T12:00:00 pattern) so month/timezone boundaries are handled correctly; screen title date display now correctly shows the local calendar day instead of the UTC day (which was off by one in UTC-N timezones, making navigation look broken)
+- **Fix: macro list resilience**: individual named-food lookups in the serving-badge pre-fetch are now wrapped in try/catch so a single lookup failure no longer aborts the entire macro list render
+
+**Previous**: v2.1.44
 - **Fix: macro tab serving badges now actually visible**: previously used unreliable food_description field; now looks up the named food via food_id at render time and shows a proper food-format-badge (same colored label as the food library) — "per 100g", "1 scoop", "12 servings/batch" etc.
 
 **Previous**: v2.1.43

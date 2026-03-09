@@ -605,8 +605,12 @@ export async function loadTodaysMacros() {
             const foodIds = [...new Set(macros.filter(m => m.food_id).map(m => m.food_id))];
             const namedFoodsMap = {};
             await Promise.all(foodIds.map(async fid => {
-                const food = await db.getNamedFood(fid);
-                if (food) namedFoodsMap[fid] = food;
+                try {
+                    const food = await db.getNamedFood(fid);
+                    if (food) namedFoodsMap[fid] = food;
+                } catch (e) {
+                    // Silently skip if a single food lookup fails — badge simply won't show
+                }
             }));
             const servingBadge = (macro) => {
                 const food = macro.food_id ? namedFoodsMap[macro.food_id] : null;

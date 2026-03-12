@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.45
+**Current**: v2.1.46
+- **Calorie balance chart: period averages**: text row below the chart shows avg intake, avg burned, avg net, and goal over the displayed period
+- **Food library per-100g entry: reference grams**: when entering a food in per-100g format, a "Ref. grams" field lets you input macros for a different serving size (e.g. 25g) and the system auto-normalises to per-100g on save; calorie display previews both the reference-serving calories and the resulting per-100g calories
+
+**Previous**: v2.1.45
 - **Fix: date navigation reliability**: prev/next-day buttons now use local-noon date arithmetic (T12:00:00 pattern) so month/timezone boundaries are handled correctly; screen title date display now correctly shows the local calendar day instead of the UTC day (which was off by one in UTC-N timezones, making navigation look broken)
 - **Fix: macro list resilience**: individual named-food lookups in the serving-badge pre-fetch are now wrapped in try/catch so a single lookup failure no longer aborts the entire macro list render
 

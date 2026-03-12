@@ -366,6 +366,11 @@ function showFoodForm(existingFood = null) {
                 <input type="number" id="batch-servings" value="${food.batch_servings || 1}" min="1">
             </div>
 
+            <div id="reference-grams-field" class="form-group-inline ${food.format_type === 'per_gram' ? '' : 'hidden'}">
+                <label for="reference-grams" title="Enter macros for this many grams; system normalises to per-100g on save">Ref. grams</label>
+                <input type="number" id="reference-grams" value="100" min="1" step="1" placeholder="100">
+            </div>
+
             <div class="form-group-inline">
                 <label for="food-fat">Fat (g)</label>
                 <input type="number" id="food-fat" step="0.001" min="0" value="${food.fat}" required>
@@ -409,24 +414,34 @@ function showFoodForm(existingFood = null) {
     const formatSelect = modal.querySelector('#food-format');
     const servingSizeField = modal.querySelector('#serving-size-field');
     const batchServingsField = modal.querySelector('#batch-servings-field');
+    const referenceGramsField = modal.querySelector('#reference-grams-field');
 
     formatSelect.addEventListener('change', (e) => {
         const format = e.target.value;
         servingSizeField.classList.toggle('hidden', format !== 'per_serving');
         batchServingsField.classList.toggle('hidden', format !== 'per_batch');
+        referenceGramsField.classList.toggle('hidden', format !== 'per_gram');
+        updateCalories();
     });
 
-    // Set up calorie calculator
+    // Set up calorie calculator — shows cal for the entered reference amount
     const updateCalories = () => {
         const protein = parseFloat(modal.querySelector('#food-protein').value || 0);
         const carbs = parseFloat(modal.querySelector('#food-carbs').value || 0);
         const fat = parseFloat(modal.querySelector('#food-fat').value || 0);
         const fiber = parseFloat(modal.querySelector('#food-fiber').value || 0);
         const calories = calculateMacroCalories(protein, carbs, fat, fiber);
-        modal.querySelector('#food-calories').textContent = `${calories} cal`;
+        const format = modal.querySelector('#food-format').value;
+        const refG = format === 'per_gram'
+            ? (parseFloat(modal.querySelector('#reference-grams').value) || 100)
+            : null;
+        const label = refG && refG !== 100
+            ? `${calories} cal per ${refG}g (${Math.round(calories * 100 / refG)} per 100g)`
+            : `${calories} cal`;
+        modal.querySelector('#food-calories').textContent = label;
     };
 
-    modal.querySelectorAll('#food-protein, #food-carbs, #food-fat, #food-fiber').forEach(input => {
+    modal.querySelectorAll('#food-protein, #food-carbs, #food-fat, #food-fiber, #reference-grams').forEach(input => {
         input.addEventListener('input', updateCalories);
     });
 
@@ -446,14 +461,28 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
         const fiber = parseFloat(modal.querySelector('#food-fiber').value || 0);
         const calories = calculateMacroCalories(protein, carbs, fat, fiber);
 
+        let savedProtein = protein, savedCarbs = carbs, savedFat = fat, savedFiber = fiber, savedCalories = calories;
+
+        if (format_type === 'per_gram') {
+            const refG = parseFloat(modal.querySelector('#reference-grams').value) || 100;
+            if (refG > 0 && refG !== 100) {
+                const scale = 100 / refG;
+                savedFat      = fat      * scale;
+                savedProtein  = protein  * scale;
+                savedCarbs    = carbs    * scale;
+                savedFiber    = fiber    * scale;
+                savedCalories = calculateMacroCalories(savedProtein, savedCarbs, savedFat, savedFiber);
+            }
+        }
+
         const foodData = {
             name,
             format_type,
-            protein,
-            carbs,
-            fat,
-            fiber,
-            calories
+            protein: savedProtein,
+            carbs:   savedCarbs,
+            fat:     savedFat,
+            fiber:   savedFiber,
+            calories: savedCalories
         };
 
         if (format_type === 'per_serving') {

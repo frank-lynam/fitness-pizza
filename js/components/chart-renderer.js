@@ -338,7 +338,8 @@ async function renderBodyComposition(allMeasurements, days) {
  * @param {number|null} days - Number of days to show, or null for all time
  */
 async function renderCalorieBalance(macros, workouts, days) {
-    const ctx = document.getElementById('calorie-balance-chart');
+    const ctx     = document.getElementById('calorie-balance-chart');
+    const statsEl = document.getElementById('calorie-balance-stats');
     if (!ctx) return;
 
     // Determine date range using local dates to avoid UTC offset shifting the last day
@@ -442,6 +443,29 @@ async function renderCalorieBalance(macros, workouts, days) {
             }
         }
     });
+
+    // Averages summary below the chart
+    if (statsEl) {
+        const n = sortedDates.length;
+        if (n === 0) {
+            statsEl.innerHTML = '';
+        } else {
+            const avg = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+            const avgIntake  = avg(intakeData);
+            const avgBurned  = avg(burnedData);
+            const avgNet     = avg(netData);
+            const netColor   = avgNet >= goalCalories
+                ? 'var(--accent-danger)'
+                : 'var(--accent-success)';
+            statsEl.innerHTML = `
+                <div style="display:flex;flex-wrap:wrap;gap:8px 20px;padding:8px 2px;font-size:13px;color:var(--text-secondary);">
+                    <span>Avg intake: <strong style="color:var(--accent-primary);">${avgIntake.toLocaleString()} kcal</strong></span>
+                    <span>Avg burned: <strong style="color:var(--accent-danger);">${avgBurned.toLocaleString()} kcal</strong></span>
+                    <span>Avg net: <strong style="color:${netColor};">${avgNet.toLocaleString()} kcal</strong></span>
+                    <span>Goal: <strong style="color:var(--text-primary);">${Math.round(goalCalories).toLocaleString()} kcal</strong></span>
+                </div>`;
+        }
+    }
 }
 
 /**

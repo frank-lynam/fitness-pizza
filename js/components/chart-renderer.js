@@ -444,13 +444,17 @@ async function renderCalorieBalance(macros, workouts, days) {
         }
     });
 
-    // Averages summary below the chart
+    // Averages summary below the chart — exclude today (still in progress)
     if (statsEl) {
-        const n = sortedDates.length;
-        if (n === 0) {
+        const todayStr = localDateStr(today);
+        const pastIndices = sortedDates
+            .map((d, i) => ({ d, i }))
+            .filter(({ d }) => d < todayStr)
+            .map(({ i }) => i);
+        if (pastIndices.length === 0) {
             statsEl.innerHTML = '';
         } else {
-            const avg = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+            const avg = arr => Math.round(pastIndices.reduce((s, i) => s + arr[i], 0) / pastIndices.length);
             const avgIntake  = avg(intakeData);
             const avgBurned  = avg(burnedData);
             const avgNet     = avg(netData);

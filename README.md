@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.46
+**Current**: v2.1.47
+- **Fix: calorie balance averages exclude today**: today is still in progress so including it skewed the averages; stats row now only averages completed past days
+
+**Previous**: v2.1.46
 - **Calorie balance chart: period averages**: text row below the chart shows avg intake, avg burned, avg net, and goal over the displayed period
 - **Food library per-100g entry: reference grams**: when entering a food in per-100g format, a "Ref. grams" field lets you input macros for a different serving size (e.g. 25g) and the system auto-normalises to per-100g on save; calorie display previews both the reference-serving calories and the resulting per-100g calories
 

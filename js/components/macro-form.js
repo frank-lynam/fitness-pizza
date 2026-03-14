@@ -959,11 +959,18 @@ async function handleMaxServings(id) {
         const maxServingsCarbs = perServingCarbs > 0 ? remainingCarbs / perServingCarbs : Infinity;
         const maxServingsProtein = perServingProtein > 0 ? remainingProtein / perServingProtein : Infinity;
 
-        // Take the minimum and floor to integer
-        const maxServings = Math.floor(Math.min(maxServingsFat, maxServingsCarbs, maxServingsProtein));
+        const rawMax = Math.min(maxServingsFat, maxServingsCarbs, maxServingsProtein);
 
-        // Ensure at least 1 serving
-        const finalServings = Math.max(1, maxServings);
+        // For per-gram foods the serving unit is grams — floor to 2 decimal places
+        // (nearest 0.01g) so the user gets precise gram amounts.
+        // For all other formats floor to whole servings.
+        let finalServings;
+        const namedFood = entry.food_id ? await db.getNamedFood(entry.food_id) : null;
+        if (namedFood && namedFood.format_type === 'per_gram') {
+            finalServings = Math.max(0.01, Math.floor(rawMax * 100) / 100);
+        } else {
+            finalServings = Math.max(1, Math.floor(rawMax));
+        }
 
         await handleSetServings(id, finalServings);
 

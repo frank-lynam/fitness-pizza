@@ -174,9 +174,7 @@ Provide your response in JSON format with these exact fields:
   "serving_size_grams": number or null (grams equivalent of one serving),
   "calories": number,
   "protein": number (grams),
-  "carbs": number (grams, total carbohydrates),
   "fat": number (grams, total fat),
-  "fiber": number (grams, 0 if not listed),
   "is_per_100g": false,
   "confidence": "high" | "medium" | "low",
   "notes": "any relevant notes about the label or ambiguities"
@@ -239,19 +237,27 @@ Transcribe the numbers literally from the label. Do not estimate.`;
 
         const result = JSON.parse(jsonMatch[0]);
 
-        if (result.protein === undefined || result.carbs === undefined || result.fat === undefined) {
+        if (result.protein === undefined || result.fat === undefined) {
             throw new Error('Invalid label data received from API');
         }
+
+        const calories = parseFloat(result.calories) || 0;
+        const protein  = parseFloat(result.protein)  || 0;
+        const fat      = parseFloat(result.fat)      || 0;
+        // Derive carbs from the calorie remainder rather than trusting the
+        // label's reported carb figure (avoids double-counting fibre rounding).
+        // carbs_kcal = calories − fat×9 − protein×4  →  carbs_g = /4
+        const carbs = Math.max(0, Math.round((calories - fat * 9 - protein * 4) / 4 * 10) / 10);
 
         return {
             product_name: result.product_name || 'Unknown Product',
             serving_size: result.serving_size || '',
             serving_size_grams: result.serving_size_grams ? parseFloat(result.serving_size_grams) : null,
-            calories: parseFloat(result.calories) || 0,
-            protein: parseFloat(result.protein),
-            carbs: parseFloat(result.carbs),
-            fat: parseFloat(result.fat),
-            fiber: parseFloat(result.fiber) || 0,
+            calories,
+            protein,
+            carbs,
+            fat,
+            fiber: 0,
             is_per_100g: result.is_per_100g === true,
             confidence: result.confidence || 'medium',
             notes: result.notes || '',

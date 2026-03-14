@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.47
+**Current**: v2.1.48
+- **Label scan: derive carbs from calorie balance**: instead of using the label's reported total carbohydrates (which can be skewed by rounding and fibre subtraction), carbs are computed as `(calories − fat×9 − protein×4) / 4`; dietary fibre is no longer recorded from label scans
+- **Max ">>" button: gram-precision for per-100g foods**: for food library items stored in per-100g format the max button now floors to 2 decimal places (nearest 0.01g) rather than whole servings, with a 0.01g minimum
+
+**Previous**: v2.1.47
 - **Fix: calorie balance averages exclude today**: today is still in progress so including it skewed the averages; stats row now only averages completed past days
 
 **Previous**: v2.1.46

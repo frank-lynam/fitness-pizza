@@ -6,6 +6,8 @@
 import { estimateMacrosFromPhoto, estimateMacrosFromLabel } from '../api.js';
 import * as ui from '../ui.js';
 import { showMacroForm } from './macro-form.js';
+import { db } from '../db.js';
+import { calculateMacroCalories } from '../utils/calorie-calc.js';
 
 /**
  * Show photo upload modal
@@ -158,19 +160,7 @@ async function runLabelAnalysis(imageData) {
         if (result.is_per_100g) {
             showGramsPrompt(result);
         } else {
-            const servingNote = result.serving_size
-                ? `Serving: ${result.serving_size}`
-                : '';
-            showMacroForm({
-                meal_name: result.product_name,
-                protein: result.protein,
-                carbs: result.carbs,
-                fat: result.fat,
-                fiber: result.fiber,
-                notes: servingNote,
-                status: 'completed',
-                ai_estimated: true
-            });
+            showLabelReviewModal(result);
         }
     } catch (error) {
         loadingOverlay.remove();
@@ -214,6 +204,151 @@ function showGramsPrompt(labelResult) {
                     notes: servingNote,
                     status: 'completed',
                     ai_estimated: true
+                });
+            }
+        },
+        {
+            text: 'Cancel',
+            className: 'btn-secondary'
+        }
+    ]);
+}
+
+/**
+ * Show a review modal for a per-serving label scan result, with a checkbox to
+ * normalise the values to per-100g and save to the food library.
+ * @param {Object} result - Result from estimateMacrosFromLabel
+ */
+function showLabelReviewModal(result) {
+    const hasServingGrams = result.serving_size_grams && result.serving_size_grams > 0;
+    const servingNote = result.serving_size ? `Serving size: ${result.serving_size}` : 'Serving size not detected';
+    const disabledNote = hasServingGrams ? '' : '<br><em style="font-size:12px;">(serving size in grams not detected)</em>';
+
+    ui.createModal('Label Scan Results', `
+        <div style="margin-bottom:14px;">
+            <p style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">${result.product_name || 'Unknown Product'}</p>
+            <p style="font-size:13px;color:var(--text-secondary);">${servingNote}</p>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:14px;font-size:14px;">
+            <span style="color:var(--text-secondary);">Calories</span><strong style="color:var(--text-primary);">${result.calories} kcal</strong>
+            <span style="color:var(--text-secondary);">Protein</span><strong style="color:var(--accent-success);">${result.protein}g</strong>
+            <span style="color:var(--text-secondary);">Carbs</span><strong style="color:var(--accent-warning);">${result.carbs}g</strong>
+            <span style="color:var(--text-secondary);">Fat</span><strong style="color:var(--accent-danger);">${result.fat}g</strong>
+        </div>
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:${hasServingGrams ? 'pointer' : 'default'};padding:10px;background:var(--bg-tertiary);border-radius:var(--radius-md);">
+            <input type="checkbox" id="normalize-100g" ${hasServingGrams ? '' : 'disabled'} style="margin-top:2px;flex-shrink:0;">
+            <span style="font-size:13px;color:${hasServingGrams ? 'var(--text-primary)' : 'var(--text-secondary)'};">
+                Normalize to per-100g and save to food library${disabledNote}
+            </span>
+        </label>
+    `, [
+        {
+            text: 'Log Food',
+            className: 'btn-primary',
+            onClick: async () => {
+                const checkbox = document.getElementById('normalize-100g');
+                if (checkbox && checkbox.checked && hasServingGrams) {
+                    await normalizeAndLog(result);
+                } else {
+                    const note = result.serving_size ? `Serving: ${result.serving_size}` : '';
+                    showMacroForm({
+                        meal_name: result.product_name,
+                        protein: result.protein,
+                        carbs: result.carbs,
+                        fat: result.fat,
+                        fiber: result.fiber,
+                        notes: note,
+                        status: 'completed',
+                        ai_estimated: true
+                    });
+                }
+            }
+        },
+        {
+            text: 'Cancel',
+            className: 'btn-secondary'
+        }
+    ]);
+}
+
+/**
+ * Normalize a per-serving label result to per-100g, save to food library,
+ * then prompt for grams eaten and log the macro entry.
+ * @param {Object} result - Result from estimateMacrosFromLabel
+ */
+async function normalizeAndLog(result) {
+    try {
+        const scale = 100 / result.serving_size_grams;
+        const p100   = Math.round(result.protein * scale * 10) / 10;
+        const c100   = Math.round(result.carbs   * scale * 10) / 10;
+        const f100   = Math.round(result.fat     * scale * 10) / 10;
+        const cal100 = Math.round(calculateMacroCalories(p100, c100, f100, 0) * 10) / 10;
+
+        const foodId = await db.addNamedFood({
+            name: result.product_name || 'Scanned Label',
+            format_type: 'per_gram',
+            protein: p100,
+            carbs: c100,
+            fat: f100,
+            fiber: 0,
+            calories: cal100
+        });
+
+        showNormalizedGramsPrompt(result, foodId, { p100, c100, f100 });
+    } catch (error) {
+        console.error('Failed to save food to library:', error);
+        ui.showError('Failed to save to food library. Logging as one-off entry.');
+        const note = result.serving_size ? `Serving: ${result.serving_size}` : '';
+        showMacroForm({
+            meal_name: result.product_name,
+            protein: result.protein,
+            carbs: result.carbs,
+            fat: result.fat,
+            fiber: result.fiber,
+            notes: note,
+            status: 'completed',
+            ai_estimated: true
+        });
+    }
+}
+
+/**
+ * After normalizing to per-100g and saving to food library, prompt the user
+ * for grams eaten and log the scaled macro entry linked to the food library item.
+ * @param {Object} labelResult - Original label scan result
+ * @param {number} foodId      - ID of the newly saved named food
+ * @param {Object} per100g     - { p100, c100, f100 } macros per 100g
+ */
+function showNormalizedGramsPrompt(labelResult, foodId, per100g) {
+    const defaultGrams = labelResult.serving_size_grams || 100;
+    ui.createModal('How many grams did you eat?', `
+        <p style="margin-bottom:10px;color:var(--text-secondary);font-size:13px;">
+            Saved to food library as per-100g. Enter the amount you ate.
+        </p>
+        <div class="form-group">
+            <label>Grams eaten</label>
+            <input type="number" id="grams-eaten-input" min="0.01" max="9999" step="0.01"
+                value="${defaultGrams}" style="width:100%;">
+        </div>
+    `, [
+        {
+            text: 'Log',
+            className: 'btn-primary',
+            onClick: () => {
+                const gramsInput = document.getElementById('grams-eaten-input');
+                const grams = parseFloat(gramsInput ? gramsInput.value : defaultGrams) || defaultGrams;
+                const factor = grams / 100;
+                showMacroForm({
+                    meal_name: labelResult.product_name,
+                    protein: Math.round(per100g.p100 * factor * 10) / 10,
+                    carbs:   Math.round(per100g.c100 * factor * 10) / 10,
+                    fat:     Math.round(per100g.f100 * factor * 10) / 10,
+                    fiber: 0,
+                    notes: `${grams}g of ${labelResult.product_name}`,
+                    status: 'completed',
+                    ai_estimated: true,
+                    food_id: foodId,
+                    servings: grams
                 });
             }
         },

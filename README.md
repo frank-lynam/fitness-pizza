@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.48
+**Current**: v2.1.49
+- **Label scan: normalize to per-100g checkbox**: after scanning a nutrition label the review modal now includes a "Normalize to per-100g and save to food library" checkbox; when checked (requires serving size in grams to be detected on the label), macros are scaled to per-100g, saved as a `per_gram` food library entry, and the grams-eaten prompt pre-fills with the label's serving size
+
+**Previous**: v2.1.48
 - **Label scan: derive carbs from calorie balance**: instead of using the label's reported total carbohydrates (which can be skewed by rounding and fibre subtraction), carbs are computed as `(calories − fat×9 − protein×4) / 4`; dietary fibre is no longer recorded from label scans
 - **Max ">>" button: gram-precision for per-100g foods**: for food library items stored in per-100g format the max button now floors to 2 decimal places (nearest 0.01g) rather than whole servings, with a 0.01g minimum
 

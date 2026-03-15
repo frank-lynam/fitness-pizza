@@ -151,14 +151,22 @@ export function showMacroForm(existingEntry = null) {
                     </label>
                 </div>
 
+                ${(entry._scanServingGrams || 0) > 0 ? `
+                <div class="form-group" style="margin-bottom: 4px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="normalize-to-100g">
+                        <span>Save as per-100g food library item (serving: ${entry._scanServingGrams}g)</span>
+                    </label>
+                </div>` : ''}
+
                 <div class="form-group" style="margin-bottom: 4px;">
                     <input type="text" id="meal-name" placeholder="Meal Name"
-                           value="${entry.meal_name}">
+                           value="${entry.meal_name || ''}">
                 </div>
 
                 <div class="form-group" style="margin-bottom: 4px;">
                     <textarea id="food-description" placeholder="Food Description (optional)"
-                    >${entry.food_description}</textarea>
+                    >${entry.food_description || ''}</textarea>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 4px;">
@@ -430,23 +438,44 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
 
             // Auto-add to food library if it has a name and user didn't skip library save
             if (mealName && !skipLibrarySave) {
+                const normalizeCheckbox = document.getElementById('normalize-to-100g');
+                const scanGrams = existingEntry && existingEntry._scanServingGrams > 0
+                    ? existingEntry._scanServingGrams : 0;
+                const shouldNormalize = normalizeCheckbox && normalizeCheckbox.checked && scanGrams > 0;
+
                 const existingFoods = await db.getAllNamedFoods();
                 const foodExists = existingFoods.some(f =>
                     f.name.toLowerCase() === mealName.toLowerCase()
                 );
 
                 if (!foodExists) {
-                    await db.addNamedFood({
-                        name: mealName,
-                        format_type: 'per_serving',
-                        protein,
-                        carbs,
-                        fat,
-                        fiber,
-                        calories,
-                        serving_size: '1 serving',
-                        notes: foodDescription
-                    });
+                    if (shouldNormalize) {
+                        const scale = 100 / scanGrams;
+                        const p100 = Math.round(protein * scale * 10) / 10;
+                        const c100 = Math.round(carbs   * scale * 10) / 10;
+                        const f100 = Math.round(fat     * scale * 10) / 10;
+                        await db.addNamedFood({
+                            name: mealName,
+                            format_type: 'per_gram',
+                            protein: p100,
+                            carbs: c100,
+                            fat: f100,
+                            fiber: 0,
+                            calories: calculateMacroCalories(p100, c100, f100, 0)
+                        });
+                    } else {
+                        await db.addNamedFood({
+                            name: mealName,
+                            format_type: 'per_serving',
+                            protein,
+                            carbs,
+                            fat,
+                            fiber,
+                            calories,
+                            serving_size: '1 serving',
+                            notes: foodDescription
+                        });
+                    }
                 }
             }
         }

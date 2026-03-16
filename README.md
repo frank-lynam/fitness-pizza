@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.50
+**Current**: v2.1.51
+- **TDEE inference: longer windows, prefer farthest valid pairing**: minimum window raised from 5 → 14 days; maximum from 60 → 90 days; algorithm now picks the *longest* valid window per endpoint rather than the shortest — this dramatically reduces water-weight noise (which is ~constant regardless of window length) relative to the real fat-change signal (which grows linearly with time)
+
+**Previous**: v2.1.50
 - **Label scan: normalize checkbox in macro form**: the per-100g normalize checkbox now appears in the editable macro form after a label scan (not a separate read-only review modal), so name and values can be edited before saving; when checked, the food is saved to the library as a per-100g `per_gram` item instead of per-serving
 
 **Previous**: v2.1.49

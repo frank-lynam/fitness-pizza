@@ -730,24 +730,25 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
     };
 
     if (weights.length < 2) {
-        noDataMsg('Log weight on at least 2 different days (≥5 days apart) with food logged in between to infer TDEE.');
+        noDataMsg('Log weight on at least 2 different days (≥14 days apart) with food logged in between to infer TDEE.');
         return;
     }
 
-    const MIN_DAYS = 5;
-    const MAX_DAYS = 60;
+    const MIN_DAYS = 14;   // ≥2 weeks so real fat change (≈1 lb) exceeds water-weight noise
+    const MAX_DAYS = 90;   // up to 3 months; prefer the longest window available
     const estimates = [];
 
     for (let j = 1; j < weights.length; j++) {
-        // Find the closest start measurement that is at least MIN_DAYS before weights[j]
-        // and no more than MAX_DAYS (stale eating patterns beyond that).
+        // Find the LONGEST window ending at weights[j] that is within [MIN_DAYS, MAX_DAYS].
+        // Preferring the longest window maximises signal-to-noise: real fat change grows
+        // linearly with time while water-weight noise is roughly constant.
         let bestI = -1;
         for (let i = j - 1; i >= 0; i--) {
             const gap = Math.round(
                 (new Date(weights[j].date + 'T12:00:00') - new Date(weights[i].date + 'T12:00:00')) / 86400000
             );
             if (gap > MAX_DAYS) break;
-            if (gap >= MIN_DAYS) { bestI = i; break; }
+            if (gap >= MIN_DAYS) bestI = i;   // keep scanning – want the farthest valid i
         }
         if (bestI === -1) continue;
 

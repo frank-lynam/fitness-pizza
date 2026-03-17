@@ -162,7 +162,7 @@ async function handleAddWorkoutFromLibrary(workoutId) {
             estimated_calories_burned: sourceWorkout.estimated_calories_burned || 0,
             date: currentDate,
             timestamp: Date.now(),
-            status: 'completed'
+            status: 'planned'
         });
 
         const { loadWorkouts } = await import('./workout-form.js');

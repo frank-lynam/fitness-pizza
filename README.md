@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.62
+**Current**: v2.1.63
+- **Library workouts default to planned**: workouts added from the library are now saved as planned, consistent with manual entry
+
+**Previous**: v2.1.62
 - **Workouts default to planned**: new workouts are saved as planned (unchecked) and must be checked off to earn calorie/macro credit
 - **Dashboard check button matches food style**: workout ✓ button is now the same green circle as food items
 - **Planned workout preview**: incomplete workouts on dashboard show estimated calorie burn and expected macro credit gains

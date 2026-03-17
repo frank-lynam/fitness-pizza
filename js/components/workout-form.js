@@ -295,7 +295,7 @@ export function showWorkoutForm(existingEntry = null, quickExercise = null) {
 
                 <div class="form-group">
                     <label for="calories-input">Calories Burned</label>
-                    <input type="number" id="calories-input" placeholder="Estimated calories" min="0" step="1" value="0" style="width:100%;">
+                    <input type="number" id="calories-input" placeholder="Estimated calories" min="0" step="1" value="${entry.estimated_calories_burned || 0}" style="width:100%;">
                 </div>
             </form>
         </div>
@@ -307,8 +307,10 @@ export function showWorkoutForm(existingEntry = null, quickExercise = null) {
     setupWorkoutFormListeners(isEdit, existingEntry);
     setupSetListeners();
 
-    // Calculate initial calories
-    updateEstimatedCalories();
+    // For new entries, auto-estimate initial calories; for edits, keep stored value
+    if (!isEdit) {
+        updateEstimatedCalories();
+    }
 
     // Scroll to form
     formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });

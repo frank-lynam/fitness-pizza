@@ -270,7 +270,7 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
             estimated_calories_burned: Math.round(estimatedCalories),
             date: currentDate,
             timestamp: Date.now(),
-            status: 'completed'
+            status: isEdit ? (existingEntry.status || 'completed') : 'planned'
         };
 
         ui.showLoading(isEdit ? 'Updating workout...' : 'Saving workout...');

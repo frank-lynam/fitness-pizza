@@ -353,6 +353,17 @@ class FitnessTrackerApp {
                 return;
             }
 
+            // Read workout credit settings for planned workout preview
+            const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
+            const workoutCreditMacros = {
+                fat:     (await db.getSetting('workout_credit_fat'))     !== 'false',
+                protein: (await db.getSetting('workout_credit_protein')) !== 'false',
+                carbs:   (await db.getSetting('workout_credit_carbs'))   !== 'false',
+            };
+            const baseFat     = parseFloat(await db.getSetting('goal_fat') || 70);
+            const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+            const baseCarbs   = parseFloat(await db.getSetting('goal_carbs') || 200);
+
             activityList.innerHTML = activities.map(activity => {
                 const date = new Date(activity.timestamp).toLocaleDateString();
                 const time = new Date(activity.timestamp).toLocaleTimeString('en-US', {
@@ -385,6 +396,18 @@ class FitnessTrackerApp {
                     case 'workout':
                         const workoutCal = activity.data.estimated_calories_burned;
                         const workoutDone = activity.data.status !== 'planned';
+                        let workoutSubtitle = '';
+                        if (workoutDone && workoutCal > 0) {
+                            workoutSubtitle = `~${workoutCal} cal burned • `;
+                        } else if (!workoutDone && workoutCal > 0) {
+                            const credited = applyWorkoutCredit(baseFat, baseProtein, baseCarbs, workoutCal, workoutCreditFraction, workoutCreditMacros);
+                            const parts = [];
+                            if (credited.fat > baseFat)         parts.push(`+${(credited.fat     - baseFat    ).toFixed(1)}f`);
+                            if (credited.carbs > baseCarbs)     parts.push(`+${(credited.carbs   - baseCarbs  ).toFixed(1)}c`);
+                            if (credited.protein > baseProtein) parts.push(`+${(credited.protein - baseProtein).toFixed(1)}p`);
+                            const creditStr = parts.length > 0 ? ` · ${parts.join(' / ')} if done` : '';
+                            workoutSubtitle = `~${workoutCal} cal${creditStr} • `;
+                        }
                         return `
                             <div class="activity-item ${workoutDone ? '' : 'planned'}">
                                 ${!workoutDone ? `
@@ -393,7 +416,7 @@ class FitnessTrackerApp {
                                 <span class="activity-icon">💪</span>
                                 <div class="activity-content">
                                     <div class="activity-title">${activity.data.exercise_name}</div>
-                                    <div class="activity-time">${workoutDone && workoutCal > 0 ? `~${workoutCal} cal burned • ` : ''}${date} at ${time}</div>
+                                    <div class="activity-time">${workoutSubtitle}${date} at ${time}</div>
                                 </div>
                                 ${!workoutDone ? `
                                     <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="workout" title="Remove">×</button>

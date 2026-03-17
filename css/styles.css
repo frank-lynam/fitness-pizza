@@ -1339,7 +1339,8 @@ button {
     color: var(--text-tertiary);
 }
 
-.btn-complete-activity {
+.btn-complete-activity,
+.btn-complete-workout {
     background: var(--accent-success);
     color: white;
     border: none;

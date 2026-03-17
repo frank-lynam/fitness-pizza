@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.52
+**Current**: v2.1.53
+- **Workout calories input**: calories burned field is now an editable number input that auto-estimates from sets but can be manually overridden; calories shown on every workout card; removed old-style quick-add past workouts from Library (exercises and templates only)
+
+**Previous**: v2.1.52
 - **Workout Tab Revamp — Sets, Templates & Exercise Library**: added per-set tracking with circular check-off buttons showing N/M progress; exercise library with type-filtered picker; workout templates to apply a set of exercises at once; revamped workout form with "From Library" button, per-set rows for Lifting/Core (reps+weight) and Cardio (duration+pace), and backward-compatible legacy display for old entries; tabbed Workout Library modal showing both exercise library and templates; DB upgraded to version 2 with `exercise_library` and `workout_templates` stores
 
 **Previous**: v2.1.51

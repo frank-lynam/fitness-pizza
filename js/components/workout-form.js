@@ -293,9 +293,9 @@ export function showWorkoutForm(existingEntry = null, quickExercise = null) {
                     </div>
                 </div>
 
-                <div class="calories-display">
-                    <span class="calories-label">Estimated:</span>
-                    <span class="calories-value" id="estimated-calories">0 cal</span>
+                <div class="form-group">
+                    <label for="calories-input">Calories Burned</label>
+                    <input type="number" id="calories-input" placeholder="Estimated calories" min="0" step="1" value="0" style="width:100%;">
                 </div>
             </form>
         </div>
@@ -502,9 +502,9 @@ async function updateEstimatedCalories() {
 
     const calories = await computeWorkoutCalories(exerciseType, exerciseName, totalDuration, totalReps, avgPace);
 
-    const caloriesDisplay = document.getElementById('estimated-calories');
-    if (caloriesDisplay) {
-        caloriesDisplay.textContent = `${Math.round(calories)} cal`;
+    const caloriesInput = document.getElementById('calories-input');
+    if (caloriesInput) {
+        caloriesInput.value = Math.round(calories);
     }
 }
 
@@ -560,7 +560,8 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
             else if (sets.length > 0) { /* allow sets to handle it */ }
         }
 
-        const estimatedCalories = await computeWorkoutCalories(exerciseType, exerciseName, totalDuration, totalReps, avgPace);
+        const caloriesInputEl = document.getElementById('calories-input');
+        const estimatedCalories = caloriesInputEl ? (parseInt(caloriesInputEl.value) || 0) : await computeWorkoutCalories(exerciseType, exerciseName, totalDuration, totalReps, avgPace);
 
         const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
         const entryData = {

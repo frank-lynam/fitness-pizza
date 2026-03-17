@@ -241,7 +241,9 @@ class FitnessTrackerApp {
         // Add workout credit: distribute burned calories as additional macro allowance
         // using the user-configured fraction and macro selection
         const workouts = await db.getWorkoutsByDate(date);
-        const caloriesBurned = workouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
+        const caloriesBurned = workouts
+            .filter(w => w.status !== 'planned')
+            .reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
         const caloriesCredited = caloriesBurned * workoutCreditFraction;
 
         const goalFatBeforeCredit     = goalFat;

@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.60
+**Current**: v2.1.61
+- **No macro credit for incomplete workouts**: workout calorie credit toward macro goals now only counts completed workouts
+
+**Previous**: v2.1.60
 - **Fix workout check button on dashboard**: button now matches food item style (only shown on planned items, same ✓ appearance); completed workouts cannot be unchecked from dashboard — use the Workouts tab
 
 **Previous**: v2.1.59

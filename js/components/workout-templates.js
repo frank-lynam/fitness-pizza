@@ -126,7 +126,7 @@ export async function applyTemplateToDay(templateId, date, onDone = null) {
                     sets,
                     reps: (ex.target_reps || 0) * numSets,
                     duration_minutes: ex.target_duration_minutes || 0,
-                    estimated_calories_burned: 0,
+                    estimated_calories_burned: ex.target_calories || 0,
                     status: 'planned'
                 });
             }
@@ -183,6 +183,7 @@ async function showTemplateForm(existing = null, onSave = null) {
                     <input type="number" class="ex-sets" data-idx="${idx}" value="${ex.target_sets || 3}" min="1" step="1" placeholder="Sets" title="Sets">
                     <input type="number" class="ex-reps" data-idx="${idx}" value="${ex.target_reps || 10}" min="0" step="1" placeholder="Reps" title="Reps">
                     <input type="number" class="ex-weight" data-idx="${idx}" value="${ex.target_weight || 0}" min="0" step="0.5" placeholder="Wt" title="Weight">
+                    <input type="number" class="ex-calories" data-idx="${idx}" value="${ex.target_calories || 0}" min="0" step="1" placeholder="Cal" title="Calories burned">
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
                     <button type="button" class="btn-secondary btn-small btn-move-up" data-idx="${idx}" ${idx === 0 ? 'disabled' : ''}>▲</button>
@@ -229,6 +230,7 @@ async function showTemplateForm(existing = null, onSave = null) {
                 exerciseRows[idx].target_sets = parseInt(row.querySelector('.ex-sets').value) || 3;
                 exerciseRows[idx].target_reps = parseInt(row.querySelector('.ex-reps').value) || 0;
                 exerciseRows[idx].target_weight = parseFloat(row.querySelector('.ex-weight').value) || 0;
+                exerciseRows[idx].target_calories = parseInt(row.querySelector('.ex-calories').value) || 0;
             }
         });
     }
@@ -300,7 +302,8 @@ async function showTemplateForm(existing = null, onSave = null) {
                         target_weight: ex.default_weight || 0,
                         target_weight_unit: ex.default_weight_unit || 'lbs',
                         target_duration_minutes: 0,
-                        target_pace: null
+                        target_pace: null,
+                        target_calories: 0
                     });
                 } else {
                     // Ad-hoc exercise
@@ -316,7 +319,8 @@ async function showTemplateForm(existing = null, onSave = null) {
                             target_weight: 0,
                             target_weight_unit: 'lbs',
                             target_duration_minutes: 0,
-                            target_pace: null
+                            target_pace: null,
+                            target_calories: 0
                         });
                     }
                 }

@@ -1469,15 +1469,15 @@ class FitnessTrackerApp {
         try {
             const lastBackup = localStorage.getItem('last_auto_backup');
             const now = Date.now();
-            const oneWeek = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+            const oneDay = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
-            if (!lastBackup || (now - parseInt(lastBackup)) > oneWeek) {
-                console.log('Performing weekly auto-backup...');
+            if (!lastBackup || (now - parseInt(lastBackup)) > oneDay) {
+                console.log('Performing daily auto-backup...');
                 await this.performAutoBackup();
                 localStorage.setItem('last_auto_backup', now.toString());
             } else {
-                const daysUntilNext = Math.ceil((oneWeek - (now - parseInt(lastBackup))) / (24 * 60 * 60 * 1000));
-                console.log(`Next auto-backup in ${daysUntilNext} days`);
+                const hoursUntilNext = Math.ceil((oneDay - (now - parseInt(lastBackup))) / (60 * 60 * 1000));
+                console.log(`Next auto-backup in ${hoursUntilNext} hours`);
             }
         } catch (error) {
             console.error('Error checking auto-backup:', error);

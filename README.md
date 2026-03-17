@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.55
+**Current**: v2.1.56
+- **Template calories + daily backup**: each exercise in a template now has a calories field that carries through when the template is applied; auto-backup changed from weekly to daily
+
+**Previous**: v2.1.55
 - **Fix edit form calories**: calories input now pre-fills with stored value when editing; auto-estimate only runs for new entries
 
 **Previous**: v2.1.54

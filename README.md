@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.58
+**Current**: v2.1.59
+- **Workout check-off on dashboard**: workout items show ✓ button on dashboard; planned workouts appear dimmed; only completed workouts count toward calories burned
+
+**Previous**: v2.1.58
 - **Revert workout system to simple form + add check-off**: restored original exercise name/type/reps/duration form with MET-based calorie estimate; workout entries now have a checkbox to mark completed/planned like food items; removed sets, templates, and exercise library
 
 **Previous**: v2.1.57

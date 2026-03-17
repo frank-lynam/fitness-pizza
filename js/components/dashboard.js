@@ -33,9 +33,11 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const plannedFat = plannedMacros.reduce((sum, m) => sum + m.fat, 0);
         const plannedCalories = plannedMacros.reduce((sum, m) => sum + m.calories, 0);
 
-        // Load today's workouts
+        // Load today's workouts — only completed ones count toward calorie burn
         const workouts = await db.getWorkoutsByDate(today);
-        const totalCaloriesBurned = workouts.reduce((sum, w) => sum + w.estimated_calories_burned, 0);
+        const totalCaloriesBurned = workouts
+            .filter(w => w.status !== 'planned')
+            .reduce((sum, w) => sum + w.estimated_calories_burned, 0);
 
         // Calculate calorie balance
         const calorieBalance = totalCalories - totalCaloriesBurned;

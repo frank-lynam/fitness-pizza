@@ -337,9 +337,9 @@ class FitnessTrackerApp {
                 ...todayWorkouts.map(w => ({ type: 'workout', data: w, timestamp: w.timestamp })),
                 ...todayMeasurements.map(m => ({ type: 'measurement', data: m, timestamp: m.timestamp }))
             ].sort((a, b) => {
-                // Planned macros always come first
-                const aPlanned = a.type === 'macro' && a.data.status === 'planned';
-                const bPlanned = b.type === 'macro' && b.data.status === 'planned';
+                // Planned items always come first
+                const aPlanned = a.data.status === 'planned';
+                const bPlanned = b.data.status === 'planned';
                 if (aPlanned && !bPlanned) return -1;
                 if (!aPlanned && bPlanned) return 1;
                 // Otherwise sort by timestamp (most recent first)
@@ -382,13 +382,16 @@ class FitnessTrackerApp {
                         `;
                     case 'workout':
                         const workoutCal = activity.data.estimated_calories_burned;
+                        const workoutDone = activity.data.status !== 'planned';
                         return `
-                            <div class="activity-item">
+                            <div class="activity-item ${workoutDone ? '' : 'planned'}">
+                                <button class="btn-complete-workout ${workoutDone ? 'btn-uncheck' : ''}" data-id="${activity.data.id}" title="${workoutDone ? 'Mark incomplete' : 'Mark complete'}">${workoutDone ? '✓' : '✓'}</button>
                                 <span class="activity-icon">💪</span>
                                 <div class="activity-content">
                                     <div class="activity-title">${activity.data.exercise_name}</div>
-                                    <div class="activity-time">${workoutCal > 0 ? `~${workoutCal} cal burned • ` : ''}${date} at ${time}</div>
+                                    <div class="activity-time">${workoutDone && workoutCal > 0 ? `~${workoutCal} cal burned • ` : ''}${date} at ${time}</div>
                                 </div>
+                                ${!workoutDone ? `<button class="btn-remove-activity" data-id="${activity.data.id}" data-type="workout" title="Remove">×</button>` : ''}
                             </div>
                         `;
                     case 'measurement':
@@ -507,6 +510,24 @@ class FitnessTrackerApp {
                 });
             });
 
+            // Workout check/uncheck buttons
+            activityList.querySelectorAll('.btn-complete-workout').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = parseInt(e.target.dataset.id);
+                    try {
+                        const entry = await db.get('workouts', id);
+                        if (entry) {
+                            entry.status = entry.status === 'planned' ? 'completed' : 'planned';
+                            await db.updateWorkout(entry);
+                            await this.loadDashboard();
+                        }
+                    } catch (error) {
+                        console.error('Error toggling workout:', error);
+                        ui.showError('Failed to update workout');
+                    }
+                });
+            });
+
             // Add event listeners for remove buttons (planned items only)
             activityList.querySelectorAll('.btn-remove-activity').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
@@ -516,6 +537,8 @@ class FitnessTrackerApp {
                     try {
                         if (type === 'macro') {
                             await db.deleteMacroEntry(id);
+                        } else if (type === 'workout') {
+                            await db.deleteWorkout(id);
                         }
 
                         // Refresh dashboard

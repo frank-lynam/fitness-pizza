@@ -12,7 +12,7 @@ class DatabaseManager {
     constructor() {
         this.db = null;
         this.DB_NAME = 'fitness-tracker-db';
-        this.DB_VERSION = 1;
+        this.DB_VERSION = 2;
     }
 
     /**
@@ -86,6 +86,30 @@ class DatabaseManager {
                 if (!db.objectStoreNames.contains('settings')) {
                     db.createObjectStore('settings', { keyPath: 'key' });
                     console.log('Created settings object store');
+                }
+
+                // Version 2: Exercise Library and Workout Templates
+                if (event.oldVersion < 2) {
+                    // 6. Exercise Library Object Store
+                    if (!db.objectStoreNames.contains('exercise_library')) {
+                        const exerciseStore = db.createObjectStore('exercise_library', {
+                            keyPath: 'id',
+                            autoIncrement: true
+                        });
+                        exerciseStore.createIndex('name', 'name', { unique: false });
+                        exerciseStore.createIndex('type', 'type', { unique: false });
+                        console.log('Created exercise_library object store');
+                    }
+
+                    // 7. Workout Templates Object Store
+                    if (!db.objectStoreNames.contains('workout_templates')) {
+                        const templatesStore = db.createObjectStore('workout_templates', {
+                            keyPath: 'id',
+                            autoIncrement: true
+                        });
+                        templatesStore.createIndex('name', 'name', { unique: false });
+                        console.log('Created workout_templates object store');
+                    }
                 }
             };
         });
@@ -421,7 +445,7 @@ class DatabaseManager {
             date,
             timestamp,
             exercise_name: data.exercise_name,
-            sets: data.sets || [], // Array of {set_number, reps, weight, unit, rpe, notes}
+            sets: data.sets || [], // Array of {set_number, reps, weight, weight_unit, duration_minutes, pace, checked, notes}
             workout_notes: data.workout_notes || '',
             duration_minutes: data.duration_minutes || 0,
             estimated_calories_burned: data.estimated_calories_burned || 0,
@@ -429,7 +453,9 @@ class DatabaseManager {
             starred: data.starred || false,
             exercise_type: data.exercise_type || '',
             reps: data.reps || 0,
-            pace: data.pace || null
+            pace: data.pace || null,
+            exercise_id: data.exercise_id || null,
+            template_id: data.template_id || null
         };
         return this.add('workouts', entry);
     }
@@ -634,7 +660,7 @@ class DatabaseManager {
      * Clear all data (for testing or reset)
      */
     async clearAllData() {
-        const stores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings'];
+        const stores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings', 'exercise_library', 'workout_templates'];
         const promises = stores.map(storeName => {
             return new Promise((resolve, reject) => {
                 const transaction = this.db.transaction([storeName], 'readwrite');
@@ -660,7 +686,9 @@ class DatabaseManager {
             measurements: await this.getAllMeasurements(),
             workouts: await this.getAllWorkouts(),
             named_foods: await this.getAllNamedFoods(),
-            settings: await this.getAllSettings()
+            settings: await this.getAllSettings(),
+            exercise_library: await this.getAllExercises(),
+            workout_templates: await this.getAllWorkoutTemplates()
         };
         return data;
     }
@@ -712,12 +740,129 @@ class DatabaseManager {
                 }
             }
 
+            if (data.exercise_library) {
+                for (const entry of data.exercise_library) {
+                    delete entry.id;
+                    await this.addExercise(entry);
+                }
+            }
+
+            if (data.workout_templates) {
+                for (const entry of data.workout_templates) {
+                    delete entry.id;
+                    await this.addWorkoutTemplate(entry);
+                }
+            }
+
             console.log('Data import completed successfully');
             return true;
         } catch (error) {
             console.error('Error importing data:', error);
             throw error;
         }
+    }
+
+    // ==================== EXERCISE LIBRARY OPERATIONS ====================
+
+    /**
+     * Add an exercise to the library
+     */
+    async addExercise(data) {
+        const entry = {
+            name: data.name,
+            type: data.type || 'Lifting', // 'Cardio' | 'Core' | 'Lifting'
+            default_sets: data.default_sets || 3,
+            default_reps: data.default_reps || 10,
+            default_weight: data.default_weight || 0,
+            default_weight_unit: data.default_weight_unit || 'lbs',
+            notes: data.notes || '',
+            created_at: data.created_at || Date.now(),
+            updated_at: data.updated_at || Date.now()
+        };
+        return this.add('exercise_library', entry);
+    }
+
+    /**
+     * Get all exercises
+     */
+    async getAllExercises() {
+        const exercises = await this.getAll('exercise_library');
+        return exercises.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    /**
+     * Get exercises by type
+     */
+    async getExercisesByType(type) {
+        return this.getByIndex('exercise_library', 'type', type);
+    }
+
+    /**
+     * Get an exercise by ID
+     */
+    async getExercise(id) {
+        return this.get('exercise_library', id);
+    }
+
+    /**
+     * Update an exercise
+     */
+    async updateExercise(data) {
+        data.updated_at = Date.now();
+        return this.update('exercise_library', data);
+    }
+
+    /**
+     * Delete an exercise
+     */
+    async deleteExercise(id) {
+        return this.delete('exercise_library', id);
+    }
+
+    // ==================== WORKOUT TEMPLATES OPERATIONS ====================
+
+    /**
+     * Add a workout template
+     */
+    async addWorkoutTemplate(data) {
+        const entry = {
+            name: data.name,
+            description: data.description || '',
+            exercises: data.exercises || [], // Array of exercise rows
+            created_at: data.created_at || Date.now(),
+            updated_at: data.updated_at || Date.now()
+        };
+        return this.add('workout_templates', entry);
+    }
+
+    /**
+     * Get all workout templates
+     */
+    async getAllWorkoutTemplates() {
+        const templates = await this.getAll('workout_templates');
+        return templates.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    /**
+     * Get a workout template by ID
+     */
+    async getWorkoutTemplate(id) {
+        return this.get('workout_templates', id);
+    }
+
+    /**
+     * Update a workout template
+     */
+    async updateWorkoutTemplate(data) {
+        data.updated_at = Date.now();
+        return this.update('workout_templates', data);
+    }
+
+    /**
+     * Delete a workout template
+     */
+    async deleteWorkoutTemplate(id) {
+        return this.delete('workout_templates', id);
     }
 }
 

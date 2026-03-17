@@ -2137,3 +2137,30 @@ textarea.error {
         min-width: 0;
     }
 }
+
+/* Set checklist */
+.sets-checklist { margin: 6px 0; }
+.set-checklist-row { display:flex; align-items:center; gap:8px; padding:4px 0; }
+.set-checklist-row.set-checked { opacity:0.5; }
+.set-checklist-row.set-checked .set-detail { text-decoration:line-through; }
+.btn-check-set { width:28px; height:28px; border-radius:50%; border:2px solid var(--accent-success); background:transparent; color:var(--accent-success); cursor:pointer; flex-shrink:0; }
+.btn-check-set.checked { background:var(--accent-success); color:white; }
+.sets-progress { font-size:11px; color:var(--text-secondary); }
+
+/* Modal tabs */
+.modal-tabs { display:flex; border-bottom:1px solid var(--border-color); margin-bottom:0; }
+.modal-tab { flex:1; padding:10px; background:none; border:none; border-bottom:2px solid transparent; color:var(--text-secondary); cursor:pointer; font-size:14px; }
+.modal-tab.active { color:var(--text-primary); border-bottom-color:var(--accent-primary); }
+
+/* Template editor rows */
+.template-exercise-row { display:flex; align-items:center; gap:8px; padding:8px; background:var(--bg-tertiary); border-radius:var(--radius-md); margin-bottom:4px; }
+.template-exercise-defaults { display:flex; gap:4px; flex-shrink:0; }
+.template-exercise-defaults input { width:56px; }
+
+/* Exercise picker */
+.exercise-type-tabs { display:flex; gap:4px; margin:8px 0; flex-wrap:wrap; }
+.exercise-type-tabs button { flex:1; padding:6px 4px; font-size:12px; min-width:48px; }
+.exercise-picker-item { display:flex; align-items:center; justify-content:space-between; padding:10px; border-bottom:1px solid var(--border-color); }
+
+/* Active filter button */
+.active-filter { background:var(--accent-primary) !important; color:var(--bg-primary) !important; }

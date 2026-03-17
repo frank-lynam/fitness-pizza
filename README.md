@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.51
+**Current**: v2.1.52
+- **Workout Tab Revamp — Sets, Templates & Exercise Library**: added per-set tracking with circular check-off buttons showing N/M progress; exercise library with type-filtered picker; workout templates to apply a set of exercises at once; revamped workout form with "From Library" button, per-set rows for Lifting/Core (reps+weight) and Cardio (duration+pace), and backward-compatible legacy display for old entries; tabbed Workout Library modal showing both exercise library and templates; DB upgraded to version 2 with `exercise_library` and `workout_templates` stores
+
+**Previous**: v2.1.51
 - **TDEE inference: longer windows, prefer farthest valid pairing**: minimum window raised from 5 → 14 days; maximum from 60 → 90 days; algorithm now picks the *longest* valid window per endpoint rather than the shortest — this dramatically reduces water-weight noise (which is ~constant regardless of window length) relative to the real fat-change signal (which grows linearly with time)
 
 **Previous**: v2.1.50

@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.63
+**Current**: v2.1.64
+- **Fix import data loss**: body_fat measurements were rejected by import validation (only weight/waist were accepted); exercise_library and workout_templates were excluded from the validation pass and silently dropped on partial imports
+
+**Previous**: v2.1.63
 - **Library workouts default to planned**: workouts added from the library are now saved as planned, consistent with manual entry
 
 **Previous**: v2.1.62

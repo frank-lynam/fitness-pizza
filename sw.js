@@ -4,7 +4,7 @@
  * Version 2.1.61
  */
 
-const CACHE_NAME = 'fitness-pizza-v2.1.63';
+const CACHE_NAME = 'fitness-pizza-v2.1.64';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

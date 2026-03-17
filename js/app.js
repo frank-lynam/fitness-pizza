@@ -1198,9 +1198,9 @@ class FitnessTrackerApp {
                         return;
                     }
 
-                    const knownStores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings'];
+                    const knownStores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings', 'exercise_library', 'workout_templates'];
                     const errors = [];
-                    const validEntries = { macros: [], measurements: [], workouts: [], named_foods: [], settings: [] };
+                    const validEntries = { macros: [], measurements: [], workouts: [], named_foods: [], settings: [], exercise_library: [], workout_templates: [] };
 
                     // Validate each known store
                     for (const store of knownStores) {
@@ -1222,8 +1222,8 @@ class FitnessTrackerApp {
                                 if (typeof entry.fat !== 'number' || isNaN(entry.fat))
                                     entryErrors.push('fat must be a number');
                             } else if (store === 'measurements') {
-                                if (!['weight', 'waist'].includes(entry.type))
-                                    entryErrors.push('type must be "weight" or "waist"');
+                                if (!['weight', 'waist', 'body_fat'].includes(entry.type))
+                                    entryErrors.push('type must be "weight", "waist", or "body_fat"');
                                 if (typeof entry.value !== 'number' || isNaN(entry.value))
                                     entryErrors.push('value must be a number');
                             } else if (store === 'workouts') {

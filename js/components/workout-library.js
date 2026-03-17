@@ -54,9 +54,8 @@ async function refreshExercisesTab(modal) {
             const id = parseInt(e.currentTarget.dataset.id);
             const ex = await db.getExercise(id);
             if (ex) {
-                const { showExerciseLibraryModal } = await import('./exercise-library.js');
-                await showExerciseLibraryModal();
-                await refreshExercisesTab(modal);
+                const { showExerciseForm } = await import('./exercise-library.js');
+                await showExerciseForm(ex, () => refreshExercisesTab(modal));
             }
         });
     });

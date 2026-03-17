@@ -384,7 +384,12 @@ function setupWorkoutFormListeners(isEdit, existingEntry) {
                         setupSetListeners();
                     }
                 }
-                updateEstimatedCalories();
+                if (ex.default_calories) {
+                    const calInput = document.getElementById('calories-input');
+                    if (calInput) calInput.value = ex.default_calories;
+                } else {
+                    updateEstimatedCalories();
+                }
             });
         });
     }

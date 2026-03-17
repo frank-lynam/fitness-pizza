@@ -180,9 +180,9 @@ export async function pickExerciseFromLibrary(onSelect) {
  * @param {Object|null} existing - Existing exercise to edit, or null to add
  * @param {Function} onSave - Callback after save
  */
-async function showExerciseForm(existing = null, onSave = null) {
+export async function showExerciseForm(existing = null, onSave = null) {
     const isEdit = existing !== null;
-    const ex = existing || { name: '', type: 'Lifting', default_sets: 3, default_reps: 10, default_weight: 0, default_weight_unit: 'lbs', notes: '' };
+    const ex = existing || { name: '', type: 'Lifting', default_sets: 3, default_reps: 10, default_weight: 0, default_weight_unit: 'lbs', default_calories: 0, notes: '' };
 
     const formModal = ui.createModal(isEdit ? 'Edit Exercise' : 'Add Exercise', `
         <form id="exercise-form">
@@ -217,6 +217,10 @@ async function showExerciseForm(existing = null, onSave = null) {
                 </div>
             </div>
             <div class="form-group">
+                <label for="ex-calories">Default Calories Burned</label>
+                <input type="number" id="ex-calories" value="${ex.default_calories || 0}" min="0" step="1">
+            </div>
+            <div class="form-group">
                 <label for="ex-notes">Notes</label>
                 <input type="text" id="ex-notes" value="${ex.notes || ''}" placeholder="Optional notes">
             </div>
@@ -240,6 +244,7 @@ async function showExerciseForm(existing = null, onSave = null) {
             default_reps: parseInt(formModal.querySelector('#ex-reps').value) || 10,
             default_weight: parseFloat(formModal.querySelector('#ex-weight').value) || 0,
             default_weight_unit: formModal.querySelector('#ex-weight-unit').value,
+            default_calories: parseInt(formModal.querySelector('#ex-calories').value) || 0,
             notes: formModal.querySelector('#ex-notes').value.trim()
         };
         try {

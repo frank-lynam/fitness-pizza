@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.56
+**Current**: v2.1.57
+- **Fix exercise edit from library**: Edit button now opens the exercise form directly instead of reloading the full list; exercise form now has a Default Calories Burned field; picking from library pre-fills calories
+
+**Previous**: v2.1.56
 - **Template calories + daily backup**: each exercise in a template now has a calories field that carries through when the template is applied; auto-backup changed from weekly to daily
 
 **Previous**: v2.1.55

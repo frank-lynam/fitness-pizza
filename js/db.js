@@ -698,6 +698,9 @@ class DatabaseManager {
      */
     async importData(data) {
         try {
+            // Clear all existing data first so import is a restore, not a merge
+            await this.clearAllData();
+
             // Import each store
             if (data.macros) {
                 for (const entry of data.macros) {

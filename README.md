@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.53
+**Current**: v2.1.54
+- **Fix import duplication**: import now clears all existing data first (restore semantics, not merge) — importing a backup no longer creates duplicate entries
+
+**Previous**: v2.1.53
 - **Workout calories input**: calories burned field is now an editable number input that auto-estimates from sets but can be manually overridden; calories shown on every workout card; removed old-style quick-add past workouts from Library (exercises and templates only)
 
 **Previous**: v2.1.52

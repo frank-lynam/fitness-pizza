@@ -385,13 +385,17 @@ class FitnessTrackerApp {
                         const workoutDone = activity.data.status !== 'planned';
                         return `
                             <div class="activity-item ${workoutDone ? '' : 'planned'}">
-                                <button class="btn-complete-workout ${workoutDone ? 'btn-uncheck' : ''}" data-id="${activity.data.id}" title="${workoutDone ? 'Mark incomplete' : 'Mark complete'}">${workoutDone ? '✓' : '✓'}</button>
+                                ${!workoutDone ? `
+                                    <button class="btn-complete-workout" data-id="${activity.data.id}" title="Complete">✓</button>
+                                ` : ''}
                                 <span class="activity-icon">💪</span>
                                 <div class="activity-content">
                                     <div class="activity-title">${activity.data.exercise_name}</div>
                                     <div class="activity-time">${workoutDone && workoutCal > 0 ? `~${workoutCal} cal burned • ` : ''}${date} at ${time}</div>
                                 </div>
-                                ${!workoutDone ? `<button class="btn-remove-activity" data-id="${activity.data.id}" data-type="workout" title="Remove">×</button>` : ''}
+                                ${!workoutDone ? `
+                                    <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="workout" title="Remove">×</button>
+                                ` : ''}
                             </div>
                         `;
                     case 'measurement':
@@ -510,19 +514,19 @@ class FitnessTrackerApp {
                 });
             });
 
-            // Workout check/uncheck buttons
+            // Workout complete buttons (one-way: planned → completed only)
             activityList.querySelectorAll('.btn-complete-workout').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const id = parseInt(e.target.dataset.id);
                     try {
                         const entry = await db.get('workouts', id);
-                        if (entry) {
-                            entry.status = entry.status === 'planned' ? 'completed' : 'planned';
+                        if (entry && entry.status === 'planned') {
+                            entry.status = 'completed';
                             await db.updateWorkout(entry);
                             await this.loadDashboard();
                         }
                     } catch (error) {
-                        console.error('Error toggling workout:', error);
+                        console.error('Error completing workout:', error);
                         ui.showError('Failed to update workout');
                     }
                 });

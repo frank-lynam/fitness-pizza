@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.57
+**Current**: v2.1.58
+- **Revert workout system to simple form + add check-off**: restored original exercise name/type/reps/duration form with MET-based calorie estimate; workout entries now have a checkbox to mark completed/planned like food items; removed sets, templates, and exercise library
+
+**Previous**: v2.1.57
 - **Fix exercise edit from library**: Edit button now opens the exercise form directly instead of reloading the full list; exercise form now has a Default Calories Burned field; picking from library pre-fills calories
 
 **Previous**: v2.1.56

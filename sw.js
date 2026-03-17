@@ -1,10 +1,10 @@
 /**
  * Fitness Pizza - Service Worker
  * Provides offline functionality and caching
- * Version 2.1.57
+ * Version 2.1.58
  */
 
-const CACHE_NAME = 'fitness-pizza-v2.1.57';
+const CACHE_NAME = 'fitness-pizza-v2.1.58';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -25,8 +25,6 @@ const STATIC_ASSETS = [
     '/js/components/measurement-form.js',
     '/js/components/food-library.js',
     '/js/components/workout-library.js',
-    '/js/components/exercise-library.js',
-    '/js/components/workout-templates.js',
     '/js/components/photo-upload.js',
     '/js/components/chart-renderer.js',
     '/js/components/dashboard.js',

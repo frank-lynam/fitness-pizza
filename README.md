@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.64
+**Current**: v2.1.65
+- **Workout check-off stamps current time/date**: completing a planned workout from dashboard updates its timestamp to now
+- **Planned workout credit on progress bars**: bars compress left to show potential macro budget extension (right of 100% mark) when there are planned workouts; disappears when workouts are completed
+
+**Previous**: v2.1.64
 - **Fix import data loss**: body_fat measurements were rejected by import validation (only weight/waist were accepted); exercise_library and workout_templates were excluded from the validation pass and silently dropped on partial imports
 
 **Previous**: v2.1.63

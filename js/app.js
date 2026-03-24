@@ -257,6 +257,20 @@ class FitnessTrackerApp {
             goalCarbs   = credited.carbs;
         }
 
+        // Planned workout credit (preview only — not applied to effective goals)
+        const plannedWorkoutBurn = workouts
+            .filter(w => w.status === 'planned')
+            .reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
+        let plannedWorkoutCreditFat_g = 0, plannedWorkoutCreditProtein_g = 0, plannedWorkoutCreditCarbs_g = 0;
+        let plannedCaloriesCreditedFromPlanned = 0;
+        if (plannedWorkoutBurn > 0) {
+            const pc = applyWorkoutCredit(goalFat, goalProtein, goalCarbs, plannedWorkoutBurn, workoutCreditFraction, workoutCreditMacros);
+            plannedWorkoutCreditFat_g     = pc.fat     - goalFat;
+            plannedWorkoutCreditProtein_g = pc.protein - goalProtein;
+            plannedWorkoutCreditCarbs_g   = pc.carbs   - goalCarbs;
+            plannedCaloriesCreditedFromPlanned = plannedWorkoutBurn * workoutCreditFraction;
+        }
+
         const goalCalories = calculateMacroCalories(goalProtein, goalCarbs, goalFat, 0);
 
         // Store today's fully-adjusted displayed goal for future I-term lookback.
@@ -287,6 +301,10 @@ class FitnessTrackerApp {
             workoutCreditProtein_g: goalProtein - goalProteinBeforeCredit,
             workoutCreditCarbs_g:   goalCarbs   - goalCarbsBeforeCredit,
             workoutCreditFraction,
+            plannedWorkoutCreditFat_g,
+            plannedWorkoutCreditProtein_g,
+            plannedWorkoutCreditCarbs_g,
+            plannedCaloriesCreditedFromPlanned,
             piDebug
         };
     }
@@ -547,6 +565,8 @@ class FitnessTrackerApp {
                         const entry = await db.get('workouts', id);
                         if (entry && entry.status === 'planned') {
                             entry.status = 'completed';
+                            entry.timestamp = Date.now();
+                            entry.date = getTodayDate();
                             await db.updateWorkout(entry);
                             await this.loadDashboard();
                         }

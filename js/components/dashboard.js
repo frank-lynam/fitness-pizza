@@ -130,8 +130,9 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         );
 
         // Determine scale factor: if any bar exceeds 100%, extend for overflow; always extend right for planned workout credit
-        const baseScale = maxPercent > 100 ? maxPercent : 100;
-        const scale = baseScale + maxPlannedWOPct;
+        // Scale = whichever is larger: overflow content OR (100% + planned workout credit extension)
+        // They don't compound — the bigger one wins so bars only shrink once
+        const scale = Math.max(maxPercent, 100 + maxPlannedWOPct);
         const needsScaling = maxPercent > 100;
         const hasPlanWOCredit = maxPlannedWOPct > 0;
 

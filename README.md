@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.66
+**Current**: v2.1.67
+- **Macros vs Next-Day Weight Change chart**: added fat, carbs, and calories datasets alongside protein as separate colored scatter series
+
+**Previous**: v2.1.66
 - **Workout check-off stamps current time/date**: completing a planned workout from dashboard updates its timestamp to now
 - **Planned workout credit on progress bars**: bars compress left to show potential macro budget extension (right of 100% mark) when there are planned workouts; disappears when workouts are completed
 

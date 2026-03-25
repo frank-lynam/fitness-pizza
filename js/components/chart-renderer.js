@@ -622,9 +622,14 @@ async function renderMacroCorrelation(macros, measurements) {
     if (!ctx) return;
     if (charts.macroCorrelation) charts.macroCorrelation.destroy();
 
-    const proteinByDate = {};
+    // Aggregate daily totals for each macro
+    const byDate = {};
     macros.forEach(m => {
-        proteinByDate[m.date] = (proteinByDate[m.date] || 0) + (m.protein || 0);
+        if (!byDate[m.date]) byDate[m.date] = { protein: 0, carbs: 0, fat: 0, calories: 0 };
+        byDate[m.date].protein  += m.protein  || 0;
+        byDate[m.date].carbs    += m.carbs    || 0;
+        byDate[m.date].fat      += m.fat      || 0;
+        byDate[m.date].calories += m.calories || ((m.protein || 0) * 4 + (m.carbs || 0) * 4 + (m.fat || 0) * 9);
     });
 
     const weightByDate = {};
@@ -632,19 +637,20 @@ async function renderMacroCorrelation(macros, measurements) {
         weightByDate[m.date] = m.unit === 'kg' ? m.value * 2.20462 : m.value;
     });
 
-    const points = [];
-    for (const date of Object.keys(proteinByDate)) {
+    const ptProtein = [], ptCarbs = [], ptFat = [], ptCalories = [];
+    for (const date of Object.keys(byDate)) {
         const nextDay = localDateStr(new Date(new Date(date + 'T12:00:00').getTime() + 86400000));
         if (weightByDate[date] !== undefined && weightByDate[nextDay] !== undefined) {
-            points.push({
-                x: Math.round(proteinByDate[date] * 10) / 10,
-                y: Math.round((weightByDate[nextDay] - weightByDate[date]) * 100) / 100
-            });
+            const dy = Math.round((weightByDate[nextDay] - weightByDate[date]) * 100) / 100;
+            ptProtein.push( { x: Math.round(byDate[date].protein  * 10) / 10, y: dy });
+            ptCarbs.push(   { x: Math.round(byDate[date].carbs    * 10) / 10, y: dy });
+            ptFat.push(     { x: Math.round(byDate[date].fat      * 10) / 10, y: dy });
+            ptCalories.push({ x: Math.round(byDate[date].calories      )    , y: dy });
         }
     }
 
     const colors = getThemeColors();
-    if (points.length < 3) {
+    if (ptProtein.length < 3) {
         charts.macroCorrelation = new Chart(ctx, {
             type: 'scatter', data: { datasets: [] },
             options: {
@@ -660,12 +666,19 @@ async function renderMacroCorrelation(macros, measurements) {
 
     charts.macroCorrelation = new Chart(ctx, {
         type: 'scatter',
-        data: { datasets: [{ label: 'Protein vs Next-Day Weight Δ', data: points, backgroundColor: colors.primary + 'aa', pointRadius: 5 }] },
+        data: {
+            datasets: [
+                { label: 'Protein (g)',   data: ptProtein,  backgroundColor: colors.primary + 'aa',   pointRadius: 4 },
+                { label: 'Carbs (g)',     data: ptCarbs,    backgroundColor: colors.success + 'aa',   pointRadius: 4 },
+                { label: 'Fat (g)',       data: ptFat,      backgroundColor: colors.warning + 'aa',   pointRadius: 4 },
+                { label: 'Calories',      data: ptCalories, backgroundColor: colors.secondary + 'aa', pointRadius: 4 }
+            ]
+        },
         options: {
             responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
             plugins: { legend: { labels: { color: colors.text } } },
             scales: {
-                x: { title: { display: true, text: 'Daily Protein (g)', color: colors.textSecondary }, ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
+                x: { title: { display: true, text: 'Daily Intake (g or kcal)', color: colors.textSecondary }, ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
                 y: { title: { display: true, text: 'Next-Day Weight Δ (lbs)', color: colors.textSecondary },
                      ticks: { color: colors.textSecondary, callback: v => (v >= 0 ? '+' : '') + v.toFixed(2) + ' lbs' },
                      grid: { color: colors.border + '40' } }

@@ -668,20 +668,21 @@ async function renderMacroCorrelation(macros, measurements) {
         type: 'scatter',
         data: {
             datasets: [
-                { label: 'Protein (g)',   data: ptProtein,  backgroundColor: colors.primary + 'aa',   pointRadius: 4 },
-                { label: 'Carbs (g)',     data: ptCarbs,    backgroundColor: colors.success + 'aa',   pointRadius: 4 },
-                { label: 'Fat (g)',       data: ptFat,      backgroundColor: colors.warning + 'aa',   pointRadius: 4 },
-                { label: 'Calories',      data: ptCalories, backgroundColor: colors.secondary + 'aa', pointRadius: 4 }
+                { label: 'Protein (g)', data: ptProtein,  xAxisID: 'x',  backgroundColor: colors.primary + 'aa',   pointRadius: 4 },
+                { label: 'Carbs (g)',   data: ptCarbs,    xAxisID: 'x',  backgroundColor: colors.success + 'aa',   pointRadius: 4 },
+                { label: 'Fat (g)',     data: ptFat,      xAxisID: 'x',  backgroundColor: colors.warning + 'aa',   pointRadius: 4 },
+                { label: 'Calories',   data: ptCalories, xAxisID: 'x2', backgroundColor: colors.secondary + 'aa', pointRadius: 4 }
             ]
         },
         options: {
             responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
             plugins: { legend: { labels: { color: colors.text } } },
             scales: {
-                x: { title: { display: true, text: 'Daily Intake (g or kcal)', color: colors.textSecondary }, ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
-                y: { title: { display: true, text: 'Next-Day Weight Δ (lbs)', color: colors.textSecondary },
-                     ticks: { color: colors.textSecondary, callback: v => (v >= 0 ? '+' : '') + v.toFixed(2) + ' lbs' },
-                     grid: { color: colors.border + '40' } }
+                x:  { position: 'bottom', title: { display: true, text: 'Macros (g)', color: colors.textSecondary }, ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
+                x2: { position: 'top',    title: { display: true, text: 'Calories (kcal)', color: colors.secondary }, ticks: { color: colors.secondary }, grid: { drawOnChartArea: false } },
+                y:  { title: { display: true, text: 'Next-Day Weight Δ (lbs)', color: colors.textSecondary },
+                      ticks: { color: colors.textSecondary, callback: v => (v >= 0 ? '+' : '') + v.toFixed(2) + ' lbs' },
+                      grid: { color: colors.border + '40' } }
             }
         }
     });

@@ -140,7 +140,7 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.67
+**Current**: v2.1.68
 - **Macros vs Next-Day Weight Change chart**: added fat, carbs, and calories datasets alongside protein as separate colored scatter series
 
 **Previous**: v2.1.66

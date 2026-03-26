@@ -203,10 +203,10 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${scaledFatWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledFatWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Fat: ${plannedFat > 0 ? totalFat.toFixed(0) + ' / ' : ''}${(totalFat + plannedFat).toFixed(0)}g</span>
-                            <span class="progress-value ${goalFat - totalFat - plannedFat < 0 ? 'over-target' : ''}">${
-                                goalFat - totalFat - plannedFat >= 0
-                                    ? Math.max(0, goalFat - totalFat - plannedFat).toFixed(0) + 'g left'
-                                    : '+' + Math.abs(goalFat - totalFat - plannedFat).toFixed(0) + 'g over'
+                            <span class="progress-value ${(goalFat + plannedWOCreditFat_g) - totalFat - plannedFat < 0 ? 'over-target' : ''}">${
+                                (goalFat + plannedWOCreditFat_g) - totalFat - plannedFat >= 0
+                                    ? Math.max(0, (goalFat + plannedWOCreditFat_g) - totalFat - plannedFat).toFixed(0) + 'g left'
+                                    : '+' + Math.abs((goalFat + plannedWOCreditFat_g) - totalFat - plannedFat).toFixed(0) + 'g over'
                             }</span>
                         </div>
                     </div>
@@ -227,10 +227,10 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${scaledCarbsWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledCarbsWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Carbs: ${plannedCarbs > 0 ? totalCarbs.toFixed(0) + ' / ' : ''}${(totalCarbs + plannedCarbs).toFixed(0)}g</span>
-                            <span class="progress-value ${goalCarbs - totalCarbs - plannedCarbs < 0 ? 'over-target' : ''}">${
-                                goalCarbs - totalCarbs - plannedCarbs >= 0
-                                    ? Math.max(0, goalCarbs - totalCarbs - plannedCarbs).toFixed(0) + 'g left'
-                                    : '+' + Math.abs(goalCarbs - totalCarbs - plannedCarbs).toFixed(0) + 'g over'
+                            <span class="progress-value ${(goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs < 0 ? 'over-target' : ''}">${
+                                (goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs >= 0
+                                    ? Math.max(0, (goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs).toFixed(0) + 'g left'
+                                    : '+' + Math.abs((goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs).toFixed(0) + 'g over'
                             }</span>
                         </div>
                     </div>
@@ -251,10 +251,10 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${scaledProteinWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledProteinWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Protein: ${plannedProtein > 0 ? totalProtein.toFixed(0) + ' / ' : ''}${(totalProtein + plannedProtein).toFixed(0)}g</span>
-                            <span class="progress-value ${goalProtein - totalProtein - plannedProtein < 0 ? 'over-target' : ''}">${
-                                goalProtein - totalProtein - plannedProtein >= 0
-                                    ? Math.max(0, goalProtein - totalProtein - plannedProtein).toFixed(0) + 'g left'
-                                    : '+' + Math.abs(goalProtein - totalProtein - plannedProtein).toFixed(0) + 'g over'
+                            <span class="progress-value ${(goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein < 0 ? 'over-target' : ''}">${
+                                (goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein >= 0
+                                    ? Math.max(0, (goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein).toFixed(0) + 'g left'
+                                    : '+' + Math.abs((goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein).toFixed(0) + 'g over'
                             }</span>
                         </div>
                     </div>
@@ -295,10 +295,10 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${(needsScaling || hasPlanWOCredit) ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Calories: ${plannedCalories > 0 ? totalCalories.toFixed(0) + ' / ' : ''}${(totalCalories + plannedCalories).toFixed(0)}</span>
-                            <span class="progress-value ${goalCalories - totalCalories - plannedCalories < 0 ? 'over-target' : ''}">${
-                                goalCalories - totalCalories - plannedCalories >= 0
-                                    ? Math.max(0, goalCalories - totalCalories - plannedCalories).toFixed(0) + ' left'
-                                    : '+' + Math.abs(goalCalories - totalCalories - plannedCalories).toFixed(0) + ' over'
+                            <span class="progress-value ${(goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories < 0 ? 'over-target' : ''}">${
+                                (goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories >= 0
+                                    ? Math.max(0, (goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories).toFixed(0) + ' left'
+                                    : '+' + Math.abs((goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories).toFixed(0) + ' over'
                             }</span>
                         </div>
                     </div>

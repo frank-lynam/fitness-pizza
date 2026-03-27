@@ -530,13 +530,13 @@ async function renderProgressSummary(macros) {
     };
 
     const rows = [
-        { label: 'Fat',  key: 'fat',     dec: 1, color: 'var(--accent-warning)' },
-        { label: 'Carb', key: 'carbs',   dec: 1, color: 'var(--accent-success)' },
-        { label: 'Prot', key: 'protein', dec: 1, color: 'var(--accent-primary)' },
+        { label: 'Fat',  key: 'fat',     woKey: 'plannedWorkoutCreditFat_g',     dec: 1, color: 'var(--accent-warning)' },
+        { label: 'Carb', key: 'carbs',   woKey: 'plannedWorkoutCreditCarbs_g',   dec: 1, color: 'var(--accent-success)' },
+        { label: 'Prot', key: 'protein', woKey: 'plannedWorkoutCreditProtein_g', dec: 1, color: 'var(--accent-primary)' },
     ];
 
-    const barsHtml = rows.map(({ label, key, dec, color }) => {
-        const g     = goals[key] || 1;
+    const barsHtml = rows.map(({ label, key, woKey, dec, color }) => {
+        const g     = (goals[key] || 1) + (goals[woKey] || 0);
         const d     = done[key];
         const p     = pln[key];
         const total = d + p;

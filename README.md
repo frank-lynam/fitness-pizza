@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.70
+**Current**: v2.1.71
+- **Normalize-to-100g daily entry fix**: 100g mode now correctly logs the normalized (per-100g) values to the plan, not the raw scan weight values
+- **Plan intensity respects planned workout credit**: macro items no longer turn red prematurely when planned workout credit expands the macro budget
+
+**Previous**: v2.1.70
 - **Macros vs Next-Day Weight Change chart**: added fat, carbs, and calories datasets alongside protein as separate colored scatter series
 
 **Previous**: v2.1.66

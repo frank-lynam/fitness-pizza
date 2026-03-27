@@ -389,6 +389,19 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             fiber = perServing.fiber * servingsEaten;
         }
 
+        // Normalize to per-100g if checkbox is checked (scan flow)
+        const normalizeCheckbox = document.getElementById('normalize-to-100g');
+        const scanGrams = !isEdit && existingEntry && existingEntry._scanServingGrams > 0
+            ? existingEntry._scanServingGrams : 0;
+        const shouldNormalize = scanGrams > 0 && normalizeCheckbox && normalizeCheckbox.checked;
+        if (shouldNormalize) {
+            const scale = 100 / scanGrams;
+            protein = Math.round(protein * scale * 10) / 10;
+            carbs   = Math.round(carbs   * scale * 10) / 10;
+            fat     = Math.round(fat     * scale * 10) / 10;
+            fiber   = Math.round(fiber   * scale * 10) / 10;
+        }
+
         // Validate macros
         const validation = validateMacros({ protein, carbs, fat, fiber });
         if (!validation.valid) {
@@ -438,11 +451,6 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
 
             // Auto-add to food library if it has a name and user didn't skip library save
             if (mealName && !skipLibrarySave) {
-                const normalizeCheckbox = document.getElementById('normalize-to-100g');
-                const scanGrams = existingEntry && existingEntry._scanServingGrams > 0
-                    ? existingEntry._scanServingGrams : 0;
-                const shouldNormalize = normalizeCheckbox && normalizeCheckbox.checked && scanGrams > 0;
-
                 const existingFoods = await db.getAllNamedFoods();
                 const foodExists = existingFoods.some(f =>
                     f.name.toLowerCase() === mealName.toLowerCase()
@@ -450,18 +458,15 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
 
                 if (!foodExists) {
                     if (shouldNormalize) {
-                        const scale = 100 / scanGrams;
-                        const p100 = Math.round(protein * scale * 10) / 10;
-                        const c100 = Math.round(carbs   * scale * 10) / 10;
-                        const f100 = Math.round(fat     * scale * 10) / 10;
+                        // protein/carbs/fat are already normalized to per-100g above
                         await db.addNamedFood({
                             name: mealName,
                             format_type: 'per_gram',
-                            protein: p100,
-                            carbs: c100,
-                            fat: f100,
+                            protein,
+                            carbs,
+                            fat,
                             fiber: 0,
-                            calories: calculateMacroCalories(p100, c100, f100, 0)
+                            calories: calculateMacroCalories(protein, carbs, fat, 0)
                         });
                     } else {
                         await db.addNamedFood({
@@ -584,9 +589,9 @@ function computePlanIntensities(macros, goals) {
     }
 
     const ov = {
-        fat:     Math.max(0, total.fat     - goals.fat),
-        protein: Math.max(0, total.protein - goals.protein),
-        carbs:   Math.max(0, total.carbs   - goals.carbs),
+        fat:     Math.max(0, total.fat     - (goals.fat     + (goals.plannedWorkoutCreditFat_g     || 0))),
+        protein: Math.max(0, total.protein - (goals.protein + (goals.plannedWorkoutCreditProtein_g || 0))),
+        carbs:   Math.max(0, total.carbs   - (goals.carbs   + (goals.plannedWorkoutCreditCarbs_g   || 0))),
     };
 
     if (ov.fat === 0 && ov.protein === 0 && ov.carbs === 0) return {};

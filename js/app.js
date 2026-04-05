@@ -182,7 +182,7 @@ class FitnessTrackerApp {
         const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
         const baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
 
-        const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+        const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
 
         // Workout credit settings (used in PI controller and final goal calc)
         const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
@@ -212,12 +212,10 @@ class FitnessTrackerApp {
             // Stored displayed goals for I-term reference (prevents limit cycles)
             goalHistory = JSON.parse(await db.getSetting('pi_goal_history') || '{}');
 
-            // PI controller operates on BASE goals; reverse diet applied afterwards
-            // to prevent the inflated goals from skewing the error signal
             const result = computeGoalAdjustments({
                 allMacros, date, today,
                 baseFat, baseProtein, baseCarbs,
-                reverseDietDates,
+                cheatDayDates,
                 allWorkouts,
                 goalHistory,
                 Kp, Ialpha,
@@ -228,14 +226,6 @@ class FitnessTrackerApp {
             goalProtein = result.goalProtein;
             goalCarbs   = result.goalCarbs;
             piDebug     = result.piDebug;
-        }
-
-        // Apply reverse diet AFTER PI adjustment so the controller's error signal
-        // is not inflated, and the cap is not inadvertently widened
-        if (reverseDietDates[date] === true) {
-            goalFat     *= 1.2;
-            goalProtein *= 1.2;
-            goalCarbs   *= 1.2;
         }
 
         // Add workout credit: distribute burned calories as additional macro allowance

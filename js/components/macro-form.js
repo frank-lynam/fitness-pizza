@@ -10,7 +10,7 @@ import * as ui from '../ui.js';
 import { formatDateTime, getTodayDate } from '../utils/date-utils.js';
 
 // Module-level interval ID so it can be cleared when the screen is re-entered
-let _reverseDietIntervalId = null;
+let _cheatDayIntervalId = null;
 
 // Cached effective daily goals (set by app.js before calling loadTodaysMacros)
 let _dailyGoals = null;
@@ -31,7 +31,7 @@ export function initMacroForm() {
     const btnAddMacro = document.getElementById('btn-add-macro');
     const btnPhotoMacro = document.getElementById('btn-photo-macro');
     const btnTextAIMacro = document.getElementById('btn-text-ai-macro');
-    const reverseDietToggle = document.getElementById('reverse-diet-toggle');
+    const reverseDietToggle = document.getElementById('cheat-day-toggle');
     const formContainer = document.getElementById('macro-form-container');
 
     if (btnAddMacro) {
@@ -55,30 +55,30 @@ export function initMacroForm() {
 
     // Load and setup reverse diet toggle for current day
     if (reverseDietToggle) {
-        setupReverseDietToggle(reverseDietToggle);
+        setupCheatDayToggle(reverseDietToggle);
     }
 }
 
 /**
- * Setup reverse diet toggle for current day
+ * Setup cheat day toggle for current day
  */
-async function setupReverseDietToggle(toggle) {
+async function setupCheatDayToggle(toggle) {
     const { getTodayDate } = await import('../utils/date-utils.js');
     const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
 
     // Load current state from settings (stored per date)
-    const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
-    toggle.checked = reverseDietDates[currentDate] === true;
+    const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+    toggle.checked = cheatDayDates[currentDate] === true;
 
     toggle.addEventListener('change', async () => {
         // Update state for this date
-        const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
+        const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
         if (toggle.checked) {
-            reverseDietDates[currentDate] = true;
+            cheatDayDates[currentDate] = true;
         } else {
-            delete reverseDietDates[currentDate];
+            delete cheatDayDates[currentDate];
         }
-        await db.setSetting('reverse_diet_dates', JSON.stringify(reverseDietDates));
+        await db.setSetting('cheat_day_dates', JSON.stringify(cheatDayDates));
 
         // Reload dashboard if visible to update targets
         if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
@@ -91,17 +91,17 @@ async function setupReverseDietToggle(toggle) {
         let lastDate = currentDate;
 
         // Clear any previous poll before starting a new one
-        if (_reverseDietIntervalId !== null) {
-            clearInterval(_reverseDietIntervalId);
+        if (_cheatDayIntervalId !== null) {
+            clearInterval(_cheatDayIntervalId);
         }
 
         // Poll for date changes and store the ID so it can be cleared later
-        _reverseDietIntervalId = setInterval(async () => {
+        _cheatDayIntervalId = setInterval(async () => {
             const newDate = window.fitnessApp.getCurrentDate();
             if (newDate !== lastDate) {
                 lastDate = newDate;
-                const reverseDietDates = JSON.parse(await db.getSetting('reverse_diet_dates') || '{}');
-                toggle.checked = reverseDietDates[newDate] === true;
+                const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+                toggle.checked = cheatDayDates[newDate] === true;
             }
         }, 1000);
     }

@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.71
+**Current**: v2.1.72
+- **Cheat day** replaces reverse diet: marking a day as cheat day zeroes its contribution to the PI controller (goal = actual intake, error = 0) instead of inflating goals by 20%; TDEE and calorie display unaffected
+
+**Previous**: v2.1.71
 - **Normalize-to-100g daily entry fix**: 100g mode now correctly logs the normalized (per-100g) values to the plan, not the raw scan weight values
 - **Plan intensity respects planned workout credit**: macro items no longer turn red prematurely when planned workout credit expands the macro budget
 

@@ -10,7 +10,7 @@
  *   was shown to you?) — falls back to base+workout before history exists.
  * - Ki is derived from Ialpha to guarantee Ki × W = 1 (zero steady-state error).
  *   Users only tune Kp and Ialpha; Ki is never a free parameter.
- * - Reverse diet multiplier must be applied AFTER PI adjustments by the caller.
+ * - Cheat day dates are excluded from PI error: the goal is set to actual intake so delta = 0.
  * - workoutCreditFraction and workoutCreditMacros must match calculateEffectiveGoals
  *   so that the PI error signals are relative to the same adjusted goals the user saw.
  */
@@ -27,7 +27,7 @@ import { applyWorkoutCredit } from './calorie-calc.js';
  * @param {number} params.baseFat      - Base fat goal (g)
  * @param {number} params.baseProtein  - Base protein goal (g)
  * @param {number} params.baseCarbs    - Base carb goal (g)
- * @param {Object} params.reverseDietDates - Map of {date: true} for reverse-diet days
+ * @param {Object} params.cheatDayDates    - Map of {date: true} for cheat days
  * @param {Array}  params.allWorkouts  - All workout entries from the DB
  * @param {Object} params.goalHistory  - Stored displayed goals: {date: {fat, protein, carbs}}
  *                                       Used as I-term reference to prevent limit cycles.
@@ -50,7 +50,7 @@ export function computeGoalAdjustments({
     baseFat,
     baseProtein,
     baseCarbs,
-    reverseDietDates,
+    cheatDayDates,
     allWorkouts = [],
     goalHistory = {},
     Kp = 0.5,
@@ -100,22 +100,27 @@ export function computeGoalAdjustments({
         }
 
         // Effective base+workout goal for this past day (P-term reference and I-term fallback).
-        // NOTE: We use BASE goals here so the error signal is not inflated by reverse diet.
+        // Cheat days: set the reference equal to actual intake so the error is zero.
         let eFat = baseFat, eProtein = baseProtein, eCarbs = baseCarbs;
-        if (reverseDietDates[pastDateStr] === true) {
-            eFat *= 1.2; eProtein *= 1.2; eCarbs *= 1.2;
+        if (cheatDayDates[pastDateStr] === true) {
+            eFat = dayFat; eProtein = dayProtein; eCarbs = dayCarbs;
         }
+
+        const isCheatDay = cheatDayDates[pastDateStr] === true;
 
         // Add workout credit for this past day so error is relative to the full
         // workout-adjusted goal, not just the base goal.
-        // Uses the same fraction and macro selection as calculateEffectiveGoals.
-        const dayWorkouts = allWorkouts.filter(w => w.date === pastDateStr);
-        const dayCalsBurned = dayWorkouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
-        if (dayCalsBurned > 0) {
-            const creditedGoals = applyWorkoutCredit(eFat, eProtein, eCarbs, dayCalsBurned, workoutCreditFraction, workoutCreditMacros);
-            eFat     = creditedGoals.fat;
-            eProtein = creditedGoals.protein;
-            eCarbs   = creditedGoals.carbs;
+        // Skip on cheat days — goal is already pinned to actual intake so credit
+        // would push the reference above intake and create a spurious negative error.
+        if (!isCheatDay) {
+            const dayWorkouts = allWorkouts.filter(w => w.date === pastDateStr);
+            const dayCalsBurned = dayWorkouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
+            if (dayCalsBurned > 0) {
+                const creditedGoals = applyWorkoutCredit(eFat, eProtein, eCarbs, dayCalsBurned, workoutCreditFraction, workoutCreditMacros);
+                eFat     = creditedGoals.fat;
+                eProtein = creditedGoals.protein;
+                eCarbs   = creditedGoals.carbs;
+            }
         }
 
         // P-term: yesterday only, base+workout reference
@@ -129,10 +134,16 @@ export function computeGoalAdjustments({
         // Using the displayed goal prevents the limit cycle where the controller raises the
         // goal high enough that the person eats near base, fading the I-term memory and
         // returning the goal to base, which restarts the cycle indefinitely.
-        const stored = goalHistory[pastDateStr];
-        const iErrFat     = stored ? dayFat     - stored.fat     : dayFat     - eFat;
-        const iErrProtein = stored ? dayProtein - stored.protein : dayProtein - eProtein;
-        const iErrCarbs   = stored ? dayCarbs   - stored.carbs   : dayCarbs   - eCarbs;
+        // Cheat days: zero the error regardless of stored goal — goal = intake by definition.
+        let iErrFat, iErrProtein, iErrCarbs;
+        if (isCheatDay) {
+            iErrFat = 0; iErrProtein = 0; iErrCarbs = 0;
+        } else {
+            const stored = goalHistory[pastDateStr];
+            iErrFat     = stored ? dayFat     - stored.fat     : dayFat     - eFat;
+            iErrProtein = stored ? dayProtein - stored.protein : dayProtein - eProtein;
+            iErrCarbs   = stored ? dayCarbs   - stored.carbs   : dayCarbs   - eCarbs;
+        }
 
         // Exponential decay: weight = (1-α)^(i-1), so yesterday (i=1) has weight 1.0
         const decayWeight = Math.pow(1 - Ialpha, i - 1);
@@ -142,8 +153,7 @@ export function computeGoalAdjustments({
 
         dayData.push({
             date: pastDateStr, fat: dayFat, protein: dayProtein, carbs: dayCarbs,
-            eFat, eProtein, eCarbs, workoutCalsBurned: dayCalsBurned,
-            hasStoredGoal: !!stored,
+            eFat, eProtein, eCarbs, isCheatDay,
             errFat: iErrFat, errProtein: iErrProtein, errCarbs: iErrCarbs,
             decayWeight, daysBack: i
         });

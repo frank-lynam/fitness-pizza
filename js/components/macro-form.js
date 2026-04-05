@@ -518,6 +518,9 @@ async function renderProgressSummary(macros) {
         goals = { fat, protein, carbs, calories: fat * 9 + protein * 4 + carbs * 4 };
     }
 
+    const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+    const isCheatDay = (JSON.parse(await db.getSetting('cheat_day_dates') || '{}'))[currentDate] === true;
+
     const completed = macros.filter(m => m.status === 'completed');
     const planned   = macros.filter(m => m.status === 'planned');
 
@@ -545,6 +548,19 @@ async function renderProgressSummary(macros) {
         const d     = done[key];
         const p     = pln[key];
         const total = d + p;
+
+        // Cheat day: always show full bar, no red, label shows "Cheat Day"
+        if (isCheatDay) {
+            return `
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-size:11px;min-width:30px;color:var(--text-secondary);">${label}</span>
+                <div style="flex:1;height:12px;background:var(--bg-tertiary);border-radius:4px;overflow:hidden;position:relative;">
+                    <div style="width:100%;height:100%;position:absolute;left:0;top:0;background:${color};border-radius:4px;"></div>
+                </div>
+                <span style="font-size:11px;min-width:56px;text-align:right;white-space:nowrap;color:var(--text-secondary);">Cheat Day</span>
+            </div>`;
+        }
+
         const over  = total > g;
         const hasPlan = p > 0.05;
 

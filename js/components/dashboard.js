@@ -17,6 +17,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
 
     try {
         const today = date;
+        const isCheatDay = (JSON.parse(await db.getSetting('cheat_day_dates') || '{}'))[today] === true;
 
         // Load today's macros (completed and planned separately)
         const macros = await db.getMacrosByDate(today);
@@ -50,20 +51,20 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const goalCalories = goals.calories;
 
         // Calculate RAW percentages for completed (can exceed 100%)
-        const fatPercent = (totalFat / goalFat) * 100;
-        const proteinPercent = (totalProtein / goalProtein) * 100;
-        const carbsPercent = (totalCarbs / goalCarbs) * 100;
+        let fatPercent = (totalFat / goalFat) * 100;
+        let proteinPercent = (totalProtein / goalProtein) * 100;
+        let carbsPercent = (totalCarbs / goalCarbs) * 100;
 
         // Calculate RAW percentages for planned
-        const plannedFatPercent = (plannedFat / goalFat) * 100;
-        const plannedProteinPercent = (plannedProtein / goalProtein) * 100;
-        const plannedCarbsPercent = (plannedCarbs / goalCarbs) * 100;
-        const plannedCaloriesPercent = (plannedCalories / goalCalories) * 100;
+        let plannedFatPercent = (plannedFat / goalFat) * 100;
+        let plannedProteinPercent = (plannedProtein / goalProtein) * 100;
+        let plannedCarbsPercent = (plannedCarbs / goalCarbs) * 100;
+        let plannedCaloriesPercent = (plannedCalories / goalCalories) * 100;
 
         // Calculate total percentages including planned
-        const totalFatPercent = fatPercent + plannedFatPercent;
-        const totalCarbsPercent = carbsPercent + plannedCarbsPercent;
-        const totalProteinPercent = proteinPercent + plannedProteinPercent;
+        let totalFatPercent = fatPercent + plannedFatPercent;
+        let totalCarbsPercent = carbsPercent + plannedCarbsPercent;
+        let totalProteinPercent = proteinPercent + plannedProteinPercent;
 
         // Calculate calorie contributions from each macro for stacked bar
         const fatCalories = totalFat * 9;
@@ -101,8 +102,24 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const plannedProteinCaloriesPercent = (plannedProteinCalories / goalCalories) * 100;
 
         // Calculate total calorie percent (intake + planned)
-        const totalCaloriesPercent = (totalCalories / goalCalories) * 100;
-        const totalWithPlannedCaloriesPercent = totalCaloriesPercent + plannedCaloriesPercent;
+        let totalCaloriesPercent = (totalCalories / goalCalories) * 100;
+        let totalWithPlannedCaloriesPercent = totalCaloriesPercent + plannedCaloriesPercent;
+
+        // Cheat day: force all bars to exactly 100% full, no planned overlay, no overflow
+        if (isCheatDay) {
+            fatPercent = 100; carbsPercent = 100; proteinPercent = 100;
+            plannedFatPercent = 0; plannedCarbsPercent = 0; plannedProteinPercent = 0; plannedCaloriesPercent = 0;
+            totalFatPercent = 100; totalCarbsPercent = 100; totalProteinPercent = 100;
+            // Scale calorie stacked bar to fill 100%, preserving macro ratios
+            const cfs = fatCaloriesPercent + carbsCaloriesPercent + proteinCaloriesPercent;
+            if (cfs > 0) {
+                const s = 100 / cfs;
+                fatCaloriesPercent *= s; carbsCaloriesPercent *= s; proteinCaloriesPercent *= s;
+            } else {
+                fatCaloriesPercent = 100; carbsCaloriesPercent = 0; proteinCaloriesPercent = 0;
+            }
+            totalCaloriesPercent = 100; totalWithPlannedCaloriesPercent = 100;
+        }
 
         // Per-macro workout credit marker positions (only shown on bars that received credit).
         // Position = (credit grams / goal grams) — the fraction of the bar that is "workout bonus".
@@ -181,6 +198,28 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const proteinDim = calculateBarDimensions(proteinPercent, plannedProteinPercent);
         const caloriesDim = calculateBarDimensions(totalCaloriesPercent, plannedCaloriesPercent);
 
+        // Pre-compute right-side label text for each bar
+        const fatRightLabel = isCheatDay ? 'Cheat Day'
+            : ((goalFat + plannedWOCreditFat_g) - totalFat - plannedFat >= 0
+                ? Math.max(0, (goalFat + plannedWOCreditFat_g) - totalFat - plannedFat).toFixed(0) + 'g left'
+                : '+' + Math.abs((goalFat + plannedWOCreditFat_g) - totalFat - plannedFat).toFixed(0) + 'g over');
+        const fatRightClass = !isCheatDay && (goalFat + plannedWOCreditFat_g) - totalFat - plannedFat < 0 ? 'over-target' : '';
+        const carbsRightLabel = isCheatDay ? 'Cheat Day'
+            : ((goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs >= 0
+                ? Math.max(0, (goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs).toFixed(0) + 'g left'
+                : '+' + Math.abs((goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs).toFixed(0) + 'g over');
+        const carbsRightClass = !isCheatDay && (goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs < 0 ? 'over-target' : '';
+        const proteinRightLabel = isCheatDay ? 'Cheat Day'
+            : ((goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein >= 0
+                ? Math.max(0, (goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein).toFixed(0) + 'g left'
+                : '+' + Math.abs((goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein).toFixed(0) + 'g over');
+        const proteinRightClass = !isCheatDay && (goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein < 0 ? 'over-target' : '';
+        const calRightLabel = isCheatDay ? 'Cheat Day'
+            : ((goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories >= 0
+                ? Math.max(0, (goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories).toFixed(0) + ' left'
+                : '+' + Math.abs((goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories).toFixed(0) + ' over');
+        const calRightClass = !isCheatDay && (goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories < 0 ? 'over-target' : '';
+
         // Display today's macros (Fat → Protein → Carbs order, no fiber on dashboard)
         const macrosSummary = document.getElementById('today-macros-summary');
         if (macrosSummary) {
@@ -203,11 +242,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${scaledFatWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledFatWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Fat: ${plannedFat > 0 ? totalFat.toFixed(0) + ' / ' : ''}${(totalFat + plannedFat).toFixed(0)}g</span>
-                            <span class="progress-value ${(goalFat + plannedWOCreditFat_g) - totalFat - plannedFat < 0 ? 'over-target' : ''}">${
-                                (goalFat + plannedWOCreditFat_g) - totalFat - plannedFat >= 0
-                                    ? Math.max(0, (goalFat + plannedWOCreditFat_g) - totalFat - plannedFat).toFixed(0) + 'g left'
-                                    : '+' + Math.abs((goalFat + plannedWOCreditFat_g) - totalFat - plannedFat).toFixed(0) + 'g over'
-                            }</span>
+                            <span class="progress-value ${fatRightClass}">${fatRightLabel}</span>
                         </div>
                     </div>
                     <!-- Carbs Progress Bar -->
@@ -227,11 +262,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${scaledCarbsWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledCarbsWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Carbs: ${plannedCarbs > 0 ? totalCarbs.toFixed(0) + ' / ' : ''}${(totalCarbs + plannedCarbs).toFixed(0)}g</span>
-                            <span class="progress-value ${(goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs < 0 ? 'over-target' : ''}">${
-                                (goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs >= 0
-                                    ? Math.max(0, (goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs).toFixed(0) + 'g left'
-                                    : '+' + Math.abs((goalCarbs + plannedWOCreditCarbs_g) - totalCarbs - plannedCarbs).toFixed(0) + 'g over'
-                            }</span>
+                            <span class="progress-value ${carbsRightClass}">${carbsRightLabel}</span>
                         </div>
                     </div>
                     <!-- Protein Progress Bar -->
@@ -251,11 +282,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${scaledProteinWorkoutCredit > 0 ? `<div class="progress-marker-left" style="left: ${scaledProteinWorkoutCredit}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Protein: ${plannedProtein > 0 ? totalProtein.toFixed(0) + ' / ' : ''}${(totalProtein + plannedProtein).toFixed(0)}g</span>
-                            <span class="progress-value ${(goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein < 0 ? 'over-target' : ''}">${
-                                (goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein >= 0
-                                    ? Math.max(0, (goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein).toFixed(0) + 'g left'
-                                    : '+' + Math.abs((goalProtein + plannedWOCreditProtein_g) - totalProtein - plannedProtein).toFixed(0) + 'g over'
-                            }</span>
+                            <span class="progress-value ${proteinRightClass}">${proteinRightLabel}</span>
                         </div>
                     </div>
                     <!-- Calorie Progress Bar (stacked macro composition) -->
@@ -295,11 +322,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             ${(needsScaling || hasPlanWOCredit) ? `<div class="progress-marker-100" style="left: ${marker100Percent}%;"></div>` : ''}
                             <!-- Labels (always visible) -->
                             <span class="progress-label">Calories: ${plannedCalories > 0 ? totalCalories.toFixed(0) + ' / ' : ''}${(totalCalories + plannedCalories).toFixed(0)}</span>
-                            <span class="progress-value ${(goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories < 0 ? 'over-target' : ''}">${
-                                (goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories >= 0
-                                    ? Math.max(0, (goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories).toFixed(0) + ' left'
-                                    : '+' + Math.abs((goalCalories + plannedWOCalCredited) - totalCalories - plannedCalories).toFixed(0) + ' over'
-                            }</span>
+                            <span class="progress-value ${calRightClass}">${calRightLabel}</span>
                         </div>
                     </div>
                 </div>

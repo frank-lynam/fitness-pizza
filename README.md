@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.72
+**Current**: v2.1.73
+- **Cheat day progress bars**: all macro and calorie bars show exactly 100% full on cheat days; calorie bar preserves macro ratios; right labels read "Cheat Day" instead of Xg left/over
+
+**Previous**: v2.1.72
 - **Cheat day** replaces reverse diet: marking a day as cheat day zeroes its contribution to the PI controller (goal = actual intake, error = 0) instead of inflating goals by 20%; TDEE and calorie display unaffected
 
 **Previous**: v2.1.71

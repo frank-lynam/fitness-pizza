@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.73
+**Current**: v2.1.74
+- **Fix PI workout credit for past days**: completing a planned workout no longer moves it to today's date, so the PI controller correctly attributes workout credit to the day the workout was on; PI controller now only counts completed (not planned) workouts when computing past-day reference goals
+
+**Previous**: v2.1.73
 - **Cheat day progress bars**: all macro and calorie bars show exactly 100% full on cheat days; calorie bar preserves macro ratios; right labels read "Cheat Day" instead of Xg left/over
 
 **Previous**: v2.1.72

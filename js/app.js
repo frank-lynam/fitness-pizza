@@ -556,7 +556,8 @@ class FitnessTrackerApp {
                         if (entry && entry.status === 'planned') {
                             entry.status = 'completed';
                             entry.timestamp = Date.now();
-                            entry.date = getTodayDate();
+                            // Keep entry.date as-is so the workout stays on the day it was
+                            // planned for — moving it to today would lose PI workout credit
                             await db.updateWorkout(entry);
                             await this.loadDashboard();
                         }

@@ -113,7 +113,7 @@ export function computeGoalAdjustments({
         // Skip on cheat days — goal is already pinned to actual intake so credit
         // would push the reference above intake and create a spurious negative error.
         if (!isCheatDay) {
-            const dayWorkouts = allWorkouts.filter(w => w.date === pastDateStr);
+            const dayWorkouts = allWorkouts.filter(w => w.date === pastDateStr && w.status === 'completed');
             const dayCalsBurned = dayWorkouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
             if (dayCalsBurned > 0) {
                 const creditedGoals = applyWorkoutCredit(eFat, eProtein, eCarbs, dayCalsBurned, workoutCreditFraction, workoutCreditMacros);

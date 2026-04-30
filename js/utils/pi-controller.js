@@ -123,26 +123,33 @@ export function computeGoalAdjustments({
             }
         }
 
-        // P-term: yesterday only, base+workout reference
-        if (i === 1) {
-            p_err.fat     = dayFat - eFat;
-            p_err.protein = dayProtein - eProtein;
-            p_err.carbs   = dayCarbs - eCarbs;
-        }
-
-        // I-term: use stored displayed goal if available, else fall back to base+workout.
-        // Using the displayed goal prevents the limit cycle where the controller raises the
-        // goal high enough that the person eats near base, fading the I-term memory and
-        // returning the goal to base, which restarts the cycle indefinitely.
-        // Cheat days: zero the error regardless of stored goal — goal = intake by definition.
+        // P-term and I-term both use stored displayed goal when available so that
+        // changing workout credit settings in the UI doesn't retroactively alter past
+        // error signals. Falls back to base+workout only before history exists.
+        // Cheat days: zero all errors — goal = intake by definition.
+        const stored = goalHistory[pastDateStr];
         let iErrFat, iErrProtein, iErrCarbs;
         if (isCheatDay) {
+            if (i === 1) { p_err.fat = 0; p_err.protein = 0; p_err.carbs = 0; }
             iErrFat = 0; iErrProtein = 0; iErrCarbs = 0;
+        } else if (stored) {
+            if (i === 1) {
+                p_err.fat     = dayFat     - stored.fat;
+                p_err.protein = dayProtein - stored.protein;
+                p_err.carbs   = dayCarbs   - stored.carbs;
+            }
+            iErrFat     = dayFat     - stored.fat;
+            iErrProtein = dayProtein - stored.protein;
+            iErrCarbs   = dayCarbs   - stored.carbs;
         } else {
-            const stored = goalHistory[pastDateStr];
-            iErrFat     = stored ? dayFat     - stored.fat     : dayFat     - eFat;
-            iErrProtein = stored ? dayProtein - stored.protein : dayProtein - eProtein;
-            iErrCarbs   = stored ? dayCarbs   - stored.carbs   : dayCarbs   - eCarbs;
+            if (i === 1) {
+                p_err.fat     = dayFat - eFat;
+                p_err.protein = dayProtein - eProtein;
+                p_err.carbs   = dayCarbs - eCarbs;
+            }
+            iErrFat     = dayFat     - eFat;
+            iErrProtein = dayProtein - eProtein;
+            iErrCarbs   = dayCarbs   - eCarbs;
         }
 
         // Exponential decay: weight = (1-α)^(i-1), so yesterday (i=1) has weight 1.0

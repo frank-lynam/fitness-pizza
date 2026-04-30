@@ -140,7 +140,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.75
+**Current**: v2.1.76
+- **Body fat trend line draws on top**: trend line now renders above scatter dots on body composition chart
+- **Body composition chart 60% taller**: aspectRatio changed from 2 to 1.25
+- **PI controller insulated from setting changes**: both P-term and I-term now use stored displayed goals for past days, so changing workout credit settings no longer retroactively alters past error signals
+
+**Previous**: v2.1.75
 - **Body fat dot plot on weight/lean mass chart**: TDEE/BMR line replaced with body fat % scatter (colored by method: Manual/orange, Navy/blue, JP3 Caliper/green) plus a dashed linear trend line fit over the last 14 days of measurements
 
 **Previous**: v2.1.74

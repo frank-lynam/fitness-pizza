@@ -311,7 +311,8 @@ async function renderBodyComposition(allMeasurements, days) {
             pointRadius: 5,
             pointHoverRadius: 7,
             showLine: false,
-            spanGaps: false
+            spanGaps: false,
+            order: 2
         });
     }
 
@@ -327,7 +328,8 @@ async function renderBodyComposition(allMeasurements, days) {
             borderDash: [5, 3],
             tension: 0,
             pointRadius: 0,
-            spanGaps: false
+            spanGaps: false,
+            order: 1
         });
     }
 
@@ -337,6 +339,7 @@ async function renderBodyComposition(allMeasurements, days) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: 1.25,
             plugins: {
                 legend: { labels: { color: colors.text } },
                 tooltip: {

@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.74
+**Current**: v2.1.75
+- **Body fat dot plot on weight/lean mass chart**: TDEE/BMR line replaced with body fat % scatter (colored by method: Manual/orange, Navy/blue, JP3 Caliper/green) plus a dashed linear trend line fit over the last 14 days of measurements
+
+**Previous**: v2.1.74
 - **Fix PI workout credit for past days**: completing a planned workout no longer moves it to today's date, so the PI controller correctly attributes workout credit to the day the workout was on; PI controller now only counts completed (not planned) workouts when computing past-day reference goals
 
 **Previous**: v2.1.73

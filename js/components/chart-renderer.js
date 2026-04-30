@@ -145,12 +145,20 @@ async function renderBodyComposition(allMeasurements, days) {
         return;
     }
 
-    // Load body stats for BMI and BMR/TDEE computation
-    const heightIn      = parseFloat(await db.getSetting('user_height_in') || 0);
-    const age           = parseFloat(await db.getSetting('user_age') || 0);
-    const sex           = await db.getSetting('user_sex') || 'male';
-    const activityFactor = parseFloat(await db.getSetting('tdee_activity_factor') || 0);
+    // Load body stats for BMI computation
+    const heightIn = parseFloat(await db.getSetting('user_height_in') || 0);
+    const age      = parseFloat(await db.getSetting('user_age') || 0);
+    const sex      = await db.getSetting('user_sex') || 'male';
     const canComputeBodyStats = heightIn > 0 && age > 0;
+
+    // Per-method body fat maps (keyed by date, last reading wins)
+    const bfByDateNavy = {}, bfByDateCaliper = {}, bfByDateManual = {};
+    for (const r of bfReadings) {
+        const notes = (r.notes || '').toLowerCase();
+        if (notes.includes('navy'))                              bfByDateNavy[r.date]    = r.value;
+        else if (notes.includes('jp') || notes.includes('caliper')) bfByDateCaliper[r.date] = r.value;
+        else                                                     bfByDateManual[r.date]  = r.value;
+    }
 
     // Build daily value maps (last reading of each day)
     const weightByDate = {};
@@ -179,7 +187,6 @@ async function renderBodyComposition(allMeasurements, days) {
     const weightData = [];
     const leanMassData = [];
     const bmiData = [];
-    const tdeeData = [];
 
     const cur = new Date(minDateStr + 'T12:00:00');
     const end = new Date(todayStr + 'T12:00:00');
@@ -195,31 +202,51 @@ async function renderBodyComposition(allMeasurements, days) {
             if (bfByDate[dds]     !== undefined) { bfSum += bfByDate[dds];     bfCount++; }
         }
 
-        if (wCount > 0) {
-            const avgWeight = wSum / wCount;
+        // Include date if there's weight data OR a raw body fat reading for this day
+        if (wCount > 0 || bfByDate[ds] !== undefined) {
+            const avgWeight = wCount > 0 ? wSum / wCount : null;
             labels.push(ds);
-            weightData.push(Math.round(avgWeight * 10) / 10);
-            leanMassData.push(bfCount > 0
+            weightData.push(avgWeight !== null ? Math.round(avgWeight * 10) / 10 : null);
+            leanMassData.push(avgWeight !== null && bfCount > 0
                 ? Math.round(avgWeight * (1 - (bfSum / bfCount) / 100) * 10) / 10
                 : null);
-
-            if (canComputeBodyStats) {
-                // BMI: 703 × lbs / in²
+            if (canComputeBodyStats && avgWeight !== null) {
                 bmiData.push(Math.round((703 * avgWeight / (heightIn * heightIn)) * 10) / 10);
-
-                // Mifflin-St Jeor BMR, optionally scaled by activity factor → TDEE
-                const weightKg = avgWeight * 0.453592;
-                const heightCm = heightIn * 2.54;
-                const bmr = sex === 'female'
-                    ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
-                    : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
-                tdeeData.push(Math.round(activityFactor > 0 ? bmr * activityFactor : bmr));
             } else {
                 bmiData.push(null);
-                tdeeData.push(null);
             }
         }
         cur.setDate(cur.getDate() + 1);
+    }
+
+    // Per-method body fat positional arrays aligned with labels
+    const bfNavyData    = labels.map(d => bfByDateNavy[d]    ?? null);
+    const bfCaliperData = labels.map(d => bfByDateCaliper[d] ?? null);
+    const bfManualData  = labels.map(d => bfByDateManual[d]  ?? null);
+
+    // Linear trend over last 14 days of body fat readings
+    const twoWeeksAgo = new Date(today);
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    const twoWeeksAgoStr = localDateStr(twoWeeksAgo);
+    const recentBF = bfReadings.filter(r => r.date >= twoWeeksAgoStr);
+    let bfTrendData = labels.map(() => null);
+    if (recentBF.length >= 2) {
+        const t0 = new Date(recentBF[0].date + 'T12:00:00').getTime();
+        const xs = recentBF.map(r => (new Date(r.date + 'T12:00:00').getTime() - t0) / 86400000);
+        const ys = recentBF.map(r => r.value);
+        const n  = xs.length;
+        const mx = xs.reduce((s, x) => s + x, 0) / n;
+        const my = ys.reduce((s, y) => s + y, 0) / n;
+        const denom = xs.reduce((s, x) => s + (x - mx) ** 2, 0);
+        const slope = denom > 0
+            ? xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / denom
+            : 0;
+        const intercept = my - slope * mx;
+        bfTrendData = labels.map(d => {
+            if (d < recentBF[0].date || d > todayStr) return null;
+            const x = (new Date(d + 'T12:00:00').getTime() - t0) / 86400000;
+            return Math.round((slope * x + intercept) * 10) / 10;
+        });
     }
 
     const colors = getThemeColors();
@@ -265,15 +292,41 @@ async function renderBodyComposition(allMeasurements, days) {
             borderDash: [4, 3],
             spanGaps: false
         });
+    }
+
+    // Body fat scatter — one series per estimation method
+    const bfMethodSeries = [
+        { label: 'Body Fat % – Manual',   data: bfManualData,   color: colors.warning },
+        { label: 'Body Fat % – Navy',     data: bfNavyData,     color: colors.primary },
+        { label: 'Body Fat % – JP3 Caliper', data: bfCaliperData, color: colors.success },
+    ];
+    for (const { label, data, color } of bfMethodSeries) {
+        if (!data.some(v => v !== null)) continue;
         datasets.push({
-            label: activityFactor > 0 ? 'TDEE (kcal)' : 'BMR (kcal)',
-            data: tdeeData,
+            label,
+            data,
+            yAxisID: 'y2',
+            borderColor: 'transparent',
+            backgroundColor: color,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            showLine: false,
+            spanGaps: false
+        });
+    }
+
+    // Body fat 2-week linear trend line
+    if (bfTrendData.some(v => v !== null)) {
+        datasets.push({
+            label: 'Body Fat % (2-wk trend)',
+            data: bfTrendData,
             yAxisID: 'y2',
             borderColor: colors.danger,
             backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 3],
             tension: 0,
-            pointRadius: 2,
-            borderDash: [2, 4],
+            pointRadius: 0,
             spanGaps: false
         });
     }
@@ -292,7 +345,7 @@ async function renderBodyComposition(allMeasurements, days) {
                             const v = ctx.parsed.y;
                             if (v === null || v === undefined) return null;
                             if (ctx.dataset.yAxisID === 'y1') return `${ctx.dataset.label}: ${v.toFixed(1)}`;
-                            if (ctx.dataset.yAxisID === 'y2') return `${ctx.dataset.label}: ${Math.round(v)} kcal`;
+                            if (ctx.dataset.yAxisID === 'y2') return `${ctx.dataset.label}: ${v.toFixed(1)}%`;
                             return `${ctx.dataset.label}: ${v.toFixed(1)} lbs`;
                         }
                     }
@@ -311,20 +364,21 @@ async function renderBodyComposition(allMeasurements, days) {
                 },
                 y1: {
                     position: 'right',
-                    display: canComputeBodyStats,
+                    display: canComputeBodyStats && bmiData.some(v => v !== null),
                     ticks: { color: colors.warning },
                     grid: { drawOnChartArea: false },
                     title: { display: true, text: 'BMI', color: colors.warning }
                 },
                 y2: {
                     position: 'right',
-                    display: canComputeBodyStats,
+                    display: bfReadings.length > 0,
+                    min: 0,
                     ticks: {
-                        color: colors.danger,
-                        callback: v => `${Math.round(v / 100) * 100}`
+                        color: colors.primary,
+                        callback: v => `${v}%`
                     },
                     grid: { drawOnChartArea: false },
-                    title: { display: true, text: activityFactor > 0 ? 'TDEE kcal' : 'BMR kcal', color: colors.danger }
+                    title: { display: true, text: 'Body Fat %', color: colors.primary }
                 }
             }
         }

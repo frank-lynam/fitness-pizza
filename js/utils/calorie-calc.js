@@ -234,29 +234,28 @@ export function validateMacros(protein, carbs, fat, fiber) {
 
 /**
  * Apply workout calorie credit to macro goals.
- * Distributes credited calories proportionally among the selected macros only.
+ * Distributes credited calories according to explicit per-macro weights.
  *
  * @param {number} fat      - Current fat goal (g)
  * @param {number} protein  - Current protein goal (g)
  * @param {number} carbs    - Current carbs goal (g)
  * @param {number} caloriesBurned - Calories burned from workouts
  * @param {number} fraction - Fraction of burned calories to credit (0–1, default 0.5)
- * @param {{fat:boolean, protein:boolean, carbs:boolean}} creditMacros - Which macros receive credit
+ * @param {{fat:number, protein:number, carbs:number}} creditMacros - Per-macro weights (any scale, 0 = no credit)
  * @returns {{fat: number, protein: number, carbs: number}}
  */
-export function applyWorkoutCredit(fat, protein, carbs, caloriesBurned, fraction = 0.5, creditMacros = { fat: true, protein: true, carbs: true }) {
-    const { fat: creditFat = true, protein: creditProtein = true, carbs: creditCarbs = true } = creditMacros;
+export function applyWorkoutCredit(fat, protein, carbs, caloriesBurned, fraction = 0.5, creditMacros = { fat: 34, protein: 33, carbs: 33 }) {
     const credited = caloriesBurned * fraction;
     if (credited <= 0) return { fat, protein, carbs };
-    const selectedCal =
-        (creditFat     ? fat     * 9 : 0) +
-        (creditProtein ? protein * 4 : 0) +
-        (creditCarbs   ? carbs   * 4 : 0);
-    if (selectedCal <= 0) return { fat, protein, carbs };
+    const wFat     = Math.max(0, creditMacros.fat     || 0);
+    const wProtein = Math.max(0, creditMacros.protein || 0);
+    const wCarbs   = Math.max(0, creditMacros.carbs   || 0);
+    const totalW   = wFat + wProtein + wCarbs;
+    if (totalW <= 0) return { fat, protein, carbs };
     return {
-        fat:     fat     + (creditFat     ? (credited * (fat     * 9 / selectedCal)) / 9 : 0),
-        protein: protein + (creditProtein ? (credited * (protein * 4 / selectedCal)) / 4 : 0),
-        carbs:   carbs   + (creditCarbs   ? (credited * (carbs   * 4 / selectedCal)) / 4 : 0),
+        fat:     fat     + (credited * (wFat     / totalW)) / 9,
+        protein: protein + (credited * (wProtein / totalW)) / 4,
+        carbs:   carbs   + (credited * (wCarbs   / totalW)) / 4,
     };
 }
 

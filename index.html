@@ -270,21 +270,29 @@
                             </div>
                         </div>
                         <p class="help-text" style="margin: 2px 0 10px; font-size: 11px;">Fraction of estimated workout calories added to your daily macro goals</p>
-                        <div style="display: flex; gap: 20px;">
-                            <label class="checkbox-label" style="font-size: 13px;">
-                                <input type="checkbox" id="workout-credit-protein" checked>
-                                <span>Protein</span>
-                            </label>
-                            <label class="checkbox-label" style="font-size: 13px;">
-                                <input type="checkbox" id="workout-credit-carbs" checked>
-                                <span>Carbs</span>
-                            </label>
-                            <label class="checkbox-label" style="font-size: 13px;">
-                                <input type="checkbox" id="workout-credit-fat" checked>
-                                <span>Fat</span>
-                            </label>
+                        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 6px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="min-width: 58px; font-size: 13px;">Protein</span>
+                                <input type="range" id="workout-credit-protein-weight" min="0" max="100" step="1" value="33" style="flex: 1;">
+                                <span id="workout-credit-protein-weight-pct" style="min-width: 36px; text-align: right; font-size: 12px; font-weight: 600; color: var(--accent-primary);">33%</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="min-width: 58px; font-size: 13px;">Carbs</span>
+                                <input type="range" id="workout-credit-carbs-weight" min="0" max="100" step="1" value="33" style="flex: 1;">
+                                <span id="workout-credit-carbs-weight-pct" style="min-width: 36px; text-align: right; font-size: 12px; font-weight: 600; color: var(--accent-success);">33%</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="min-width: 58px; font-size: 13px;">Fat</span>
+                                <input type="range" id="workout-credit-fat-weight" min="0" max="100" step="1" value="34" style="flex: 1;">
+                                <span id="workout-credit-fat-weight-pct" style="min-width: 36px; text-align: right; font-size: 12px; font-weight: 600; color: var(--accent-warning);">34%</span>
+                            </div>
                         </div>
-                        <p class="help-text" style="margin-top: 4px; font-size: 11px;">Which macros receive the workout calorie credit (distributed proportionally among selected)</p>
+                        <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 8px; gap: 1px;">
+                            <div id="workout-credit-protein-bar" style="height: 100%; background: var(--accent-primary); width: 33%; transition: width 0.15s;"></div>
+                            <div id="workout-credit-carbs-bar"   style="height: 100%; background: var(--accent-success); width: 33%; transition: width 0.15s;"></div>
+                            <div id="workout-credit-fat-bar"     style="height: 100%; background: var(--accent-warning); width: 34%; transition: width 0.15s;"></div>
+                        </div>
+                        <p class="help-text" style="margin-top: 4px; font-size: 11px;">How the credited calories are split across macros (weight 0 = excluded)</p>
                     </div>
 
                     <div class="settings-section">
@@ -333,7 +341,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p>Fitness Pizza v2.1.76 🍕</p>
+                        <p>Fitness Pizza v2.1.77 🍕</p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.76
+**Current**: v2.1.77
+- **Workout credit macro weighting**: replaced binary checkboxes with weight sliders (0–100) per macro; a live stacked bar shows the proportional split; calories are distributed according to the weights rather than proportional to base goals
+
+**Previous**: v2.1.76
 - **Body fat trend line draws on top**: trend line now renders above scatter dots on body composition chart
 - **Body composition chart 60% taller**: aspectRatio changed from 2 to 1.25
 - **PI controller insulated from setting changes**: both P-term and I-term now use stored displayed goals for past days, so changing workout credit settings no longer retroactively alters past error signals

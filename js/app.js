@@ -187,9 +187,9 @@ class FitnessTrackerApp {
         // Workout credit settings (used in PI controller and final goal calc)
         const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
         const workoutCreditMacros = {
-            fat:     (await db.getSetting('workout_credit_fat'))     !== 'false',
-            protein: (await db.getSetting('workout_credit_protein')) !== 'false',
-            carbs:   (await db.getSetting('workout_credit_carbs'))   !== 'false',
+            fat:     parseFloat(await db.getSetting('workout_credit_fat_weight')     || '34'),
+            protein: parseFloat(await db.getSetting('workout_credit_protein_weight') || '33'),
+            carbs:   parseFloat(await db.getSetting('workout_credit_carbs_weight')   || '33'),
         };
 
         // Check if running average mode is enabled
@@ -1006,16 +1006,44 @@ class FitnessTrackerApp {
             });
         }
 
-        // Workout credit macro checkboxes
+        // Workout credit macro weight sliders
+        const _wcDefaults = { protein: 33, carbs: 33, fat: 34 };
+        const _wcEls = {};
         for (const macro of ['protein', 'carbs', 'fat']) {
-            const cb = document.getElementById(`workout-credit-${macro}`);
-            if (!cb) continue;
-            const saved = await db.getSetting(`workout_credit_${macro}`);
-            cb.checked = saved !== 'false'; // default true
-            cb.addEventListener('change', async () => {
-                await db.setSetting(`workout_credit_${macro}`, cb.checked ? 'true' : 'false');
+            const sl = document.getElementById(`workout-credit-${macro}-weight`);
+            if (!sl) continue;
+            const saved = parseFloat(await db.getSetting(`workout_credit_${macro}_weight`) || String(_wcDefaults[macro]));
+            sl.value = saved;
+            _wcEls[macro] = sl;
+        }
+
+        const _updateCreditSplit = async (save = true) => {
+            const vals = {
+                protein: parseFloat(_wcEls.protein?.value ?? _wcDefaults.protein),
+                carbs:   parseFloat(_wcEls.carbs?.value   ?? _wcDefaults.carbs),
+                fat:     parseFloat(_wcEls.fat?.value     ?? _wcDefaults.fat),
+            };
+            const total = vals.protein + vals.carbs + vals.fat;
+            for (const [macro, val] of Object.entries(vals)) {
+                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                const pctEl = document.getElementById(`workout-credit-${macro}-weight-pct`);
+                if (pctEl) pctEl.textContent = `${pct}%`;
+                const barEl = document.getElementById(`workout-credit-${macro}-bar`);
+                if (barEl) barEl.style.width = `${pct}%`;
+            }
+            if (save) {
+                for (const [macro, val] of Object.entries(vals)) {
+                    await db.setSetting(`workout_credit_${macro}_weight`, String(val));
+                }
                 if (this.currentScreen === 'dashboard') await this.loadDashboard();
-            });
+            }
+        };
+
+        await _updateCreditSplit(false);
+
+        for (const macro of ['protein', 'carbs', 'fat']) {
+            if (!_wcEls[macro]) continue;
+            _wcEls[macro].addEventListener('input', () => _updateCreditSplit(true));
         }
 
         // Body stats, activity factor & TDEE display

@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.78
+**Current**: v2.1.79
+- **GPS Run Tracker**: "Go for a Run" button on the workout tab opens a full-screen GPS run tracker with real-time distance (km + mi), avg speed (mph), avg pace (min/km), and calorie estimate; TTS announces stats every minute; pause/resume support; auto-fills workout form on finish with GPS-derived pace and distance
+
+**Previous**: v2.1.78
 - **Pace unit preference**: cardio pace field now supports min/km via a toggle button; preference is saved and remembered across sessions (internally always stored as min/mi)
 
 **Previous**: v2.1.77

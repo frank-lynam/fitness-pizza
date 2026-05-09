@@ -47,7 +47,7 @@ export function initWorkoutForm() {
  * @param {Object} existingEntry - Existing entry to edit (optional)
  * @param {string} quickExercise - Pre-filled exercise name from quick-add (optional)
  */
-export async function showWorkoutForm(existingEntry = null, quickExercise = null) {
+export async function showWorkoutForm(existingEntry = null, quickExercise = null, prefill = null) {
     const formContainer = document.getElementById('workout-form-container');
     if (!formContainer) return;
 
@@ -56,10 +56,11 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
 
     const isEdit = existingEntry !== null;
     const entry = existingEntry || {
-        exercise_name: quickExercise || '',
-        exercise_type: 'Lifting',
+        exercise_name: quickExercise || (prefill?.exercise_name || ''),
+        exercise_type: prefill?.exercise_type || 'Lifting',
         reps: '',
-        duration_minutes: '',
+        duration_minutes: prefill?.duration_minutes || '',
+        pace: prefill?.pace || '',
         date: getTodayDate()
     };
 
@@ -68,6 +69,15 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
     const paceDisplay = paceStoredMi && _paceUnit === 'km'
         ? Math.round((paceStoredMi / KM_PER_MI) * 10) / 10
         : paceStoredMi;
+
+    // GPS distance banner (only when coming from run tracker)
+    const distanceKm = !isEdit && prefill?.distance_km > 0 ? prefill.distance_km : null;
+    const distanceBanner = distanceKm ? `
+        <div style="background:var(--accent-primary-dim,rgba(99,102,241,.15));border:1px solid var(--accent-primary);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;color:var(--accent-primary);display:flex;align-items:center;gap:6px;">
+            <span>📍</span>
+            <span>GPS tracked: <strong>${distanceKm.toFixed(2)} km</strong> (${(distanceKm / 1.60934).toFixed(2)} mi)</span>
+            <input type="hidden" id="run-distance-km" value="${distanceKm}">
+        </div>` : '';
 
     formContainer.innerHTML = `
         <div class="workout-form-card">
@@ -82,6 +92,8 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
                         ${isEdit ? 'Update' : 'Save'} Workout
                     </button>
                 </div>
+
+                ${distanceBanner}
 
                 <div class="form-group">
                     <label for="exercise-name">Exercise Name *</label>
@@ -300,6 +312,7 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
         const estimatedCalories = await computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, pace);
 
         const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+        const distKmEl = document.getElementById('run-distance-km');
         const entryData = {
             exercise_name: exerciseName,
             exercise_type: exerciseType,
@@ -309,7 +322,8 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
             estimated_calories_burned: Math.round(estimatedCalories),
             date: currentDate,
             timestamp: Date.now(),
-            status: isEdit ? (existingEntry.status || 'completed') : 'planned'
+            status: isEdit ? (existingEntry.status || 'completed') : 'planned',
+            ...(distKmEl ? { distance_km: parseFloat(distKmEl.value) } : {}),
         };
 
         ui.showLoading(isEdit ? 'Updating workout...' : 'Saving workout...');
@@ -383,7 +397,10 @@ export async function loadWorkouts() {
                         : workout.pace;
                     paceStr = ` @ ${displayPace} min/${_paceUnit}`;
                 }
-                details.push(`${workout.duration_minutes} min${paceStr}`);
+                const distStr = workout.distance_km > 0
+                    ? ` · ${workout.distance_km.toFixed(2)} km`
+                    : '';
+                details.push(`${workout.duration_minutes} min${paceStr}${distStr}`);
             } else if (workout.reps > 0) {
                 details.push(`${workout.reps} reps`);
             }

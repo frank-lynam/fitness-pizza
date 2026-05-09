@@ -11,6 +11,7 @@ import { computeGoalAdjustments } from './utils/pi-controller.js';
 import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
+import { initRunTracker } from './components/run-tracker.js';
 import { initFoodLibrary } from './components/food-library.js';
 
 function activityFactorLabel(f) {
@@ -69,6 +70,7 @@ class FitnessTrackerApp {
             initMacroForm();
             initMeasurementForm();
             initWorkoutForm();
+            initRunTracker();
             initFoodLibrary();
 
             // Load initial screen (dashboard)

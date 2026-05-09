@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.79
+**Current**: v2.1.80
+- **Fix SW cache**: added run-tracker.js to STATIC_ASSETS so the service worker installs cleanly and triggers the update prompt
+
+**Previous**: v2.1.79
 - **GPS Run Tracker**: "Go for a Run" button on the workout tab opens a full-screen GPS run tracker with real-time distance (km + mi), avg speed (mph), avg pace (min/km), and calorie estimate; TTS announces stats every minute; pause/resume support; auto-fills workout form on finish with GPS-derived pace and distance
 
 **Previous**: v2.1.78

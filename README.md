@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.77
+**Current**: v2.1.78
+- **Pace unit preference**: cardio pace field now supports min/km via a toggle button; preference is saved and remembered across sessions (internally always stored as min/mi)
+
+**Previous**: v2.1.77
 - **Workout credit macro weighting**: replaced binary checkboxes with weight sliders (0–100) per macro; a live stacked bar shows the proportional split; calories are distributed according to the weights rather than proportional to base goals
 
 **Previous**: v2.1.76

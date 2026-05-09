@@ -4,6 +4,10 @@
  */
 
 import { db } from '../db.js';
+
+// User's preferred pace unit — loaded from db each time the form opens
+let _paceUnit = 'mi';
+const KM_PER_MI = 1.60934;
 import { estimateWorkoutCalories } from '../utils/calorie-calc.js';
 import { validateWorkout, showFieldError, clearFieldError, clearFormErrors } from '../utils/validation.js';
 import * as ui from '../ui.js';
@@ -43,9 +47,12 @@ export function initWorkoutForm() {
  * @param {Object} existingEntry - Existing entry to edit (optional)
  * @param {string} quickExercise - Pre-filled exercise name from quick-add (optional)
  */
-export function showWorkoutForm(existingEntry = null, quickExercise = null) {
+export async function showWorkoutForm(existingEntry = null, quickExercise = null) {
     const formContainer = document.getElementById('workout-form-container');
     if (!formContainer) return;
+
+    // Load user's pace unit preference
+    _paceUnit = (await db.getSetting('pace_unit')) || 'mi';
 
     const isEdit = existingEntry !== null;
     const entry = existingEntry || {
@@ -55,6 +62,12 @@ export function showWorkoutForm(existingEntry = null, quickExercise = null) {
         duration_minutes: '',
         date: getTodayDate()
     };
+
+    // Convert stored min/mi pace to display unit
+    const paceStoredMi = entry.pace || '';
+    const paceDisplay = paceStoredMi && _paceUnit === 'km'
+        ? Math.round((paceStoredMi / KM_PER_MI) * 10) / 10
+        : paceStoredMi;
 
     formContainer.innerHTML = `
         <div class="workout-form-card">
@@ -92,10 +105,13 @@ export function showWorkoutForm(existingEntry = null, quickExercise = null) {
                 </div>
 
                 <div id="pace-field" class="form-group ${entry.exercise_type === 'Cardio' ? '' : 'hidden'}">
-                    <label for="pace">Pace (min/mile, optional)</label>
-                    <input type="number" id="pace" step="0.1" min="0"
-                           placeholder="e.g., 8.5" value="${entry.pace || ''}">
-                    <p class="help-text">Average pace in minutes per mile</p>
+                    <label id="pace-label" for="pace">Pace (min/${_paceUnit}, optional)</label>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" id="pace" step="0.1" min="0"
+                               placeholder="${_paceUnit === 'km' ? '5.0' : '8.5'}" value="${paceDisplay}" style="flex: 1;">
+                        <button type="button" id="pace-unit-toggle" class="btn-secondary btn-small" style="white-space: nowrap;">${_paceUnit === 'km' ? 'min/km' : 'min/mi'}</button>
+                    </div>
+                    <p class="help-text" id="pace-help-text">Average pace in minutes per ${_paceUnit === 'km' ? 'kilometer' : 'mile'}</p>
                 </div>
 
                 <div id="reps-field" class="form-group ${entry.exercise_type !== 'Cardio' ? '' : 'hidden'}">
@@ -183,6 +199,27 @@ function setupWorkoutFormListeners(isEdit, existingEntry) {
     if (durationInput) durationInput.addEventListener('input', updateEstimatedCalories);
     if (repsInput) repsInput.addEventListener('input', updateEstimatedCalories);
     if (paceInput) paceInput.addEventListener('input', updateEstimatedCalories);
+
+    const paceUnitToggle = document.getElementById('pace-unit-toggle');
+    if (paceUnitToggle) {
+        paceUnitToggle.addEventListener('click', async () => {
+            const currentPace = parseFloat(paceInput?.value || 0);
+            if (_paceUnit === 'mi') {
+                _paceUnit = 'km';
+                if (currentPace > 0 && paceInput) paceInput.value = Math.round((currentPace / KM_PER_MI) * 10) / 10;
+            } else {
+                _paceUnit = 'mi';
+                if (currentPace > 0 && paceInput) paceInput.value = Math.round((currentPace * KM_PER_MI) * 10) / 10;
+            }
+            paceUnitToggle.textContent = _paceUnit === 'km' ? 'min/km' : 'min/mi';
+            const label = document.getElementById('pace-label');
+            if (label) label.textContent = `Pace (min/${_paceUnit}, optional)`;
+            const help = document.getElementById('pace-help-text');
+            if (help) help.textContent = `Average pace in minutes per ${_paceUnit === 'km' ? 'kilometer' : 'mile'}`;
+            await db.setSetting('pace_unit', _paceUnit);
+            await updateEstimatedCalories();
+        });
+    }
 }
 
 /**
@@ -221,9 +258,10 @@ async function updateEstimatedCalories() {
     const exerciseName = document.getElementById('exercise-name')?.value || '';
     const durationMinutes = parseInt(document.getElementById('duration-minutes')?.value || 0);
     const reps = parseInt(document.getElementById('exercise-reps')?.value || 0);
-    const pace = parseFloat(document.getElementById('pace')?.value || 0);
+    const paceRaw = parseFloat(document.getElementById('pace')?.value || 0);
+    const paceMi = paceRaw > 0 && _paceUnit === 'km' ? paceRaw * KM_PER_MI : paceRaw;
 
-    const calories = await computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, pace);
+    const calories = await computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, paceMi);
 
     const caloriesDisplay = document.getElementById('estimated-calories');
     if (caloriesDisplay) {
@@ -242,7 +280,8 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
         const exerciseName = document.getElementById('exercise-name').value.trim();
         const exerciseType = document.getElementById('exercise-type').value;
         const durationMinutes = parseInt(document.getElementById('duration-minutes')?.value || 0);
-        const pace = parseFloat(document.getElementById('pace')?.value || 0);
+        const paceRaw = parseFloat(document.getElementById('pace')?.value || 0);
+        const pace = paceRaw > 0 && _paceUnit === 'km' ? paceRaw * KM_PER_MI : paceRaw; // always store as min/mi
         const reps = parseInt(document.getElementById('exercise-reps')?.value || 0);
 
         if (!exerciseName) {
@@ -314,6 +353,7 @@ async function handleToggleCompletion(id, completed) {
  */
 export async function loadWorkouts() {
     try {
+        _paceUnit = (await db.getSetting('pace_unit')) || 'mi';
         const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
         const allWorkouts = await db.getAllWorkouts();
         const workouts = allWorkouts.filter(w => w.date === currentDate);
@@ -336,7 +376,14 @@ export async function loadWorkouts() {
             const isCompleted = workout.status !== 'planned';
             const details = [];
             if (workout.exercise_type === 'Cardio' && workout.duration_minutes > 0) {
-                details.push(`${workout.duration_minutes} min${workout.pace ? ` @ ${workout.pace} min/mi` : ''}`);
+                let paceStr = '';
+                if (workout.pace) {
+                    const displayPace = _paceUnit === 'km'
+                        ? Math.round((workout.pace / KM_PER_MI) * 10) / 10
+                        : workout.pace;
+                    paceStr = ` @ ${displayPace} min/${_paceUnit}`;
+                }
+                details.push(`${workout.duration_minutes} min${paceStr}`);
             } else if (workout.reps > 0) {
                 details.push(`${workout.reps} reps`);
             }

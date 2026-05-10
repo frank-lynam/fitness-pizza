@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.2.4
+**Current**: v2.2.5
+- **Lock-screen notifications for run announcements**: requests Notification permission on first Start tap; when screen is locked sends a service-worker notification to the lock screen ("🏃 3 mins · 0.48 km · 5.9 mph avg"); TTS still used when screen is on
+
+**Previous**: v2.2.4
 - **Screen Wake Lock for TTS**: requests screen wake lock on Start tap so the screen stays on and speech synthesis is never suspended by the OS; shows "🔆 Screen kept on" / "⚠ Keep screen on for audio" status; re-requests on tab visibility restore
 
 **Previous**: v2.2.3

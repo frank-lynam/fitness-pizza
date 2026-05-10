@@ -147,6 +147,41 @@ function _speak(text) {
     window.speechSynthesis.speak(u);
 }
 
+// ─── Notifications (lock-screen announcements) ────────────────────────────────
+let _notifGranted = false;
+
+async function _requestNotifPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') { _notifGranted = true; return; }
+    if (Notification.permission === 'denied')  { return; }
+    const result = await Notification.requestPermission();
+    _notifGranted = result === 'granted';
+}
+
+function _swNotify(title, body) {
+    if (!_notifGranted) return;
+    // Use service worker so it fires even when page is backgrounded
+    if (navigator.serviceWorker?.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'RUN_NOTIFICATION', title, body });
+    } else {
+        // Fallback: direct Notification (works when page is in foreground)
+        try { new Notification(title, { body, icon: '/img/icons/icon-192.png', tag: 'run-update', silent: false }); }
+        catch (_) {}
+    }
+}
+
+function _announce(mark, km, avgMph) {
+    const kmText  = km.toFixed(2);
+    const spdText = avgMph > 0 ? avgMph.toFixed(1) : '0';
+    if (document.visibilityState === 'hidden') {
+        // Screen locked — notification shows on lock screen
+        _swNotify(`🏃 ${mark} ${mark === 1 ? 'min' : 'mins'}`, `${kmText} km · ${spdText} mph avg`);
+    } else {
+        // Screen on — use TTS
+        _speak(`Update. ${mark} ${mark === 1 ? 'minute' : 'minutes'}. ${kmText} kilometers. ${spdText} miles per hour average.`);
+    }
+}
+
 function _el(id) { return document.getElementById(id); }
 
 // ─── Display update ───────────────────────────────────────────────────────────
@@ -191,9 +226,7 @@ function _tick() {
         const mark = Math.floor(elMin);
         if (mark > _s.lastMinuteAnnounced) {
             _s.lastMinuteAnnounced = mark;
-            const kmText  = km.toFixed(2);
-            const spdText = avgMph > 0 ? avgMph.toFixed(1) : '0';
-            _speak(`Update. ${mark} ${mark === 1 ? 'minute' : 'minutes'}. ${kmText} kilometers. ${spdText} miles per hour average.`);
+            _announce(mark, km, avgMph);
         }
     }
 }
@@ -249,8 +282,9 @@ function _toggleRunning() {
     const btn = _el('rt-start-btn');
     if (!btn) return;
     if (!_s.running) {
-        _startAudioSession(); // must be called inside user gesture to unlock AudioContext
-        _requestWakeLock();   // keep screen on so TTS works (also a user-gesture context)
+        _startAudioSession();      // must be called inside user gesture to unlock AudioContext
+        _requestWakeLock();        // keep screen on so TTS works (also a user-gesture context)
+        _requestNotifPermission(); // for lock-screen announcements
         _s.running      = true;
         _s.everStarted  = true;
         _s.runStart     = Date.now();

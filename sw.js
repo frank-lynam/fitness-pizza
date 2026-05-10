@@ -1,10 +1,10 @@
 /**
  * Fitness Pizza - Service Worker
  * Provides offline functionality and caching
- * Version 2.2.4
+ * Version 2.2.5
  */
 
-const CACHE_NAME = 'fitness-pizza-v2.2.4';
+const CACHE_NAME = 'fitness-pizza-v2.2.5';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -132,5 +132,16 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
+    }
+    // Run tracker lap announcements (fired when page is backgrounded / screen locked)
+    if (event.data && event.data.type === 'RUN_NOTIFICATION') {
+        self.registration.showNotification(event.data.title, {
+            body:    event.data.body,
+            icon:    '/img/icons/icon-192.png',
+            badge:   '/img/icons/icon-192.png',
+            tag:     'run-update',   // replaces previous run notification
+            silent:  false,
+            renotify: true,
+        });
     }
 });

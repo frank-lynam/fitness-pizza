@@ -172,13 +172,18 @@ function _swNotify(title, body) {
 
 function _announce(mark, km, avgMph) {
     const kmText  = km.toFixed(2);
-    const spdText = avgMph > 0 ? avgMph.toFixed(1) : '0';
+    const spdText = avgMph > 0 ? avgMph.toFixed(1) : null;
     if (document.visibilityState === 'hidden') {
         // Screen locked — notification shows on lock screen
-        _swNotify(`🏃 ${mark} ${mark === 1 ? 'min' : 'mins'}`, `${kmText} km · ${spdText} mph avg`);
+        const body = km > 0.01
+            ? `${kmText} km${spdText ? ' · ' + spdText + ' mph avg' : ''}`
+            : 'GPS acquiring…';
+        _swNotify(`🏃 ${mark} ${mark === 1 ? 'min' : 'mins'}`, body);
     } else {
         // Screen on — use TTS
-        _speak(`Update. ${mark} ${mark === 1 ? 'minute' : 'minutes'}. ${kmText} kilometers. ${spdText} miles per hour average.`);
+        const dist = km > 0.01 ? `${kmText} kilometers` : 'GPS still acquiring';
+        const spd  = spdText ? `${spdText} miles per hour average` : '';
+        _speak(`Update. ${mark} ${mark === 1 ? 'minute' : 'minutes'}. ${dist}. ${spd}.`.replace(/\.\s*\.$/, '.'));
     }
 }
 

@@ -140,7 +140,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.2.2
+**Current**: v2.2.3
+- **TTS audio fix**: replaced intermittent silent-ping AudioContext with a continuous silent oscillator (gain 0.001, freq 0) — audio pipeline never drops between pings; AudioContext is also resumed in _speak for extra resilience
+- **Run started confirmation**: "Run started." is spoken when Start is tapped, priming the speech engine and confirming audio is working before you lock the screen
+- **GPS runs saved as completed**: runs from the tracker are now marked completed (not planned) when saved
+
+**Previous**: v2.2.2
 - **TTS with screen locked**: AudioContext silent-ping loop started on first Start tap maintains audio session so speech announcements continue when screen is off (Android Chrome; best-effort on iOS)
 - **TTS clipping fix**: announcements now begin with "Update." so the first real word isn't cut off by the speech engine spin-up
 

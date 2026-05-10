@@ -74,33 +74,38 @@ function _calories(km, ms) {
 }
 
 // ─── Audio session (keep-alive so TTS works with screen locked) ──────────────
-let _audioCtx       = null;
-let _audioKeepAlive = null;
+// Must be started inside a user-gesture handler (button tap).
+// A continuous silent oscillator at gain ~0 keeps the audio pipeline active
+// so the OS doesn't suspend the audio session when the screen locks.
+let _audioCtx  = null;
+let _silentOsc = null;
 
 function _startAudioSession() {
     if (_audioCtx) return;
     try {
         _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (_audioCtx.state === 'suspended') _audioCtx.resume();
-        // Silent 1-sample ping every 20 s — holds audio focus on Android/iOS
-        _audioKeepAlive = setInterval(() => {
-            if (!_audioCtx) return;
-            const buf = _audioCtx.createBuffer(1, 1, 22050);
-            const src = _audioCtx.createBufferSource();
-            src.buffer = buf;
-            src.connect(_audioCtx.destination);
-            src.start(0);
-        }, 20000);
+        // Inaudible continuous oscillator — never stops while run is active
+        const osc  = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        gain.gain.value   = 0.001; // ~60 dB below audible; non-zero keeps pipeline active
+        osc.frequency.value = 0;
+        osc.connect(gain);
+        gain.connect(_audioCtx.destination);
+        osc.start();
+        _silentOsc = osc;
     } catch (e) { /* AudioContext unavailable */ }
 }
 
 function _stopAudioSession() {
-    if (_audioKeepAlive) { clearInterval(_audioKeepAlive); _audioKeepAlive = null; }
+    try { if (_silentOsc) { _silentOsc.stop(); _silentOsc = null; } } catch (_) {}
     if (_audioCtx) { _audioCtx.close().catch(() => {}); _audioCtx = null; }
 }
 
 function _speak(text) {
     if (!window.speechSynthesis) return;
+    // Re-resume AudioContext if the OS suspended it (e.g. brief screen lock)
+    if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume();
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.rate = 1.05;
@@ -215,6 +220,8 @@ function _toggleRunning() {
         _s.runStart     = Date.now();
         btn.textContent = '⏸ Pause';
         btn.style.background = 'var(--accent-warning)';
+        // Confirmation speech: primes the engine and tells user audio is working
+        setTimeout(() => _speak('Run started.'), 150);
     } else {
         _s.elapsedMs += Date.now() - _s.runStart;
         _s.running    = false;
@@ -283,6 +290,7 @@ async function _finish() {
         duration_minutes: Math.max(0.1, Math.round(elMin * 10) / 10),
         pace:             paceMi > 0 ? Math.round(paceMi * 10) / 10 : null,
         distance_km:      Math.round(km * 1000) / 1000,
+        status:           'completed',
     });
 }
 

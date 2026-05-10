@@ -94,6 +94,7 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
                 </div>
 
                 ${distanceBanner}
+                ${!isEdit && prefill?.status ? `<input type="hidden" id="workout-prefill-status" value="${prefill.status}">` : ''}
 
                 <div class="form-group">
                     <label for="exercise-name">Exercise Name *</label>
@@ -312,7 +313,8 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
         const estimatedCalories = await computeWorkoutCalories(exerciseType, exerciseName, durationMinutes, reps, pace);
 
         const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
-        const distKmEl = document.getElementById('run-distance-km');
+        const distKmEl       = document.getElementById('run-distance-km');
+        const prefillStatusEl = document.getElementById('workout-prefill-status');
         const entryData = {
             exercise_name: exerciseName,
             exercise_type: exerciseType,
@@ -322,7 +324,7 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
             estimated_calories_burned: Math.round(estimatedCalories),
             date: currentDate,
             timestamp: Date.now(),
-            status: isEdit ? (existingEntry.status || 'completed') : 'planned',
+            status: isEdit ? (existingEntry.status || 'completed') : (prefillStatusEl?.value || 'planned'),
             ...(distKmEl ? { distance_km: parseFloat(distKmEl.value) } : {}),
         };
 

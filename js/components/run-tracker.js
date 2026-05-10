@@ -73,6 +73,32 @@ function _calories(km, ms) {
     return Math.round((met * 3.5 * kg / 200) * elapsedMin);
 }
 
+// ─── Audio session (keep-alive so TTS works with screen locked) ──────────────
+let _audioCtx       = null;
+let _audioKeepAlive = null;
+
+function _startAudioSession() {
+    if (_audioCtx) return;
+    try {
+        _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (_audioCtx.state === 'suspended') _audioCtx.resume();
+        // Silent 1-sample ping every 20 s — holds audio focus on Android/iOS
+        _audioKeepAlive = setInterval(() => {
+            if (!_audioCtx) return;
+            const buf = _audioCtx.createBuffer(1, 1, 22050);
+            const src = _audioCtx.createBufferSource();
+            src.buffer = buf;
+            src.connect(_audioCtx.destination);
+            src.start(0);
+        }, 20000);
+    } catch (e) { /* AudioContext unavailable */ }
+}
+
+function _stopAudioSession() {
+    if (_audioKeepAlive) { clearInterval(_audioKeepAlive); _audioKeepAlive = null; }
+    if (_audioCtx) { _audioCtx.close().catch(() => {}); _audioCtx = null; }
+}
+
 function _speak(text) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -127,7 +153,7 @@ function _tick() {
             _s.lastMinuteAnnounced = mark;
             const kmText  = km.toFixed(2);
             const spdText = avgMph > 0 ? avgMph.toFixed(1) : '0';
-            _speak(`${mark} ${mark === 1 ? 'minute' : 'minutes'}. ${kmText} kilometers. ${spdText} miles per hour average.`);
+            _speak(`Update. ${mark} ${mark === 1 ? 'minute' : 'minutes'}. ${kmText} kilometers. ${spdText} miles per hour average.`);
         }
     }
 }
@@ -183,6 +209,7 @@ function _toggleRunning() {
     const btn = _el('rt-start-btn');
     if (!btn) return;
     if (!_s.running) {
+        _startAudioSession(); // must be called inside user gesture to unlock AudioContext
         _s.running      = true;
         _s.everStarted  = true;
         _s.runStart     = Date.now();
@@ -204,6 +231,7 @@ function _cleanup() {
     }
     if (_s.ticker) { clearInterval(_s.ticker); _s.ticker = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
+    _stopAudioSession();
     _s.running = false;
     _s.open    = false;
 }

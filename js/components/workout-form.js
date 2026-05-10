@@ -112,7 +112,7 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
 
                 <div id="cardio-field" class="form-group ${entry.exercise_type === 'Cardio' ? '' : 'hidden'}">
                     <label for="duration-minutes">Duration (minutes) *</label>
-                    <input type="number" id="duration-minutes" step="1" min="1"
+                    <input type="number" id="duration-minutes" step="0.1" min="0.1"
                            placeholder="30" value="${entry.duration_minutes || ''}">
                 </div>
 
@@ -268,7 +268,7 @@ async function computeWorkoutCalories(exerciseType, exerciseName, durationMinute
 async function updateEstimatedCalories() {
     const exerciseType = document.getElementById('exercise-type')?.value || 'Lifting';
     const exerciseName = document.getElementById('exercise-name')?.value || '';
-    const durationMinutes = parseInt(document.getElementById('duration-minutes')?.value || 0);
+    const durationMinutes = parseFloat(document.getElementById('duration-minutes')?.value || 0);
     const reps = parseInt(document.getElementById('exercise-reps')?.value || 0);
     const paceRaw = parseFloat(document.getElementById('pace')?.value || 0);
     const paceMi = paceRaw > 0 && _paceUnit === 'km' ? paceRaw * KM_PER_MI : paceRaw;
@@ -291,7 +291,7 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
 
         const exerciseName = document.getElementById('exercise-name').value.trim();
         const exerciseType = document.getElementById('exercise-type').value;
-        const durationMinutes = parseInt(document.getElementById('duration-minutes')?.value || 0);
+        const durationMinutes = parseFloat(document.getElementById('duration-minutes')?.value || 0);
         const paceRaw = parseFloat(document.getElementById('pace')?.value || 0);
         const pace = paceRaw > 0 && _paceUnit === 'km' ? paceRaw * KM_PER_MI : paceRaw; // always store as min/mi
         const reps = parseInt(document.getElementById('exercise-reps')?.value || 0);

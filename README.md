@@ -140,7 +140,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.1.80
+**Current**: v2.2.0
+- **Run tracker calorie accuracy**: replaced lookup-table MET with the same linear formula (`1.5×mph + 1.0`) used by the workout form — live display and logged calories now agree; ~15% more accurate at typical running speeds
+- **Decimal duration**: run durations now stored with seconds precision (e.g. 5:30 → 5.5 min); duration input accepts decimals; calorie formula uses full precision
+
+**Previous**: v2.1.80
 - **Fix SW cache**: added run-tracker.js to STATIC_ASSETS so the service worker installs cleanly and triggers the update prompt
 
 **Previous**: v2.1.79

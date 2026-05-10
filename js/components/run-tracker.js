@@ -62,22 +62,14 @@ function haversine(lat1, lon1, lat2, lon2) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function _speedMETforKmh(kmh) {
-    // Standard running MET values by speed
-    if (kmh < 8.0)  return 7;
-    if (kmh < 9.7)  return 8;
-    if (kmh < 11.3) return 9;
-    if (kmh < 12.9) return 10;
-    if (kmh < 14.5) return 11;
-    return 12;
-}
-
 function _calories(km, ms) {
     if (ms < 5000 || km < 0.01) return 0;
     const kg = _s.weightLbs * 0.453592;
     const elapsedMin = ms / 60000;
-    const avgKmh = km / (elapsedMin / 60);
-    const met = _speedMETforKmh(avgKmh);
+    const avgMph = (km / KM_PER_MI) / (ms / 3600000);
+    // Same linear MET formula used by computeWorkoutCalories — keeps live display
+    // and the workout-form estimate in sync (MET ≈ 10.2 at 6 mph, per Compendium)
+    const met = Math.min(20, Math.max(3.5, 1.5 * avgMph + 1.0));
     return Math.round((met * 3.5 * kg / 200) * elapsedMin);
 }
 
@@ -260,7 +252,7 @@ async function _finish() {
     await showWorkoutForm(null, null, {
         exercise_name:    'Running',
         exercise_type:    'Cardio',
-        duration_minutes: Math.max(1, Math.round(elMin)),
+        duration_minutes: Math.max(0.1, Math.round(elMin * 10) / 10),
         pace:             paceMi > 0 ? Math.round(paceMi * 10) / 10 : null,
         distance_km:      Math.round(km * 1000) / 1000,
     });

@@ -16,7 +16,7 @@ async function getUniqueWorkouts() {
     const seen = new Set();
     const unique = [];
     for (const w of allWorkouts) {
-        if (w.exercise_name && !seen.has(w.exercise_name)) {
+        if (w.exercise_name && !seen.has(w.exercise_name) && !w.distance_km) {
             seen.add(w.exercise_name);
             unique.push(w);
         }

@@ -140,7 +140,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.2.3
+**Current**: v2.2.4
+- **Screen Wake Lock for TTS**: requests screen wake lock on Start tap so the screen stays on and speech synthesis is never suspended by the OS; shows "🔆 Screen kept on" / "⚠ Keep screen on for audio" status; re-requests on tab visibility restore
+
+**Previous**: v2.2.3
 - **TTS audio fix**: replaced intermittent silent-ping AudioContext with a continuous silent oscillator (gain 0.001, freq 0) — audio pipeline never drops between pings; AudioContext is also resumed in _speak for extra resilience
 - **Run started confirmation**: "Run started." is spoken when Start is tapped, priming the speech engine and confirming audio is working before you lock the screen
 - **GPS runs saved as completed**: runs from the tracker are now marked completed (not planned) when saved

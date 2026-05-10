@@ -73,7 +73,42 @@ function _calories(km, ms) {
     return Math.round((met * 3.5 * kg / 200) * elapsedMin);
 }
 
-// ─── Audio session (keep-alive so TTS works with screen locked) ──────────────
+// ─── Screen Wake Lock (keeps screen on so TTS works) ─────────────────────────
+let _wakeLock = null;
+
+async function _requestWakeLock() {
+    if (!('wakeLock' in navigator)) { _setWakeLockStatus(false); return; }
+    try {
+        _wakeLock = await navigator.wakeLock.request('screen');
+        _wakeLock.addEventListener('release', () => { _wakeLock = null; _setWakeLockStatus(false); });
+        _setWakeLockStatus(true);
+    } catch (_) { _setWakeLockStatus(false); }
+}
+
+function _releaseWakeLock() {
+    if (_wakeLock) { _wakeLock.release().catch(() => {}); _wakeLock = null; }
+}
+
+function _setWakeLockStatus(on) {
+    const el = _el('rt-wakelock');
+    if (!el) return;
+    if (on) {
+        el.textContent = '🔆 Screen kept on';
+        el.style.color = 'var(--accent-success)';
+    } else {
+        el.textContent = '⚠ Keep screen on for audio';
+        el.style.color = 'var(--accent-warning)';
+    }
+}
+
+// Re-request wake lock if page regains visibility (e.g. user switches back)
+document.addEventListener('visibilitychange', () => {
+    if (_s.running && !_wakeLock && document.visibilityState === 'visible') {
+        _requestWakeLock();
+    }
+});
+
+// ─── Audio session (belt-and-suspenders alongside wake lock) ─────────────────
 // Must be started inside a user-gesture handler (button tap).
 // A continuous silent oscillator at gain ~0 keeps the audio pipeline active
 // so the OS doesn't suspend the audio session when the screen locks.
@@ -215,6 +250,7 @@ function _toggleRunning() {
     if (!btn) return;
     if (!_s.running) {
         _startAudioSession(); // must be called inside user gesture to unlock AudioContext
+        _requestWakeLock();   // keep screen on so TTS works (also a user-gesture context)
         _s.running      = true;
         _s.everStarted  = true;
         _s.runStart     = Date.now();
@@ -239,6 +275,7 @@ function _cleanup() {
     if (_s.ticker) { clearInterval(_s.ticker); _s.ticker = null; }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     _stopAudioSession();
+    _releaseWakeLock();
     _s.running = false;
     _s.open    = false;
 }
@@ -366,6 +403,8 @@ async function _open() {
 
   <!-- GPS status -->
   <div id="rt-gps" style="font-size:13px;color:var(--text-secondary);">◌ Acquiring GPS…</div>
+  <!-- Wake lock status (shown after Start is tapped) -->
+  <div id="rt-wakelock" style="font-size:12px;color:var(--text-secondary);"></div>
 
 </div>
 

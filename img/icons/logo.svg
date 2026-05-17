@@ -1,69 +1,227 @@
 <svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Dark background gradient -->
+    <!-- App background -->
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
     </linearGradient>
-    <!-- Crust gradient -->
-    <radialGradient id="crustGrad" cx="50%" cy="50%">
-      <stop offset="80%" style="stop-color:#d4a574;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#a67c52;stop-opacity:1" />
+
+    <!-- Crust gradient: golden-brown baked look -->
+    <linearGradient id="crustGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8b86d"/>
+      <stop offset="40%" style="stop-color:#d4943a"/>
+      <stop offset="100%" style="stop-color:#a0622a"/>
+    </linearGradient>
+    <!-- Crust edge highlight -->
+    <linearGradient id="crustEdgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0c878"/>
+      <stop offset="50%" style="stop-color:#c87c2e"/>
+      <stop offset="100%" style="stop-color:#8a5020"/>
+    </linearGradient>
+
+    <!-- Sauce gradient: deep red with warmth -->
+    <radialGradient id="sauceGrad" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" style="stop-color:#e03020"/>
+      <stop offset="60%" style="stop-color:#c02010"/>
+      <stop offset="100%" style="stop-color:#8b1208"/>
     </radialGradient>
-    <!-- Cheese gradient -->
-    <radialGradient id="cheeseGrad" cx="50%" cy="50%">
-      <stop offset="0%" style="stop-color:#ffd700;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#daa520;stop-opacity:1" />
+
+    <!-- Cheese gradient: rich golden yellow -->
+    <radialGradient id="cheeseGrad" cx="45%" cy="40%" r="60%">
+      <stop offset="0%" style="stop-color:#ffe066"/>
+      <stop offset="40%" style="stop-color:#f5c518"/>
+      <stop offset="100%" style="stop-color:#c8930a"/>
     </radialGradient>
+
+    <!-- Pepperoni gradient: dark red with sheen -->
+    <radialGradient id="pepGrad1" cx="35%" cy="35%" r="55%">
+      <stop offset="0%" style="stop-color:#e84040"/>
+      <stop offset="50%" style="stop-color:#c01818"/>
+      <stop offset="100%" style="stop-color:#880a0a"/>
+    </radialGradient>
+    <radialGradient id="pepGrad2" cx="35%" cy="35%" r="55%">
+      <stop offset="0%" style="stop-color:#dd3838"/>
+      <stop offset="50%" style="stop-color:#b81414"/>
+      <stop offset="100%" style="stop-color:#800808"/>
+    </radialGradient>
+    <radialGradient id="pepGrad3" cx="35%" cy="35%" r="55%">
+      <stop offset="0%" style="stop-color:#e24040"/>
+      <stop offset="50%" style="stop-color:#be1818"/>
+      <stop offset="100%" style="stop-color:#860a0a"/>
+    </radialGradient>
+
+    <!-- Cheese bubble filter for melted look -->
+    <filter id="cheeseBump" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <!-- Soft drop shadow for the whole slice -->
+    <filter id="sliceShadow" x="-15%" y="-5%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="18" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+
+    <!-- Crust bump texture -->
+    <filter id="crustTexture" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="4" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+
+    <!-- Pepperoni shadow/emboss -->
+    <filter id="pepShadow">
+      <feDropShadow dx="1.5" dy="2" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+
+    <!-- Grease sheen on cheese -->
+    <radialGradient id="sheenGrad" cx="38%" cy="32%" r="40%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.22"/>
+      <stop offset="100%" style="stop-color:#ffffff;stop-opacity:0"/>
+    </radialGradient>
+
+    <!-- Clip path: pizza slice triangle (tip at top-center, wide base at bottom) -->
+    <!-- Tip: (256, 68). Left base: (42, 468). Right base: (470, 468). -->
+    <clipPath id="sliceClip">
+      <polygon points="256,68 42,468 470,468"/>
+    </clipPath>
   </defs>
 
-  <!-- Background -->
-  <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
+  <!-- App icon background -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)"/>
 
-  <!-- Main pizza circle (crust) -->
-  <circle cx="256" cy="256" r="190" fill="url(#crustGrad)" stroke="#8b6434" stroke-width="4"/>
+  <!-- === PIZZA SLICE === -->
+  <g filter="url(#sliceShadow)">
 
-  <!-- Cheese base -->
-  <circle cx="256" cy="256" r="170" fill="url(#cheeseGrad)"/>
+    <!-- Crust body (the thick curved back) — drawn as a trapezoid rounded at bottom -->
+    <!-- The crust is the wide base strip at the bottom of the slice -->
+    <path d="M 52,458
+             Q 52,500 95,500
+             L 417,500
+             Q 460,500 460,458
+             L 460,420
+             Q 460,396 440,390
+             L 72,390
+             Q 52,396 52,420
+             Z"
+          fill="url(#crustGrad)"
+          filter="url(#crustTexture)"/>
 
-  <!-- Pizza slices as pie chart (Fat, Carbs, Protein) -->
-  <!-- Fat slice (tan) - 120 degrees (top-left) -->
-  <path d="M 256 256 L 256 86 A 170 170 0 0 1 403.3 168.5 Z"
-        fill="#b8884f" stroke="#9a6f3f" stroke-width="3" opacity="0.85"/>
+    <!-- Crust top edge highlight -->
+    <path d="M 72,390 Q 52,396 52,420 L 52,432 Q 52,408 72,402 L 440,402 Q 460,408 460,432 L 460,420 Q 460,396 440,390 Z"
+          fill="url(#crustEdgeGrad)" opacity="0.55"/>
 
-  <!-- Carbs slice (green) - 120 degrees (top-right) -->
-  <path d="M 256 256 L 403.3 168.5 A 170 170 0 0 1 344.8 396.8 Z"
-        fill="#85b66f" stroke="#6a9354" stroke-width="3" opacity="0.85"/>
+    <!-- Crust burnt bubbles / blisters -->
+    <ellipse cx="120" cy="455" rx="18" ry="10" fill="#8a5020" opacity="0.5"/>
+    <ellipse cx="200" cy="470" rx="14" ry="8" fill="#7a4418" opacity="0.45"/>
+    <ellipse cx="290" cy="462" rx="20" ry="9" fill="#8a5020" opacity="0.4"/>
+    <ellipse cx="370" cy="468" rx="15" ry="8" fill="#7a4418" opacity="0.5"/>
+    <ellipse cx="155" cy="482" rx="10" ry="5" fill="#6a3410" opacity="0.35"/>
+    <ellipse cx="340" cy="485" rx="12" ry="6" fill="#6a3410" opacity="0.35"/>
 
-  <!-- Protein slice (purple) - 120 degrees (bottom) - PULLED OUT -->
-  <g transform="translate(0, 35)">
-    <path d="M 256 256 L 344.8 396.8 A 170 170 0 0 1 256 86 Z"
-          fill="#a78bbd" stroke="#8b6f99" stroke-width="3" opacity="0.85"/>
+    <!-- Crust sesame seeds suggestion -->
+    <ellipse cx="100" cy="448" rx="5" ry="2.5" fill="#c8a040" opacity="0.7" transform="rotate(-20,100,448)"/>
+    <ellipse cx="180" cy="460" rx="4" ry="2" fill="#c8a040" opacity="0.6" transform="rotate(15,180,460)"/>
+    <ellipse cx="256" cy="465" rx="5" ry="2.5" fill="#c8a040" opacity="0.65" transform="rotate(-10,256,465)"/>
+    <ellipse cx="320" cy="455" rx="4" ry="2" fill="#c8a040" opacity="0.6" transform="rotate(25,320,455)"/>
+    <ellipse cx="400" cy="462" rx="5" ry="2.5" fill="#c8a040" opacity="0.7" transform="rotate(-15,400,462)"/>
 
-    <!-- Pepperoni on pulled-out slice -->
-    <circle cx="280" cy="300" r="16" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-    <circle cx="260" cy="260" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-    <circle cx="240" cy="320" r="15" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+    <!-- Sauce layer (visible at edges of cheese) -->
+    <polygon points="256,82 56,436 456,436" fill="url(#sauceGrad)"/>
+
+    <!-- Sauce peeking out at edges (thin bands) -->
+    <polygon points="256,82 56,436 80,436 256,100" fill="#cc1a0a" opacity="0.6"/>
+    <polygon points="256,82 456,436 432,436 256,100" fill="#cc1a0a" opacity="0.6"/>
+
+    <!-- Cheese (main layer, slightly inset from sauce) -->
+    <polygon points="256,105 78,410 434,410" fill="url(#cheeseGrad)" filter="url(#cheeseBump)"/>
+
+    <!-- Cheese sheen highlight -->
+    <polygon points="256,105 78,410 434,410" fill="url(#sheenGrad)"/>
+
+    <!-- Cheese pull / stretch lines (melted stringy look) -->
+    <path d="M 180,380 Q 190,340 200,300 Q 210,260 220,220" stroke="#e8b820" stroke-width="2.5" fill="none" opacity="0.45" stroke-linecap="round"/>
+    <path d="M 330,375 Q 318,335 308,295 Q 298,255 290,215" stroke="#e8b820" stroke-width="2" fill="none" opacity="0.4" stroke-linecap="round"/>
+    <path d="M 256,390 Q 256,350 258,310 Q 260,270 262,230" stroke="#f0c020" stroke-width="2" fill="none" opacity="0.35" stroke-linecap="round"/>
+
+    <!-- Cheese bubbles (browned spots) -->
+    <ellipse cx="190" cy="340" rx="14" ry="9" fill="#c8900a" opacity="0.5" transform="rotate(-12,190,340)"/>
+    <ellipse cx="310" cy="355" rx="12" ry="8" fill="#c8900a" opacity="0.45" transform="rotate(8,310,355)"/>
+    <ellipse cx="148" cy="290" rx="10" ry="7" fill="#d09010" opacity="0.4" transform="rotate(-5,148,290)"/>
+    <ellipse cx="365" cy="300" rx="11" ry="7" fill="#c8900a" opacity="0.45" transform="rotate(10,365,300)"/>
+
+    <!-- === PEPPERONI === -->
+    <!-- Each pepperoni: dark red disc with lighter center, char spots, grease ring -->
+
+    <!-- Pepperoni 1 — large, center-right, near tip -->
+    <g filter="url(#pepShadow)">
+      <circle cx="290" cy="200" r="34" fill="#6e0808"/>
+      <circle cx="290" cy="200" r="30" fill="url(#pepGrad1)"/>
+      <circle cx="290" cy="200" r="22" fill="#c81414" opacity="0.6"/>
+      <circle cx="282" cy="193" r="8" fill="#e03030" opacity="0.5"/>
+      <!-- Char spots -->
+      <circle cx="300" cy="212" r="5" fill="#5a0606" opacity="0.6"/>
+      <circle cx="278" cy="208" r="4" fill="#5a0606" opacity="0.5"/>
+      <circle cx="296" cy="190" r="3" fill="#5a0606" opacity="0.45"/>
+      <!-- Grease ring -->
+      <circle cx="290" cy="200" r="34" fill="none" stroke="#f0c020" stroke-width="2.5" opacity="0.2"/>
+    </g>
+
+    <!-- Pepperoni 2 — left side, mid-height -->
+    <g filter="url(#pepShadow)">
+      <circle cx="160" cy="290" r="32" fill="#6e0808"/>
+      <circle cx="160" cy="290" r="28" fill="url(#pepGrad2)"/>
+      <circle cx="160" cy="290" r="20" fill="#c81414" opacity="0.55"/>
+      <circle cx="152" cy="283" r="7" fill="#e03030" opacity="0.5"/>
+      <circle cx="170" cy="302" r="5" fill="#5a0606" opacity="0.6"/>
+      <circle cx="150" cy="300" r="4" fill="#5a0606" opacity="0.5"/>
+      <circle cx="166" cy="280" r="3.5" fill="#5a0606" opacity="0.45"/>
+      <circle cx="160" cy="290" r="32" fill="none" stroke="#f0c020" stroke-width="2.5" opacity="0.18"/>
+    </g>
+
+    <!-- Pepperoni 3 — right side, mid-height -->
+    <g filter="url(#pepShadow)">
+      <circle cx="352" cy="285" r="32" fill="#6e0808"/>
+      <circle cx="352" cy="285" r="28" fill="url(#pepGrad3)"/>
+      <circle cx="352" cy="285" r="20" fill="#c81414" opacity="0.55"/>
+      <circle cx="344" cy="278" r="7" fill="#e03030" opacity="0.5"/>
+      <circle cx="362" cy="297" r="5" fill="#5a0606" opacity="0.6"/>
+      <circle cx="342" cy="295" r="4" fill="#5a0606" opacity="0.5"/>
+      <circle cx="358" cy="275" r="3.5" fill="#5a0606" opacity="0.45"/>
+      <circle cx="352" cy="285" r="32" fill="none" stroke="#f0c020" stroke-width="2.5" opacity="0.18"/>
+    </g>
+
+    <!-- Pepperoni 4 — center-left, lower -->
+    <g filter="url(#pepShadow)">
+      <circle cx="196" cy="360" r="30" fill="#6e0808"/>
+      <circle cx="196" cy="360" r="26" fill="url(#pepGrad1)"/>
+      <circle cx="196" cy="360" r="18" fill="#c81414" opacity="0.55"/>
+      <circle cx="188" cy="353" r="7" fill="#e03030" opacity="0.5"/>
+      <circle cx="207" cy="370" r="4.5" fill="#5a0606" opacity="0.6"/>
+      <circle cx="185" cy="368" r="3.5" fill="#5a0606" opacity="0.5"/>
+      <circle cx="202" cy="350" r="3" fill="#5a0606" opacity="0.45"/>
+      <circle cx="196" cy="360" r="30" fill="none" stroke="#f0c020" stroke-width="2.5" opacity="0.18"/>
+    </g>
+
+    <!-- Pepperoni 5 — center-right, lower -->
+    <g filter="url(#pepShadow)">
+      <circle cx="318" cy="355" r="30" fill="#6e0808"/>
+      <circle cx="318" cy="355" r="26" fill="url(#pepGrad2)"/>
+      <circle cx="318" cy="355" r="18" fill="#c81414" opacity="0.55"/>
+      <circle cx="310" cy="348" r="7" fill="#e03030" opacity="0.5"/>
+      <circle cx="328" cy="366" r="4.5" fill="#5a0606" opacity="0.6"/>
+      <circle cx="308" cy="364" r="3.5" fill="#5a0606" opacity="0.5"/>
+      <circle cx="324" cy="346" r="3" fill="#5a0606" opacity="0.45"/>
+      <circle cx="318" cy="355" r="30" fill="none" stroke="#f0c020" stroke-width="2.5" opacity="0.18"/>
+    </g>
+
+    <!-- Slice tip point — crispy darkened underside -->
+    <polygon points="256,82 242,120 270,120" fill="#b86820" opacity="0.7"/>
+
   </g>
 
-  <!-- Pepperoni on main pizza -->
-  <!-- Top section -->
-  <circle cx="280" cy="140" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="240" cy="160" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="320" cy="180" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-
-  <!-- Right section -->
-  <circle cx="370" cy="230" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="380" cy="280" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="350" cy="320" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-
-  <!-- Left section -->
-  <circle cx="160" cy="230" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="140" cy="280" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="170" cy="320" r="18" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-
-  <!-- Center cluster -->
-  <circle cx="256" cy="220" r="22" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="280" cy="240" r="19" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
-  <circle cx="230" cy="235" r="20" fill="#d32f2f" stroke="#b71c1c" stroke-width="2"/>
+  <!-- Subtle overall vignette/shine on the whole icon -->
+  <radialGradient id="iconSheen" cx="38%" cy="25%" r="55%">
+    <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.07"/>
+    <stop offset="100%" style="stop-color:#000000;stop-opacity:0.0"/>
+  </radialGradient>
+  <rect width="512" height="512" rx="100" fill="url(#iconSheen)"/>
 </svg>

@@ -50,15 +50,19 @@ Track your macros like slices of pizza! A lightweight, privacy-focused Progressi
 
 ## 🚀 Installation
 
+### Live App:
+
+**[fitness-pizza.com](https://fitness-pizza.com)**
+
 ### On Your Phone (PWA Install):
 
 1. **Android (Chrome/Edge)**:
-   - Visit your hosted URL
+   - Visit [fitness-pizza.com](https://fitness-pizza.com)
    - Tap menu (⋮) → "Add to Home screen"
    - App appears on home screen
 
 2. **iPhone (Safari)**:
-   - Visit your hosted URL
+   - Visit [fitness-pizza.com](https://fitness-pizza.com)
    - Tap Share (□↑) → "Add to Home Screen"
    - App appears on home screen
 
@@ -140,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.0
+**Current**: v2.3.1
+- **New pizza slice logo**: redesigned icon to show a realistic pepperoni pizza slice with layered crust, sauce, melted cheese, and pepperoni; rendered as SVG and exported to PNG icons
+- **Domain**: app is now live at [fitness-pizza.com](https://fitness-pizza.com)
+
+**Previous**: v2.3.0
 - **Remove GPS run tracker**: removed "Go for a Run" feature; `speechSynthesis` cannot work when screen is locked in mobile browsers, making the feature unusable
 - **Flexible cardio input**: pace field now accepts multiple formats — `8:30` (MM:SS colon format), `6.5 mph`, `10 km/h`, `5 km`, `3.1 mi`; bare numbers are interpreted in your current pace unit (min/mi or min/km); distance inputs use duration to compute pace automatically
 - **Arbitrary precision**: removed step constraints on duration and reps inputs; accepts any floating-point value

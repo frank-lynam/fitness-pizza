@@ -1,10 +1,10 @@
 /**
  * Fitness Pizza - Service Worker
  * Provides offline functionality and caching
- * Version 2.2.6
+ * Version 2.3.0
  */
 
-const CACHE_NAME = 'fitness-pizza-v2.2.6';
+const CACHE_NAME = 'fitness-pizza-v2.3.0';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -28,7 +28,6 @@ const STATIC_ASSETS = [
     '/js/components/photo-upload.js',
     '/js/components/chart-renderer.js',
     '/js/components/dashboard.js',
-    '/js/components/run-tracker.js',
     '/img/icons/icon-192.png',
     '/img/icons/icon-512.png',
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js'
@@ -132,17 +131,5 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
         self.skipWaiting();
-    }
-    // Run tracker lap announcements (fired when page is backgrounded / screen locked)
-    if (event.data && event.data.type === 'RUN_NOTIFICATION') {
-        self.registration.showNotification(event.data.title, {
-            body:     event.data.body,
-            icon:     '/img/icons/icon-192.png',
-            badge:    '/img/icons/icon-192.png',
-            tag:      'run-update',   // replaces previous run notification
-            silent:   false,
-            renotify: true,
-            vibrate:  [300, 100, 300], // haptic feedback even on silent mode
-        });
     }
 });

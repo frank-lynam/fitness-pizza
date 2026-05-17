@@ -140,7 +140,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.2.6
+**Current**: v2.3.0
+- **Remove GPS run tracker**: removed "Go for a Run" feature; `speechSynthesis` cannot work when screen is locked in mobile browsers, making the feature unusable
+- **Flexible cardio input**: pace field now accepts multiple formats — `8:30` (MM:SS colon format), `6.5 mph`, `10 km/h`, `5 km`, `3.1 mi`; bare numbers are interpreted in your current pace unit (min/mi or min/km); distance inputs use duration to compute pace automatically
+- **Arbitrary precision**: removed step constraints on duration and reps inputs; accepts any floating-point value
+
+**Previous**: v2.2.6
 - **Notification vibration**: lock-screen notifications now include a haptic vibration pattern so you feel the update even on silent mode
 - **Zero-stats handling**: notification body shows "GPS acquiring…" instead of "0 km · 0 mph" when no movement has been detected yet
 

@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.1
+**Current**: v2.3.2
+- **Pace unit toggle cycles through all modes**: button now cycles `min/mi → min/km → mph → km/h`; bare-number values in the field are converted to the equivalent in the new mode when toggling
+
+**Previous**: v2.3.1
 - **New pizza slice logo**: redesigned icon to show a realistic pepperoni pizza slice with layered crust, sauce, melted cheese, and pepperoni; rendered as SVG and exported to PNG icons
 - **Domain**: app is now live at [fitness-pizza.com](https://fitness-pizza.com)
 

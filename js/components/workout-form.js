@@ -27,7 +27,8 @@ function parsePaceInput(raw) {
         if (parts.length === 2) min = Number(parts[0]) + Number(parts[1]) / 60;
         else if (parts.length === 3) min = Number(parts[0]) * 60 + Number(parts[1]) + Number(parts[2]) / 60;
         if (!(min > 0)) return {};
-        return { paceMi: _paceUnit === 'km' ? min * KM_PER_MI : min };
+        const isKmPace = _paceUnit === 'km' || _paceUnit === 'kmh';
+        return { paceMi: isKmPace ? min * KM_PER_MI : min };
     }
 
     // mph → min/mile
@@ -55,10 +56,13 @@ function parsePaceInput(raw) {
         return v > 0 ? { distMi: v } : {};
     }
 
-    // Bare number → pace in current unit
+    // Bare number → interpreted in current mode
     const v = parseFloat(s);
     if (!(v > 0)) return {};
-    return { paceMi: _paceUnit === 'km' ? v * KM_PER_MI : v };
+    if (_paceUnit === 'km')  return { paceMi: v * KM_PER_MI };
+    if (_paceUnit === 'mph') return { paceMi: 60 / v };
+    if (_paceUnit === 'kmh') return { paceMi: 60 / (v / KM_PER_MI) };
+    return { paceMi: v };
 }
 
 /** Resolve a parsePaceInput result to min/mile, using duration to convert distances. */
@@ -67,6 +71,43 @@ function resolvePaceMi(parsed, durationMin) {
     if (parsed.distKm > 0 && durationMin > 0) return durationMin / (parsed.distKm / KM_PER_MI);
     if (parsed.distMi > 0 && durationMin > 0) return durationMin / parsed.distMi;
     return null;
+}
+
+function paceUnitLabel(u) {
+    if (u === 'km')  return 'min/km';
+    if (u === 'mph') return 'mph';
+    if (u === 'kmh') return 'km/h';
+    return 'min/mi';
+}
+
+function paceUnitNext(u) {
+    const cycle = ['mi', 'km', 'mph', 'kmh'];
+    return cycle[(cycle.indexOf(u) + 1) % cycle.length];
+}
+
+function pacePlaceholder(u) {
+    if (u === 'km')  return '5:00 or 5.0, or 5 km';
+    if (u === 'mph') return '6.5, or 3.1 mi';
+    if (u === 'kmh') return '10.5, or 5 km';
+    return '8:30 or 8.5, or 3.1 mi';
+}
+
+function paceHelpText(u) {
+    if (u === 'km')  return 'min/km (5:00 or 5.0), mph, km/h, or distance (5 km, 3 mi)';
+    if (u === 'mph') return 'mph (6.5), min/mi, min/km, or distance (5 km, 3 mi)';
+    if (u === 'kmh') return 'km/h (10.5), min/mi, min/km, or distance (5 km, 3 mi)';
+    return 'min/mi (8:30 or 8.5), mph, km/h, or distance (5 km, 3 mi)';
+}
+
+/** Convert stored min/mile value to display string for the given unit mode. */
+function paceToDisplay(paceMi, u) {
+    if (!(paceMi > 0)) return '';
+    let v;
+    if (u === 'km')  v = paceMi / KM_PER_MI;
+    else if (u === 'mph') v = 60 / paceMi;
+    else if (u === 'kmh') v = (60 / paceMi) * KM_PER_MI;
+    else v = paceMi;
+    return v.toFixed(4).replace(/\.?0+$/, '');
 }
 import { estimateWorkoutCalories } from '../utils/calorie-calc.js';
 import { validateWorkout, showFieldError, clearFieldError, clearFormErrors } from '../utils/validation.js';
@@ -126,9 +167,7 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
 
     // Convert stored min/mi pace to display unit for edit mode
     const paceStoredMi = entry.pace || '';
-    const paceDisplay = paceStoredMi && _paceUnit === 'km'
-        ? (paceStoredMi / KM_PER_MI).toFixed(4).replace(/\.?0+$/, '')
-        : paceStoredMi;
+    const paceDisplay = paceStoredMi ? paceToDisplay(paceStoredMi, _paceUnit) : '';
 
     formContainer.innerHTML = `
         <div class="workout-form-card">
@@ -169,11 +208,11 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
                     <label id="pace-label" for="pace">Pace / Speed / Distance (optional)</label>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <input type="text" id="pace" inputmode="decimal"
-                               placeholder="${_paceUnit === 'km' ? '5:00, 10 km/h, 5 km' : '8:30, 6.5 mph, 3.1 mi'}"
+                               placeholder="${pacePlaceholder(_paceUnit)}"
                                value="${paceDisplay}" style="flex: 1;">
-                        <button type="button" id="pace-unit-toggle" class="btn-secondary btn-small" style="white-space: nowrap;">${_paceUnit === 'km' ? 'min/km' : 'min/mi'}</button>
+                        <button type="button" id="pace-unit-toggle" class="btn-secondary btn-small" style="white-space: nowrap;">${paceUnitLabel(_paceUnit)}</button>
                     </div>
-                    <p class="help-text" id="pace-help-text">min/${_paceUnit} (8:30 or 8.5), mph, km/h, or distance (5 km, 3 mi)</p>
+                    <p class="help-text" id="pace-help-text">${paceHelpText(_paceUnit)}</p>
                 </div>
 
                 <div id="reps-field" class="form-group ${entry.exercise_type !== 'Cardio' ? '' : 'hidden'}">
@@ -267,22 +306,20 @@ function setupWorkoutFormListeners(isEdit, existingEntry) {
         paceUnitToggle.addEventListener('click', async () => {
             const raw = paceInput?.value || '';
             const hasExplicitUnit = /mph|km\/h|km\/hr|kph|kmh|\bkm\b|\bmi\b|\bmiles\b/i.test(raw);
-            // Convert unit-ambiguous (bare number / colon) values when toggling
-            if (!hasExplicitUnit) {
+            const newUnit = paceUnitNext(_paceUnit);
+            // Convert unit-ambiguous (bare number / colon) values when cycling mode
+            if (!hasExplicitUnit && raw.trim()) {
                 const parsed = parsePaceInput(raw);
                 if (parsed.paceMi > 0 && paceInput) {
-                    const newPace = _paceUnit === 'mi'
-                        ? parsed.paceMi / KM_PER_MI  // switching to km
-                        : parsed.paceMi;              // switching to mi
-                    paceInput.value = newPace.toFixed(4).replace(/\.?0+$/, '');
+                    paceInput.value = paceToDisplay(parsed.paceMi, newUnit);
                 }
             }
-            _paceUnit = _paceUnit === 'mi' ? 'km' : 'mi';
-            paceUnitToggle.textContent = _paceUnit === 'km' ? 'min/km' : 'min/mi';
-            const label = document.getElementById('pace-label');
-            if (label) label.textContent = `Pace / Speed / Distance (optional)`;
+            _paceUnit = newUnit;
+            paceUnitToggle.textContent = paceUnitLabel(_paceUnit);
+            const paceEl = document.getElementById('pace');
+            if (paceEl) paceEl.placeholder = pacePlaceholder(_paceUnit);
             const help = document.getElementById('pace-help-text');
-            if (help) help.textContent = `min/${_paceUnit} (8:30 or 8.5), mph, km/h, or distance (5 km, 3 mi)`;
+            if (help) help.textContent = paceHelpText(_paceUnit);
             await db.setSetting('pace_unit', _paceUnit);
             await updateEstimatedCalories();
         });

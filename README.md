@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.2
+**Current**: v2.3.3
+- **Redesigned logo**: tip-down pizza slice with cheese drip, 3-pepperoni triangle arrangement, clean crust arc with blisters/bubbles, bold gradients — no displacement-map filters so it looks sharp at all sizes
+- **Fix pace input keyboard**: changed `inputmode` from `decimal` to `text` so the mobile keyboard includes the colon key for `5:30` format entry
+
+**Previous**: v2.3.2
 - **Pace unit toggle cycles through all modes**: button now cycles `min/mi → min/km → mph → km/h`; bare-number values in the field are converted to the equivalent in the new mode when toggling
 
 **Previous**: v2.3.1

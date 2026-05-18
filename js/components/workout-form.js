@@ -207,7 +207,7 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
                 <div id="pace-field" class="form-group ${entry.exercise_type === 'Cardio' ? '' : 'hidden'}">
                     <label id="pace-label" for="pace">Pace / Speed / Distance (optional)</label>
                     <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="text" id="pace" inputmode="decimal"
+                        <input type="text" id="pace" inputmode="text"
                                placeholder="${pacePlaceholder(_paceUnit)}"
                                value="${paceDisplay}" style="flex: 1;">
                         <button type="button" id="pace-unit-toggle" class="btn-secondary btn-small" style="white-space: nowrap;">${paceUnitLabel(_paceUnit)}</button>

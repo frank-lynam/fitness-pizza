@@ -2175,3 +2175,10 @@ textarea.error {
 
 /* Active filter button */
 .active-filter { background:var(--accent-primary) !important; color:var(--bg-primary) !important; }
+
+/* Quick-start guide steps */
+.qs-step { display:flex; gap:14px; align-items:flex-start; margin-bottom:18px; }
+.qs-step:last-of-type { margin-bottom:0; }
+.qs-icon { font-size:1.6em; flex-shrink:0; width:36px; text-align:center; line-height:1.2; }
+.qs-step strong { display:block; color:var(--text-primary); font-size:0.97em; margin-bottom:3px; }
+.qs-step p { margin:0; color:var(--text-secondary); font-size:0.88em; line-height:1.45; }

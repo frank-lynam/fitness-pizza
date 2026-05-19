@@ -144,7 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.3
+**Current**: v2.3.4
+- **Duration accepts MM:SS**: cardio duration field is now free-text; accepts `30` (minutes), `5:55` (MM:SS), or `1:05:30` (H:MM:SS); stored as decimal minutes; edit mode displays back as MM:SS
+- **Help & Feedback section in Settings**: new top section with Quick Start Guide, Healthy Tips (TBD), and Submit Feedback button (Tally.so)
+- **Quick Start Guide modal**: auto-shows on first ever visit; covers goals, food logging, workouts, measurements, trends, and PWA install
+
+**Previous**: v2.3.3
 - **Redesigned logo**: tip-down pizza slice with cheese drip, 3-pepperoni triangle arrangement, clean crust arc with blisters/bubbles, bold gradients — no displacement-map filters so it looks sharp at all sizes
 - **Fix pace input keyboard**: changed `inputmode` from `decimal` to `text` so the mobile keyboard includes the colon key for `5:30` format entry
 

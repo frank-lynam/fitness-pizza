@@ -71,11 +71,20 @@ class FitnessTrackerApp {
             initWorkoutForm();
             initFoodLibrary();
 
+            // Set up help & feedback buttons (static HTML, set up once)
+            this.setupHelpButtons();
+
             // Load initial screen (dashboard)
             await this.loadScreen('dashboard');
 
             this.initialized = true;
             ui.hideLoading();
+
+            // Show quick start on first ever visit
+            if (!localStorage.getItem('fp_visited')) {
+                localStorage.setItem('fp_visited', '1');
+                setTimeout(() => this.showQuickStartModal(), 600);
+            }
 
             console.log('Fitness Tracker PWA initialized successfully');
         } catch (error) {
@@ -781,6 +790,132 @@ class FitnessTrackerApp {
                 </p>
             </details>
         `;
+    }
+
+    /**
+     * Wire up the help & feedback buttons in the settings tab.
+     * Called once from init() since the buttons are in static HTML.
+     */
+    setupHelpButtons() {
+        document.getElementById('btn-quick-start-guide')?.addEventListener('click', () => {
+            this.showQuickStartModal();
+        });
+        document.getElementById('btn-healthy-tips')?.addEventListener('click', () => {
+            this.showHealthyTipsModal();
+        });
+        document.getElementById('btn-submit-feedback')?.addEventListener('click', () => {
+            // Tally.so — free, anonymous, no account needed for submitters,
+            // form URL reveals nothing about the owner.
+            // Create your form at https://tally.so and replace the URL below.
+            const FEEDBACK_URL = 'https://tally.so/r/fitness-pizza-feedback';
+            window.open(FEEDBACK_URL, '_blank', 'noopener');
+        });
+    }
+
+    /** Quick Start Guide modal */
+    showQuickStartModal() {
+        const existing = document.getElementById('quick-start-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'quick-start-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:480px;">
+                <div class="modal-header">
+                    <h3>🍕 Welcome to Fitness Pizza</h3>
+                    <button class="modal-close" id="qs-close-top">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:20px;overflow-y:auto;">
+                    <p style="color:var(--text-secondary);margin:0 0 20px;">
+                        Track your macros like slices of a pizza pie. Here's everything you need to know:
+                    </p>
+
+                    <div class="qs-step">
+                        <div class="qs-icon">🎯</div>
+                        <div>
+                            <strong>Set Your Daily Goals</strong>
+                            <p>Go to <em>Settings → Daily Goals</em>. Enter your fat, protein, and carb targets — calories are calculated automatically. The app adjusts tomorrow's carb target each day using a feedback controller based on how close you hit your goals.</p>
+                        </div>
+                    </div>
+
+                    <div class="qs-step">
+                        <div class="qs-icon">🍽️</div>
+                        <div>
+                            <strong>Log Your Food</strong>
+                            <p>Open the <em>Macros</em> tab. Tap <em>+ Add Macro Entry</em> to log fat, protein, carbs, and fiber manually. Build a <em>Food Library</em> of your common foods for one-tap logging. Use <em>📷 From Photo</em> or <em>🤖 AI from Text</em> for instant AI-powered estimates (requires a free Gemini API key in Settings).</p>
+                        </div>
+                    </div>
+
+                    <div class="qs-step">
+                        <div class="qs-icon">💪</div>
+                        <div>
+                            <strong>Log Workouts</strong>
+                            <p>Open the <em>Workouts</em> tab. Add <em>Cardio</em> with duration and pace/speed/distance, or <em>Lifting</em>/<em>Core</em> with reps. Calorie burn is estimated automatically. Save frequent exercises to your <em>Workout Library</em> for one-tap re-logging.</p>
+                        </div>
+                    </div>
+
+                    <div class="qs-step">
+                        <div class="qs-icon">📏</div>
+                        <div>
+                            <strong>Track Your Body</strong>
+                            <p>Log weight, waist, and body fat % in the <em>Measurements</em> tab. Use the Navy or Calipers estimators if you don't have a direct reading. The app builds a trend over time.</p>
+                        </div>
+                    </div>
+
+                    <div class="qs-step">
+                        <div class="qs-icon">📈</div>
+                        <div>
+                            <strong>See Your Progress</strong>
+                            <p>The <em>Dashboard</em> shows today's macro breakdown at a glance. The <em>Trends</em> tab shows weight, lean mass, calorie balance, and macro charts over 7, 30, 90 days, or all time.</p>
+                        </div>
+                    </div>
+
+                    <div class="qs-step">
+                        <div class="qs-icon">📱</div>
+                        <div>
+                            <strong>Install as an App</strong>
+                            <p>In Chrome, tap the menu (⋮) → <em>Add to Home Screen</em>. In Safari, tap Share (□↑) → <em>Add to Home Screen</em>. Once installed, the app works fully offline.</p>
+                        </div>
+                    </div>
+
+                    <button id="qs-close-bottom" class="btn-primary" style="width:100%;margin-top:8px;">Got it — let's go! 🍕</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const close = () => { modal.remove(); };
+        document.getElementById('qs-close-top').addEventListener('click', close);
+        document.getElementById('qs-close-bottom').addEventListener('click', close);
+        modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    }
+
+    /** Healthy Tips modal (content TBD) */
+    showHealthyTipsModal() {
+        const existing = document.getElementById('healthy-tips-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'healthy-tips-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:480px;">
+                <div class="modal-header">
+                    <h3>🥗 Healthy Tips</h3>
+                    <button class="modal-close" id="tips-close">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:20px;">
+                    <p style="color:var(--text-secondary);">Tips coming soon.</p>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        const close = () => modal.remove();
+        document.getElementById('tips-close').addEventListener('click', close);
+        modal.addEventListener('click', e => { if (e.target === modal) close(); });
     }
 
     /**

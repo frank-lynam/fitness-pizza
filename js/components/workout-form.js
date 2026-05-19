@@ -65,6 +65,30 @@ function parsePaceInput(raw) {
     return { paceMi: v };
 }
 
+/**
+ * Parse a duration text field that accepts plain minutes ("30") or MM:SS / H:MM:SS.
+ * Returns decimal minutes.
+ */
+function parseDuration(raw) {
+    const s = (raw || '').trim();
+    if (!s) return 0;
+    if (s.includes(':')) {
+        const parts = s.split(':').map(p => Number(p) || 0);
+        if (parts.length === 2) return parts[0] + parts[1] / 60;
+        if (parts.length === 3) return parts[0] * 60 + parts[1] + parts[2] / 60;
+    }
+    return parseFloat(s) || 0;
+}
+
+/** Format decimal minutes back to display string (30 → "30", 5.9167 → "5:55"). */
+function formatDuration(minutes) {
+    if (!(minutes > 0)) return '';
+    const mins = Math.floor(minutes);
+    const secs = Math.round((minutes - mins) * 60);
+    if (secs === 0) return String(mins);
+    return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 /** Resolve a parsePaceInput result to min/mile, using duration to convert distances. */
 function resolvePaceMi(parsed, durationMin) {
     if (parsed.paceMi != null) return parsed.paceMi;
@@ -199,9 +223,11 @@ export async function showWorkoutForm(existingEntry = null, quickExercise = null
                 </div>
 
                 <div id="cardio-field" class="form-group ${entry.exercise_type === 'Cardio' ? '' : 'hidden'}">
-                    <label for="duration-minutes">Duration (minutes) *</label>
-                    <input type="number" id="duration-minutes" step="any" min="0"
-                           placeholder="30" value="${entry.duration_minutes || ''}">
+                    <label for="duration-minutes">Duration *</label>
+                    <input type="text" id="duration-minutes" inputmode="text"
+                           placeholder="30 or 5:55"
+                           value="${entry.duration_minutes ? formatDuration(entry.duration_minutes) : ''}">
+                    <p class="help-text">minutes, or MM:SS / H:MM:SS</p>
                 </div>
 
                 <div id="pace-field" class="form-group ${entry.exercise_type === 'Cardio' ? '' : 'hidden'}">
@@ -360,7 +386,7 @@ async function computeWorkoutCalories(exerciseType, exerciseName, durationMinute
 async function updateEstimatedCalories() {
     const exerciseType = document.getElementById('exercise-type')?.value || 'Lifting';
     const exerciseName = document.getElementById('exercise-name')?.value || '';
-    const durationMinutes = parseFloat(document.getElementById('duration-minutes')?.value || 0);
+    const durationMinutes = parseDuration(document.getElementById('duration-minutes')?.value);
     const reps    = parseInt(document.getElementById('exercise-reps')?.value || 0);
     const paceMi  = resolvePaceMi(parsePaceInput(document.getElementById('pace')?.value || ''), durationMinutes);
 
@@ -382,7 +408,7 @@ async function handleWorkoutFormSubmit(isEdit, existingEntry) {
 
         const exerciseName = document.getElementById('exercise-name').value.trim();
         const exerciseType = document.getElementById('exercise-type').value;
-        const durationMinutes = parseFloat(document.getElementById('duration-minutes')?.value || 0);
+        const durationMinutes = parseDuration(document.getElementById('duration-minutes')?.value);
         const pace = resolvePaceMi(parsePaceInput(document.getElementById('pace')?.value || ''), durationMinutes);
         const reps = parseInt(document.getElementById('exercise-reps')?.value || 0);
 

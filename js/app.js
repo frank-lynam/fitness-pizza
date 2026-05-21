@@ -12,6 +12,7 @@ import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/mac
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
 import { initFoodLibrary } from './components/food-library.js';
+import { initEasterEggs } from './easter-eggs.js';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -73,6 +74,9 @@ class FitnessTrackerApp {
 
             // Set up help & feedback buttons (static HTML, set up once)
             this.setupHelpButtons();
+
+            // 🐰🌈🦄 Easter eggs
+            initEasterEggs();
 
             // Load initial screen (dashboard)
             await this.loadScreen('dashboard');

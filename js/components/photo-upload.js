@@ -245,6 +245,24 @@ function showLabelRetryModal(errorMessage, imageData) {
     ]);
 }
 
+async function takeNativePhoto() {
+    const Camera = window.Capacitor?.Plugins?.Camera;
+    if (!Camera) throw new Error('Camera plugin not available');
+    const photo = await Camera.getPhoto({
+        resultType: 'dataUrl',
+        source: 'CAMERA',
+        quality: 85,
+        allowEditing: false,
+        correctOrientation: true
+    });
+    return photo.dataUrl;
+}
+
+function isUserCancellation(err) {
+    const msg = (err?.message || '').toLowerCase();
+    return msg.includes('cancel') || msg.includes('no image') || msg.includes('denied');
+}
+
 /**
  * Set up photo upload event listeners
  * @param {HTMLElement} modal - Modal element
@@ -277,9 +295,22 @@ function setupPhotoUploadListeners(modal) {
     });
 
     // Take photo (mobile camera)
-    takePhotoBtn.addEventListener('click', () => {
-        photoInput.setAttribute('capture', 'environment');
-        photoInput.click();
+    takePhotoBtn.addEventListener('click', async () => {
+        if (window.Capacitor?.isNativePlatform?.()) {
+            try {
+                const dataUrl = await takeNativePhoto();
+                currentImageData = dataUrl;
+                previewImage.src = dataUrl;
+                previewSection.classList.remove('hidden');
+            } catch (err) {
+                if (!isUserCancellation(err)) {
+                    ui.showError('Failed to open camera: ' + err.message);
+                }
+            }
+        } else {
+            photoInput.setAttribute('capture', 'environment');
+            photoInput.click();
+        }
     });
 
     // Choose from gallery
@@ -343,9 +374,21 @@ function setupPhotoUploadListeners(modal) {
 
     // Scan Label buttons — camera and gallery
     if (takeLabelPhotoBtn && labelInput) {
-        takeLabelPhotoBtn.addEventListener('click', () => {
-            labelInput.setAttribute('capture', 'environment');
-            labelInput.click();
+        takeLabelPhotoBtn.addEventListener('click', async () => {
+            if (window.Capacitor?.isNativePlatform?.()) {
+                try {
+                    const dataUrl = await takeNativePhoto();
+                    ui.closeModal(modal);
+                    await runLabelAnalysis(dataUrl);
+                } catch (err) {
+                    if (!isUserCancellation(err)) {
+                        ui.showError('Failed to open camera: ' + err.message);
+                    }
+                }
+            } else {
+                labelInput.setAttribute('capture', 'environment');
+                labelInput.click();
+            }
         });
     }
     if (scanLabelBtn && labelInput) {

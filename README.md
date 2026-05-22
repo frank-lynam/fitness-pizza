@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.6
+**Current**: v2.4.7
+- **Native camera fix**: "Take Photo" and "Take Label Photo" now use @capacitor/camera on Android instead of `<input capture>` (which only opened the gallery); APK reinstall required
+
+**v2.4.6**
 - **Better update check error message**: "Failed to fetch" now shows "Could not reach server — check your connection" instead of the raw JS error
 
 **v2.4.5**

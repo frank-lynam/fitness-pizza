@@ -311,3 +311,34 @@ export function setupConnectivityListeners(onOnline, onOffline) {
         onOffline();
     }
 }
+
+/**
+ * Show a brief toast notification at the bottom of the screen
+ * @param {string} message
+ * @param {number} duration - ms before auto-dismiss
+ */
+export function showToast(message, duration = 3500) {
+    const existing = document.getElementById('fp-toast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.id = 'fp-toast';
+    toast.textContent = message;
+    toast.style.cssText = [
+        'position:fixed',
+        'bottom:calc(var(--bottom-nav-height,60px) + 16px)',
+        'left:50%',
+        'transform:translateX(-50%)',
+        'background:var(--bg-secondary)',
+        'color:var(--text-primary)',
+        'padding:10px 20px',
+        'border-radius:20px',
+        'border:1px solid var(--border-color)',
+        'z-index:9999',
+        'font-size:0.9em',
+        'box-shadow:0 4px 12px rgba(0,0,0,0.4)',
+        'white-space:nowrap',
+        'pointer-events:none',
+    ].join(';');
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), duration);
+}

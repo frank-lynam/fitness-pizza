@@ -1522,23 +1522,60 @@ class FitnessTrackerApp {
         const exportBtn = document.getElementById('btn-export-data');
         if (exportBtn) {
             exportBtn.onclick = async () => {
+                ui.showLoading('Exporting data…');
                 try {
                     const data = await db.exportAllData();
                     const dataStr = JSON.stringify(data, null, 2);
-                    const filename = `fitness-pizza-export-${new Date().toISOString().slice(0,10)}.json`;
-                    if (window.Capacitor?.isNativePlatform?.() && navigator.share) {
+                    const filename = `fitness-pizza-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+                    if (window.Capacitor?.isNativePlatform?.()) {
                         const file = new File([dataStr], filename, { type: 'application/json' });
-                        await navigator.share({ files: [file], title: filename });
+                        let shared = false;
+
+                        // Try file share (not all WebViews support JSON files)
+                        if (navigator.canShare?.({ files: [file] })) {
+                            try {
+                                await navigator.share({ files: [file], title: filename });
+                                shared = true;
+                            } catch (e) {
+                                if (e.name === 'AbortError') { ui.hideLoading(); return; }
+                            }
+                        }
+
+                        // Fall back to sharing as plain text
+                        if (!shared && navigator.share) {
+                            try {
+                                await navigator.share({ title: filename, text: dataStr });
+                                shared = true;
+                            } catch (e) {
+                                if (e.name === 'AbortError') { ui.hideLoading(); return; }
+                            }
+                        }
+
+                        // Last resort: clipboard
+                        if (!shared) {
+                            await navigator.clipboard.writeText(dataStr);
+                            ui.hideLoading();
+                            ui.showToast('Export copied to clipboard');
+                            return;
+                        }
                     } else {
+                        // Browser: trigger download
                         const blob = new Blob([dataStr], { type: 'application/json' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
                         a.download = filename;
+                        document.body.appendChild(a);
                         a.click();
+                        document.body.removeChild(a);
                         URL.revokeObjectURL(url);
                     }
+
+                    ui.hideLoading();
+                    ui.showToast(`✓ Exported ${filename}`);
                 } catch (error) {
+                    ui.hideLoading();
                     if (error.name !== 'AbortError') {
                         console.error('Export error:', error);
                         ui.showError('Failed to export data: ' + error.message);

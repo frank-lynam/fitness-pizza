@@ -909,7 +909,10 @@ class FitnessTrackerApp {
      */
     initCapgoUpdater() {
         const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
-        if (!CU) return;
+        if (!CU) {
+            console.warn('[updater] CapacitorUpdater plugin not found');
+            return;
+        }
 
         // Tell the plugin this bundle loaded successfully — prevents rollback timeout
         CU.notifyAppReady();
@@ -918,18 +921,24 @@ class FitnessTrackerApp {
         setTimeout(() => this.checkLiveUpdate(CU), 5000);
     }
 
-    async checkLiveUpdate(CU) {
+    async checkLiveUpdate(CU, silent = true) {
         const MANIFEST = 'https://fitness-pizza.com/updates/latest.json';
         try {
-            const [{ bundle, native: nativeVersion }, latest] = await Promise.all([
+            const [current, latest] = await Promise.all([
                 CU.current(),
                 fetch(`${MANIFEST}?t=${Date.now()}`).then(r => r.json()),
             ]);
 
-            // When running the built-in APK bundle treat its version as the native version
-            const currentVersion = bundle.version === 'builtin' ? nativeVersion : bundle.version;
+            const nativeVersion = current.native;
+            const bundleVersion = current.bundle?.version;
+            const currentVersion = (bundleVersion === 'builtin' || !bundleVersion) ? nativeVersion : bundleVersion;
 
-            if (!this._semverGt(latest.version, currentVersion)) return; // already up to date
+            console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} minNative=${latest.minNativeVersion}`);
+
+            if (!this._semverGt(latest.version, currentVersion)) {
+                if (!silent) ui.showToast('Already up to date');
+                return;
+            }
 
             // Bundle requires a newer native binary than what's installed
             if (this._semverGt(latest.minNativeVersion, nativeVersion)) {
@@ -941,8 +950,8 @@ class FitnessTrackerApp {
             const newBundle = await CU.download({ url: latest.url, version: latest.version });
             this.showLiveBundleUpdateDialog(CU, newBundle.id, latest.version);
         } catch (e) {
-            // Fail silently — update check should never break the app
-            console.warn('[updater] Update check skipped:', e.message);
+            console.warn('[updater] Update check failed:', e.message);
+            if (!silent) ui.showError('Update check failed: ' + e.message);
         }
     }
 
@@ -1048,6 +1057,13 @@ class FitnessTrackerApp {
         });
         document.getElementById('btn-submit-feedback')?.addEventListener('click', () => {
             window.location.href = 'mailto:Frank@fitness-pizza.com?subject=Fitness%20Pizza%20Feedback';
+        });
+
+        document.getElementById('btn-check-updates')?.addEventListener('click', () => {
+            const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
+            if (!CU) { ui.showError('Updater plugin not available'); return; }
+            ui.showToast('Checking for updates…');
+            this.checkLiveUpdate(CU, false);
         });
     }
 

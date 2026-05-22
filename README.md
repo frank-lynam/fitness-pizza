@@ -144,7 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.4
+**Current**: v2.4.5
+- **Fix native version**: build.gradle versionName now matches JS version (was stuck at "1.0", causing update checks to always compare against wrong baseline)
+- **Update check visible errors**: failures now surface as errors when triggered manually; logs native/current/latest versions to console
+- **"Check for Updates" button**: added to Settings → About (native only) so update check can be triggered manually and failures are shown
+
+**v2.4.4**
 - **Export**: gzip-compressed (.json.gz); native APK uses @capacitor/filesystem + @capacitor/share to open the Android share sheet (Save to Downloads, Drive, email, etc.); browser triggers a direct .gz download
 
 **v2.4.3**

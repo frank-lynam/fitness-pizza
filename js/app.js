@@ -951,7 +951,12 @@ class FitnessTrackerApp {
             this.showLiveBundleUpdateDialog(CU, newBundle.id, latest.version);
         } catch (e) {
             console.warn('[updater] Update check failed:', e.message);
-            if (!silent) ui.showError('Update check failed: ' + e.message);
+            if (!silent) {
+                const msg = (e.message === 'Failed to fetch' || e.name === 'TypeError')
+                    ? 'Could not reach server — check your connection and try again'
+                    : 'Update check failed: ' + e.message;
+                ui.showError(msg);
+            }
         }
     }
 

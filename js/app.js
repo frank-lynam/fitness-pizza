@@ -937,11 +937,9 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // Download in the background — does NOT interrupt the user
+            // Download silently, then prompt the user
             const newBundle = await CU.download({ url: latest.url, version: latest.version });
-            // Queue it for next launch (next() is non-destructive unlike set())
-            await CU.next({ id: newBundle.id });
-            console.log('[updater] Bundle queued, applies on next launch:', latest.version);
+            this.showLiveBundleUpdateDialog(CU, newBundle.id, latest.version);
         } catch (e) {
             // Fail silently — update check should never break the app
             console.warn('[updater] Update check skipped:', e.message);
@@ -993,6 +991,48 @@ class FitnessTrackerApp {
         document.body.appendChild(modal);
         document.getElementById('apk-update-later').addEventListener('click', () => modal.remove());
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    }
+
+    showLiveBundleUpdateDialog(CU, bundleId, version) {
+        if (document.getElementById('live-update-modal')) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'live-update-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <div class="modal-header">
+                    <h3>✨ Update Available</h3>
+                </div>
+                <div class="modal-body" style="padding:20px;">
+                    <p>Version <strong>${version}</strong> is ready to install. The app will restart instantly — your data is safe.</p>
+                    <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px;">
+                        <button id="live-update-now" class="btn-primary">Restart &amp; Update</button>
+                        <button id="live-update-later" class="btn-secondary">Later</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        document.getElementById('live-update-now').addEventListener('click', async () => {
+            modal.remove();
+            ui.showLoading('Applying update…');
+            await CU.set({ id: bundleId });
+        });
+
+        document.getElementById('live-update-later').addEventListener('click', async () => {
+            modal.remove();
+            await CU.next({ id: bundleId });
+        });
+
+        modal.addEventListener('click', async e => {
+            if (e.target === modal) {
+                modal.remove();
+                await CU.next({ id: bundleId });
+            }
+        });
     }
 
     /**

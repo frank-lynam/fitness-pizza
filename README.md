@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.2
+**Current**: v2.4.3
+- **Live update prompt**: after silently downloading a JS bundle, shows "Update Available — Restart & Update / Later" modal; restart applies immediately via CU.set(), Later queues for next launch
+
+**v2.4.2**
 - **Export fixed**: loading spinner while exporting; toast confirmation on success; `<a>` appended to DOM before click (browser download fix); native path now checks `canShare({files})` and falls back to text share then clipboard
 
 **v2.4.1**

@@ -116,6 +116,7 @@
             <div id="screen-workouts" class="screen">
                 <div id="workouts-content">
                     <div class="action-buttons">
+                        <button id="btn-go-for-run" class="btn-primary native-only">🏃 Go for a Run</button>
                         <button id="btn-add-workout" class="btn-primary">+ Add Workout</button>
                         <button id="btn-manage-workouts" class="btn-secondary">📚 Workout Library</button>
                     </div>
@@ -178,6 +179,17 @@
                             <button id="btn-quick-start-guide" class="btn-primary">📖 Quick Start Guide</button>
                             <button id="btn-healthy-tips" class="btn-secondary">🥗 Healthy Tips</button>
                             <button id="btn-submit-feedback" class="btn-secondary">💬 Submit Feedback</button>
+                        </div>
+                        <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-color);">
+                            <p style="font-size:0.82em;color:var(--text-secondary);margin:0 0 8px;font-weight:600;">Native App (background GPS run tracking)</p>
+                            <a id="btn-download-android" href="/app/android/fitness-pizza.apk" download
+                               class="btn-secondary" style="display:block;text-align:center;text-decoration:none;margin-bottom:6px;">
+                                📱 Download Android APK
+                            </a>
+                            <p id="ios-testflight-info" style="font-size:0.78em;color:var(--text-secondary);margin:4px 0 0;text-align:center;">
+                                iOS: <a id="btn-ios-testflight" href="#" target="_blank" rel="noopener"
+                                        style="color:var(--accent-primary);">TestFlight</a> — coming soon
+                            </p>
                         </div>
                     </div>
 
@@ -350,7 +362,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.3.6</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.3.7</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

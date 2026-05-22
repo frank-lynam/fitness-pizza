@@ -13,6 +13,7 @@ import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from '.
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
 import { initFoodLibrary } from './components/food-library.js';
 import { initEasterEggs } from './easter-eggs.js';
+import { initRunTracker } from './components/run-tracker.js';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -77,6 +78,12 @@ class FitnessTrackerApp {
 
             // 🐰🌈🦄 Easter eggs
             initEasterEggs();
+
+            // Native Capacitor features (background GPS run tracking)
+            if (window.Capacitor?.isNativePlatform?.()) {
+                document.body.classList.add('is-native');
+                initRunTracker();
+            }
 
             // Load initial screen (dashboard)
             await this.loadScreen('dashboard');

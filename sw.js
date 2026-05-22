@@ -1,10 +1,10 @@
 /**
  * Fitness Pizza - Service Worker
  * Provides offline functionality and caching
- * Version 2.3.6
+ * Version 2.3.7
  */
 
-const CACHE_NAME = 'fitness-pizza-v2.3.6';
+const CACHE_NAME = 'fitness-pizza-v2.3.7';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -29,6 +29,7 @@ const STATIC_ASSETS = [
     '/js/components/chart-renderer.js',
     '/js/components/dashboard.js',
     '/js/easter-eggs.js',
+    '/js/components/run-tracker.js',
     '/img/icons/icon-192.png',
     '/img/icons/icon-512.png',
     'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js'

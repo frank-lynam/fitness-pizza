@@ -144,7 +144,13 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.6
+**Current**: v2.3.7
+- **Capacitor native app**: wraps the PWA in a native Android/iOS shell so GPS keeps running while the screen is locked — the limitation that caused the run tracker to be removed in v2.3.0
+- **Run Tracker**: new "Go for a Run" button appears in the Workouts tab when running inside the native app; tracks distance, duration, pace, and calories in real-time; announces each kilometre via text-to-speech; auto-saves the run as a Cardio workout on finish
+- **Native app download**: Settings → Help & Feedback now shows an Android APK download link and an iOS TestFlight placeholder; see `BUILD.md` for build instructions
+- **Capacitor setup**: `package.json`, `capacitor.config.json`, and `BUILD.md` added; `www/` directory generated on demand by `npm run prepare-web` (gitignored)
+
+**Previous**: v2.3.6
 - **Fix Easter egg long-press (#3/#4)**: 12px drift tolerance so natural finger wobble no longer cancels the hold; suppress the click that fires on release so the form does not open; `-webkit-touch-callout:none` on FABs so iOS callout does not steal the event
 - **Fix Easter egg unicorn typer (#7)**: replaced deprecated `keypress` with `keydown`, broadened input selector to match all `input`/`textarea` elements
 

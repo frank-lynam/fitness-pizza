@@ -16,6 +16,13 @@
       "requestPermissions": true,
       "stoppedOnTerminate": false,
       "startOnBoot": false
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": true,
+      "disableAutoUpdateUnderNative": true,
+      "disableAutoUpdateBreaking": false,
+      "resetWhenUpdate": true,
+      "directUpdate": false
     }
   }
 }

@@ -82,6 +82,7 @@ class FitnessTrackerApp {
             // Native Capacitor features (background GPS run tracking)
             if (window.Capacitor?.isNativePlatform?.()) {
                 document.body.classList.add('is-native');
+                this.initCapgoUpdater();
                 initRunTracker();
             }
 
@@ -826,6 +827,63 @@ class FitnessTrackerApp {
                 </p>
             </details>
         `;
+    }
+
+    /**
+     * Initialise Capgo live updates.
+     * - notifyAppReady() tells Capgo this bundle loaded OK; without it Capgo
+     *   rolls back to the previous bundle after a timeout.
+     * - majorAvailableUpdate fires when a new bundle requires a newer native APK;
+     *   we show a download dialog instead of silently failing.
+     */
+    initCapgoUpdater() {
+        const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
+        if (!CU) return;
+
+        // Confirm this bundle is healthy — prevents automatic rollback
+        CU.notifyAppReady();
+
+        // A bundle upload was flagged as needing a newer native binary
+        CU.addListener('majorAvailableUpdate', (info) => {
+            this.showApkUpdateDialog(info.version);
+        });
+    }
+
+    /**
+     * Show a dialog prompting the user to download a new APK.
+     * Triggered when a live update bundle requires a newer native binary
+     * than the currently installed APK provides.
+     */
+    showApkUpdateDialog(version) {
+        if (document.getElementById('apk-update-modal')) return;
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'apk-update-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <div class="modal-header">
+                    <h3>📲 App Update Required</h3>
+                </div>
+                <div class="modal-body" style="padding:20px;">
+                    <p>Version <strong>${version}</strong> of Fitness Pizza includes changes that need a fresh install of the native app.</p>
+                    <p style="color:var(--text-secondary);font-size:0.88em;margin-top:8px;">
+                        Your data won't be affected — only the app itself is updated.
+                    </p>
+                    <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px;">
+                        <a href="/app/android/fitness-pizza.apk" download
+                           class="btn-primary" style="text-align:center;text-decoration:none;padding:14px;">
+                            📥 Download New APK
+                        </a>
+                        <button id="apk-update-later" class="btn-secondary">Remind me later</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        document.getElementById('apk-update-later').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     }
 
     /**

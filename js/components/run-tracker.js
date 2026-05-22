@@ -125,7 +125,7 @@ function launchRunOverlay() {
 
     function startTick() {
         stopTick();
-        tickInterval = setInterval(refreshDisplay, 1000);
+        tickInterval = setInterval(refreshDisplay, 500);
     }
 
     function stopTick() {
@@ -268,6 +268,7 @@ function launchRunOverlay() {
                     sets: [],
                 });
                 saved = true;
+                window.dispatchEvent(new CustomEvent('fp:data-changed'));
             } catch (_) {}
         }
 

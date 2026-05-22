@@ -7,80 +7,83 @@
     <stop offset="100%" stop-color="#192538"/>
   </linearGradient>
 
-  <!-- Crust: warm baked tan → dark brown -->
-  <linearGradient id="crustFill" x1="20%" y1="0%" x2="80%" y2="100%">
-    <stop offset="0%"   stop-color="#f2c26e"/>
-    <stop offset="48%"  stop-color="#d08a28"/>
-    <stop offset="100%" stop-color="#8c5012"/>
+  <!-- Crust band gradient: top warm tan → bottom brown -->
+  <linearGradient id="crust-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stop-color="#d4955a"/>
+    <stop offset="100%" stop-color="#a06030"/>
   </linearGradient>
 
-  <!-- Crust outer rim (lighter, facing "up") -->
-  <linearGradient id="crustRim" x1="0%" y1="0%" x2="0%" y2="100%">
-    <stop offset="0%"   stop-color="#ffe898"/>
-    <stop offset="100%" stop-color="#cf8020"/>
-  </linearGradient>
-
-  <!-- Sauce: deep red -->
-  <radialGradient id="sauceFill" cx="50%" cy="26%" r="74%">
-    <stop offset="0%"   stop-color="#e83c1c"/>
-    <stop offset="60%"  stop-color="#c01408"/>
-    <stop offset="100%" stop-color="#880c04"/>
+  <!-- Cheese base: golden radial -->
+  <radialGradient id="cheese-grad" cx="45%" cy="30%" r="65%">
+    <stop offset="0%" stop-color="#f5e090"/>
+    <stop offset="100%" stop-color="#e8c060"/>
   </radialGradient>
 
-  <!-- Cheese: rich golden yellow -->
-  <radialGradient id="cheeseFill" cx="40%" cy="32%" r="64%">
-    <stop offset="0%"   stop-color="#ffe86a"/>
-    <stop offset="48%"  stop-color="#f4be0c"/>
-    <stop offset="100%" stop-color="#be7c00"/>
+  <!-- Cheese drip -->
+  <radialGradient id="drip-grad" cx="40%" cy="30%" r="60%">
+    <stop offset="0%" stop-color="#fff8c0"/>
+    <stop offset="50%" stop-color="#f5e090"/>
+    <stop offset="100%" stop-color="#e8c060"/>
   </radialGradient>
 
-  <!-- Cheese drip: brighter, more saturated -->
-  <radialGradient id="dripFill" cx="36%" cy="28%" r="58%">
-    <stop offset="0%"   stop-color="#fff8b8"/>
-    <stop offset="50%"  stop-color="#f8ca10"/>
-    <stop offset="100%" stop-color="#d09400"/>
+  <!-- Prosciutto piece 1 -->
+  <radialGradient id="pros1" cx="45%" cy="40%" r="55%">
+    <stop offset="0%" stop-color="#eeaab8"/>
+    <stop offset="100%" stop-color="#c86078"/>
   </radialGradient>
 
-  <!-- Pepperoni: dark core → vivid red surface -->
-  <radialGradient id="pepFill" cx="34%" cy="30%" r="58%">
-    <stop offset="0%"   stop-color="#ec3030"/>
-    <stop offset="52%"  stop-color="#b01212"/>
-    <stop offset="100%" stop-color="#660606"/>
+  <!-- Prosciutto piece 2 -->
+  <radialGradient id="pros2" cx="55%" cy="40%" r="55%">
+    <stop offset="0%" stop-color="#eeaab8"/>
+    <stop offset="100%" stop-color="#c86078"/>
   </radialGradient>
 
-  <!-- Warm ambient glow -->
-  <radialGradient id="warmGlow" cx="50%" cy="54%" r="50%">
-    <stop offset="0%"   stop-color="#d86010" stop-opacity="0.18"/>
-    <stop offset="100%" stop-color="#d86010" stop-opacity="0"/>
+  <!-- Fig 1 skin -->
+  <radialGradient id="fig1-skin" cx="40%" cy="35%" r="60%">
+    <stop offset="0%" stop-color="#b050c8"/>
+    <stop offset="100%" stop-color="#501065"/>
+  </radialGradient>
+
+  <!-- Fig 1 flesh -->
+  <radialGradient id="fig1-flesh" cx="50%" cy="45%" r="55%">
+    <stop offset="0%" stop-color="#d05070"/>
+    <stop offset="100%" stop-color="#8a1a38"/>
+  </radialGradient>
+
+  <!-- Fig 2 skin -->
+  <radialGradient id="fig2-skin" cx="40%" cy="35%" r="60%">
+    <stop offset="0%" stop-color="#b050c8"/>
+    <stop offset="100%" stop-color="#501065"/>
+  </radialGradient>
+
+  <!-- Fig 2 flesh -->
+  <radialGradient id="fig2-flesh" cx="50%" cy="45%" r="55%">
+    <stop offset="0%" stop-color="#d05070"/>
+    <stop offset="100%" stop-color="#8a1a38"/>
   </radialGradient>
 
   <!-- Icon surface shine -->
   <radialGradient id="iconShine" cx="28%" cy="18%" r="48%">
-    <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.08"/>
+    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.07"/>
     <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
   </radialGradient>
 
-  <!-- Drip inner highlight -->
-  <radialGradient id="dripHighlight" cx="32%" cy="28%" r="50%">
-    <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.55"/>
-    <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-  </radialGradient>
-
-  <!-- ── FILTERS ── (only simple drop shadows, no displacement maps) -->
-
-  <filter id="sliceShadow" x="-14%" y="-10%" width="128%" height="130%">
-    <feDropShadow dx="0" dy="10" stdDeviation="22"
-                  flood-color="#000000" flood-opacity="0.72"/>
+  <!-- Drop shadow filter for the whole slice -->
+  <filter id="sliceShadow" x="-16%" y="-10%" width="132%" height="132%">
+    <feDropShadow dx="0" dy="6" stdDeviation="10"
+                  flood-color="#1a0505" flood-opacity="0.55"/>
   </filter>
 
-  <filter id="pepShadow" x="-24%" y="-24%" width="148%" height="148%">
-    <feDropShadow dx="1" dy="2.5" stdDeviation="3.5"
-                  flood-color="#000000" flood-opacity="0.55"/>
+  <!-- Subtle shadow for toppings -->
+  <filter id="toppingShadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feDropShadow dx="0" dy="3" stdDeviation="4"
+                  flood-color="#1a0505" flood-opacity="0.40"/>
   </filter>
 
+  <!-- Drip glow -->
   <filter id="dripGlow" x="-30%" y="-10%" width="160%" height="140%">
-    <feDropShadow dx="0" dy="4" stdDeviation="7"
-                  flood-color="#d09000" flood-opacity="0.6"/>
+    <feDropShadow dx="0" dy="4" stdDeviation="6"
+                  flood-color="#c8a020" flood-opacity="0.5"/>
   </filter>
 
 </defs>
@@ -88,150 +91,221 @@
 <!-- ══ BACKGROUND ══════════════════════════════════════════ -->
 <rect width="512" height="512" rx="90" fill="url(#bg)"/>
 
-<!-- Warm ambient glow from the pizza -->
-<ellipse cx="256" cy="300" rx="230" ry="210" fill="url(#warmGlow)"/>
-
-
 <!-- ══ PIZZA SLICE (tip pointing DOWN) ══════════════════════
-     Geometry:
-       Tip          : (256, 450)
-       Left corner  : (58,  104)
-       Right corner : (454, 104)
-       Outer arc    : M 58,104  Q 256,28  454,104     (peak at y=28)
-       Crust inner  : M 90,162  Q 256,98  422,162     (peak at y=98)
-       Cheese inner : M 112,168 ─────── 400,168 → 256,444
+     Tip      : (256, 450)
+     Top-left  : (58,  104)
+     Top-right : (454, 104)
+     Outer arc : M 58,104  Q 256,28  454,104
+     Inner arc : M 90,162  Q 256,98  422,162
 ═══════════════════════════════════════════════════════════ -->
 
-<!-- Drop shadow rendered first, below everything -->
-<path d="M 58,104 Q 256,28 454,104 L 256,450 Z"
-      fill="#a05808" opacity="0.4" filter="url(#sliceShadow)"/>
+<!-- ── Drop shadow (whole slice) ── -->
+<g filter="url(#sliceShadow)">
+  <path d="M 58,104 Q 256,28 454,104 L 256,450 Z" fill="#a06030"/>
+</g>
 
-<!-- ── Layer 1: Sauce (fills the full triangle) ── -->
-<path d="M 58,104 Q 256,28 454,104 L 256,450 Z"
-      fill="url(#sauceFill)"/>
+<!-- ── Layer 1: Cheese base (golden, from inner crust to tip) ── -->
+<path d="M 90,162 Q 256,98 422,162 L 256,450 Z"
+      fill="url(#cheese-grad)"/>
 
 <!-- ── Layer 2: Crust band ── -->
-<path d="M 58,104  Q 256,28  454,104
-         L 422,162 Q 256,98   90,162 Z"
-      fill="url(#crustFill)"/>
+<path d="M 58,104 Q 256,28 454,104 L 422,162 Q 256,98 90,162 Z"
+      fill="url(#crust-grad)"/>
 
-<!-- Crust outer rim: bright highlight line along the arc -->
-<path d="M 62,108 Q 256,36 450,108"
-      fill="none"
-      stroke="url(#crustRim)" stroke-width="5"
-      stroke-linecap="round" opacity="0.65"/>
+<!-- Crust bumps: subtle highlight ellipses along the arc -->
+<ellipse cx="120" cy="126" rx="22" ry="10" fill="#e8b070" opacity="0.6"
+         transform="rotate(-38,120,126)"/>
+<ellipse cx="200" cy="104" rx="20" ry="9" fill="#e8b070" opacity="0.6"
+         transform="rotate(-18,200,104)"/>
+<ellipse cx="286" cy="92" rx="24" ry="10" fill="#e8b070" opacity="0.6"
+         transform="rotate(2,286,92)"/>
+<ellipse cx="368" cy="103" rx="20" ry="9" fill="#e8b070" opacity="0.6"
+         transform="rotate(20,368,103)"/>
 
-<!-- Crust dark blisters (hand-placed, no filters, scales well) -->
-<ellipse cx="122" cy="130" rx="16" ry="9"  fill="#5e2a08" opacity="0.58" transform="rotate(-40,122,130)"/>
-<ellipse cx="190" cy="109" rx="15" ry="8"  fill="#5e2a08" opacity="0.52" transform="rotate(-20,190,109)"/>
-<ellipse cx="268" cy="95"  rx="19" ry="8"  fill="#5e2a08" opacity="0.46" transform="rotate( 4,268, 95)"/>
-<ellipse cx="340" cy="106" rx="15" ry="8"  fill="#5e2a08" opacity="0.52" transform="rotate(22,340,106)"/>
-<ellipse cx="406" cy="128" rx="15" ry="9"  fill="#5e2a08" opacity="0.58" transform="rotate(42,406,128)"/>
+<!-- Crust dark blistered spots for baked texture -->
+<ellipse cx="148" cy="132" rx="14" ry="7" fill="#6a3010" opacity="0.45"
+         transform="rotate(-30,148,132)"/>
+<ellipse cx="256" cy="96" rx="16" ry="7" fill="#6a3010" opacity="0.38"
+         transform="rotate(0,256,96)"/>
+<ellipse cx="378" cy="124" rx="13" ry="7" fill="#6a3010" opacity="0.42"
+         transform="rotate(28,378,124)"/>
 
-<!-- Crust golden highlight bubbles -->
-<ellipse cx="156" cy="120" rx="9"  ry="5" fill="#fcd880" opacity="0.52" transform="rotate(-30,156,120)"/>
-<ellipse cx="256" cy="100" rx="11" ry="5" fill="#fcd880" opacity="0.46"/>
-<ellipse cx="354" cy="118" rx="9"  ry="5" fill="#fcd880" opacity="0.52" transform="rotate(30,354,118)"/>
-
-<!-- ── Layer 3: Cheese ── -->
-<path d="M 112,168 L 400,168 L 256,444 Z"
-      fill="url(#cheeseFill)"/>
-
-<!-- Cheese surface highlight (soft bright spot, upper-left quadrant) -->
-<ellipse cx="212" cy="270" rx="88" ry="54"
-         fill="#fff8d0" opacity="0.20"
-         transform="rotate(-17,212,270)"/>
-
-<!-- Cheese browned bubble spots (gives melted texture without filters) -->
-<ellipse cx="168" cy="298" rx="14" ry="9"  fill="#b07a06" opacity="0.35" transform="rotate(-12,168,298)"/>
-<ellipse cx="332" cy="290" rx="13" ry="8"  fill="#b07a06" opacity="0.32" transform="rotate( 14,332,290)"/>
-<ellipse cx="242" cy="390" rx="11" ry="7"  fill="#b07a06" opacity="0.28" transform="rotate( -4,242,390)"/>
-
-<!-- Sauce edge bleed (tiny strips of red visible at cheese edges) -->
-<!-- Handled naturally since sauce layer sits behind cheese -->
+<!-- Crust outer rim highlight -->
+<path d="M 64,110 Q 256,36 448,110"
+      fill="none" stroke="#f0c880" stroke-width="4"
+      stroke-linecap="round" opacity="0.55"/>
 
 
-<!-- ══ PEPPERONI (3, triangle arrangement) ════════════════
-     A: upper-left   (194, 232)  r=32
-     B: upper-right  (316, 240)  r=30
-     C: lower-center (256, 318)  r=35
-═════════════════════════════════════════════════════════ -->
+<!-- ══ TOPPINGS ═══════════════════════════════════════════ -->
 
-<!-- Pepperoni A -->
-<g filter="url(#pepShadow)">
-  <circle cx="194" cy="232" r="36" fill="#540404"/>
-  <circle cx="194" cy="232" r="32" fill="url(#pepFill)"/>
-  <ellipse cx="184" cy="222" rx="12" ry="8.5"
-           fill="#f04040" opacity="0.50" transform="rotate(-22,184,222)"/>
-  <!-- Char spots -->
-  <circle cx="207" cy="245" r="5.5"  fill="#360202" opacity="0.78"/>
-  <circle cx="183" cy="244" r="4"    fill="#360202" opacity="0.68"/>
-  <circle cx="205" cy="218" r="3.5"  fill="#360202" opacity="0.68"/>
-  <!-- Grease halo -->
-  <circle cx="194" cy="232" r="36"
-          fill="none" stroke="#f8c212" stroke-width="2.5" opacity="0.32"/>
+<!-- ── Prosciutto piece 1 (upper-left ~155,235) ── -->
+<g filter="url(#toppingShadow)">
+  <path d="M 118,212 C 108,196 124,178 148,182 C 170,186 182,204 178,224
+           C 174,242 152,252 132,242 C 114,232 112,222 118,212 Z"
+        fill="url(#pros1)"/>
+  <!-- Inner fold highlight -->
+  <path d="M 122,214 C 114,200 128,184 150,188 C 170,192 180,208 176,226
+           C 172,242 152,250 134,241 C 118,232 116,224 122,214 Z"
+        fill="none" stroke="#e080a0" stroke-width="2" opacity="0.5"/>
+  <!-- Subtle fat marbling lines -->
+  <path d="M 130,200 C 140,196 155,198 162,208"
+        fill="none" stroke="#f8d0d8" stroke-width="1.5" opacity="0.55"
+        stroke-linecap="round"/>
+  <path d="M 125,220 C 135,215 148,216 158,224"
+        fill="none" stroke="#f8d0d8" stroke-width="1.5" opacity="0.45"
+        stroke-linecap="round"/>
 </g>
 
-<!-- Pepperoni B -->
-<g filter="url(#pepShadow)">
-  <circle cx="316" cy="240" r="34" fill="#540404"/>
-  <circle cx="316" cy="240" r="30" fill="url(#pepFill)"/>
-  <ellipse cx="306" cy="231" rx="11" ry="8"
-           fill="#f04040" opacity="0.50" transform="rotate(-22,306,231)"/>
-  <circle cx="328" cy="253" r="5"   fill="#360202" opacity="0.78"/>
-  <circle cx="306" cy="252" r="3.5" fill="#360202" opacity="0.68"/>
-  <circle cx="325" cy="226" r="3.5" fill="#360202" opacity="0.68"/>
-  <circle cx="316" cy="240" r="34"
-          fill="none" stroke="#f8c212" stroke-width="2.5" opacity="0.32"/>
+<!-- ── Prosciutto piece 2 (right side ~350,230) ── -->
+<g filter="url(#toppingShadow)">
+  <path d="M 322,205 C 312,190 328,172 352,176 C 374,180 386,200 380,220
+           C 374,240 350,250 330,240 C 312,230 316,218 322,205 Z"
+        fill="url(#pros2)"/>
+  <!-- Inner fold highlight -->
+  <path d="M 326,207 C 318,193 332,177 354,181 C 374,185 384,203 378,221
+           C 372,239 350,248 332,239 C 316,231 320,220 326,207 Z"
+        fill="none" stroke="#e080a0" stroke-width="2" opacity="0.5"/>
+  <!-- Subtle fat marbling lines -->
+  <path d="M 334,192 C 344,188 358,190 366,200"
+        fill="none" stroke="#f8d0d8" stroke-width="1.5" opacity="0.55"
+        stroke-linecap="round"/>
+  <path d="M 328,215 C 340,210 354,212 362,220"
+        fill="none" stroke="#f8d0d8" stroke-width="1.5" opacity="0.45"
+        stroke-linecap="round"/>
 </g>
 
-<!-- Pepperoni C -->
-<g filter="url(#pepShadow)">
-  <circle cx="256" cy="318" r="39" fill="#540404"/>
-  <circle cx="256" cy="318" r="35" fill="url(#pepFill)"/>
-  <ellipse cx="245" cy="307" rx="13" ry="9.5"
-           fill="#f04040" opacity="0.50" transform="rotate(-22,245,307)"/>
-  <circle cx="270" cy="333" r="6"   fill="#360202" opacity="0.78"/>
-  <circle cx="245" cy="332" r="4.5" fill="#360202" opacity="0.68"/>
-  <circle cx="268" cy="303" r="4"   fill="#360202" opacity="0.68"/>
-  <circle cx="256" cy="318" r="39"
-          fill="none" stroke="#f8c212" stroke-width="2.5" opacity="0.32"/>
+<!-- ── Fig 1 (center-upper ~248,190) ── -->
+<g filter="url(#toppingShadow)">
+  <!-- Outer skin -->
+  <circle cx="248" cy="190" r="42" fill="url(#fig1-skin)"/>
+  <!-- Inner flesh (cut surface) -->
+  <circle cx="248" cy="190" r="29" fill="url(#fig1-flesh)"/>
+  <!-- Seeds in star pattern -->
+  <!-- Center -->
+  <circle cx="248" cy="190" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <!-- Cardinal + diagonal offset seeds -->
+  <circle cx="260" cy="190" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="236" cy="190" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="248" cy="178" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="248" cy="202" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <!-- Diagonal seeds -->
+  <circle cx="257" cy="181" r="2.8" fill="#5a0a25" opacity="0.75"/>
+  <circle cx="239" cy="199" r="2.8" fill="#5a0a25" opacity="0.75"/>
+  <!-- Tiny highlight on skin -->
+  <ellipse cx="238" cy="174" rx="10" ry="7" fill="#d080e0" opacity="0.3"
+           transform="rotate(-20,238,174)"/>
 </g>
 
+<!-- ── Fig 2 (lower, slightly right ~274,358) ── -->
+<g filter="url(#toppingShadow)">
+  <!-- Outer skin -->
+  <circle cx="274" cy="358" r="46" fill="url(#fig2-skin)"/>
+  <!-- Inner flesh -->
+  <circle cx="274" cy="358" r="32" fill="url(#fig2-flesh)"/>
+  <!-- Seeds (6 dots + center) -->
+  <circle cx="274" cy="358" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="287" cy="358" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="261" cy="358" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="274" cy="345" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="274" cy="371" r="3.5" fill="#5a0a25" opacity="0.85"/>
+  <circle cx="284" cy="348" r="2.8" fill="#5a0a25" opacity="0.75"/>
+  <circle cx="264" cy="368" r="2.8" fill="#5a0a25" opacity="0.75"/>
+  <!-- Tiny highlight on skin -->
+  <ellipse cx="262" cy="341" rx="11" ry="8" fill="#d080e0" opacity="0.28"
+           transform="rotate(-20,262,341)"/>
+</g>
 
-<!-- ══ CHEESE DRIP (the hero element) ════════════════════
-     Tip at (256, 450). Drip hangs below into clear space.
-     Teardrop: attaches ~20px wide at the tip, swells to
-     ~46px at mid-body, tapers to a rounded point at y≈500.
-════════════════════════════════════════════════════════ -->
+<!-- ── Arugula leaves ── -->
+<!-- Leaf at ~(200,278) -->
+<g opacity="0.9">
+  <path d="M 200,268 C 194,274 192,282 200,288 C 208,282 208,274 200,268 Z"
+        fill="#3a9848"/>
+  <path d="M 200,268 C 196,273 196,281 200,288"
+        fill="none" stroke="#2a7838" stroke-width="1" opacity="0.7"/>
+  <!-- Side lobes -->
+  <path d="M 198,275 C 190,273 188,279 193,281"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <path d="M 201,281 C 210,279 212,285 207,287"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+</g>
+
+<!-- Leaf at ~(310,295) -->
+<g opacity="0.9" transform="rotate(15,310,295)">
+  <path d="M 310,285 C 304,291 302,299 310,305 C 318,299 318,291 310,285 Z"
+        fill="#3a9848"/>
+  <path d="M 310,285 C 306,290 306,298 310,305"
+        fill="none" stroke="#2a7838" stroke-width="1" opacity="0.7"/>
+  <path d="M 308,292 C 300,290 298,296 303,298"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <path d="M 311,298 C 320,296 322,302 317,304"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+</g>
+
+<!-- Leaf at ~(245,335) -->
+<g opacity="0.9" transform="rotate(-25,245,335)">
+  <path d="M 245,325 C 239,331 237,339 245,345 C 253,339 253,331 245,325 Z"
+        fill="#3a9848"/>
+  <path d="M 245,325 C 241,330 241,338 245,345"
+        fill="none" stroke="#2a7838" stroke-width="1" opacity="0.7"/>
+  <path d="M 243,332 C 235,330 233,336 238,338"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <path d="M 246,338 C 255,336 257,342 252,344"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+</g>
+
+<!-- Leaf at ~(175,310) -->
+<g opacity="0.9" transform="rotate(30,175,310)">
+  <path d="M 175,300 C 169,306 167,314 175,320 C 183,314 183,306 175,300 Z"
+        fill="#3a9848"/>
+  <path d="M 175,300 C 171,305 171,313 175,320"
+        fill="none" stroke="#2a7838" stroke-width="1" opacity="0.7"/>
+  <path d="M 173,307 C 165,305 163,311 168,313"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <path d="M 176,313 C 185,311 187,317 182,319"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+</g>
+
+<!-- Leaf at ~(330,245) -->
+<g opacity="0.9" transform="rotate(-10,330,245)">
+  <path d="M 330,235 C 324,241 322,249 330,255 C 338,249 338,241 330,235 Z"
+        fill="#3a9848"/>
+  <path d="M 330,235 C 326,240 326,248 330,255"
+        fill="none" stroke="#2a7838" stroke-width="1" opacity="0.7"/>
+  <path d="M 328,242 C 320,240 318,246 323,248"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+  <path d="M 331,248 C 340,246 342,252 337,254"
+        fill="none" stroke="#3a9848" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+</g>
+
+<!-- ── Olive oil drizzle ── -->
+<path d="M 170,245 C 190,258 195,272 215,278 C 235,284 248,278 265,288"
+      stroke="#c8a020" stroke-width="4" fill="none" opacity="0.65"
+      stroke-linecap="round"/>
+
+<!-- ── Cheese drip at tip ── -->
 <g filter="url(#dripGlow)">
-  <!-- Drip body -->
-  <path d="M 246,449
-           C 237,453 231,465 232,477
-           C 233,489 243,500 256,501
-           C 269,500 279,489 280,477
-           C 281,465 275,453 266,449 Z"
-        fill="url(#dripFill)"/>
-  <!-- Inner highlight — top-left bright spot -->
-  <ellipse cx="246" cy="465" rx="8" ry="14"
-           fill="url(#dripHighlight)" opacity="0.7"
-           transform="rotate(-8,246,465)"/>
+  <path d="M 246,449 C 237,453 231,466 232,478 C 233,490 243,501 256,502
+           C 269,501 279,490 280,478 C 281,466 275,453 266,449 Z"
+        fill="url(#drip-grad)"/>
+  <!-- Drip inner highlight -->
+  <ellipse cx="247" cy="466" rx="7" ry="13" fill="white" opacity="0.25"
+           transform="rotate(-8,247,466)"/>
 </g>
 
-<!-- Thin cheese strings connecting slice tip to drip blob -->
+<!-- Thin cheese strings at tip -->
 <path d="M 251,447 C 249,450 248,454 248,458"
-      stroke="#f8ca10" stroke-width="3.5" fill="none"
-      stroke-linecap="round" opacity="0.75"/>
+      stroke="#e8c060" stroke-width="3" fill="none"
+      stroke-linecap="round" opacity="0.7"/>
 <path d="M 261,447 C 263,450 264,454 264,458"
-      stroke="#f4bc08" stroke-width="2.5" fill="none"
-      stroke-linecap="round" opacity="0.65"/>
+      stroke="#e8c060" stroke-width="2.5" fill="none"
+      stroke-linecap="round" opacity="0.6"/>
 
 
-<!-- ══ FINISHING TOUCHES ══════════════════════════════════ -->
+<!-- ══ FINISHING TOUCHES ════════════════════════════════════ -->
 
 <!-- Subtle dark edge on the two cut sides of the slice -->
-<path d="M 58,104 L 256,450" stroke="#7a3a06" stroke-width="2.5" opacity="0.4"/>
-<path d="M 454,104 L 256,450" stroke="#7a3a06" stroke-width="2.5" opacity="0.4"/>
+<path d="M 58,104 L 256,450" stroke="#5a2a06" stroke-width="2" opacity="0.35"/>
+<path d="M 454,104 L 256,450" stroke="#5a2a06" stroke-width="2" opacity="0.35"/>
 
 <!-- Icon surface sheen overlay -->
 <rect width="512" height="512" rx="90" fill="url(#iconShine)"/>

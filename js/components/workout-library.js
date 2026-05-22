@@ -167,10 +167,7 @@ async function handleAddWorkoutFromLibrary(workoutId) {
 
         const { loadWorkouts } = await import('./workout-form.js');
         await loadWorkouts();
-
-        if (window.fitnessApp && window.fitnessApp.updateDashboard) {
-            await window.fitnessApp.updateDashboard();
-        }
+        window.dispatchEvent(new CustomEvent('fp:data-changed'));
     } catch (error) {
         console.error('Error adding workout from library:', error);
         ui.showError('Failed to add workout: ' + error.message);

@@ -109,6 +109,8 @@ class FitnessTrackerApp {
      * Set up navigation between screens
      */
     setupNavigation() {
+        const SCREENS = ['dashboard', 'macros', 'measurements', 'workouts', 'trends', 'settings'];
+
         const navItems = document.querySelectorAll('.nav-item');
         navItems.forEach(item => {
             item.addEventListener('click', async (e) => {
@@ -129,6 +131,29 @@ class FitnessTrackerApp {
 
         // Set initial history state
         history.replaceState({ screen: 'dashboard' }, '', '#dashboard');
+
+        // Horizontal swipe to switch tabs
+        const content = document.getElementById('main-content');
+        if (content) {
+            let sx = 0, sy = 0;
+            content.addEventListener('touchstart', e => {
+                sx = e.touches[0].clientX;
+                sy = e.touches[0].clientY;
+            }, { passive: true });
+            content.addEventListener('touchend', async e => {
+                const dx = e.changedTouches[0].clientX - sx;
+                const dy = e.changedTouches[0].clientY - sy;
+                if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.8) return;
+                const idx = SCREENS.indexOf(this.currentScreen);
+                if (dx < 0 && idx < SCREENS.length - 1) await this.navigateTo(SCREENS[idx + 1]);
+                else if (dx > 0 && idx > 0) await this.navigateTo(SCREENS[idx - 1]);
+            }, { passive: true });
+        }
+
+        // Auto-refresh current tab whenever any component saves data
+        window.addEventListener('fp:data-changed', () => {
+            if (this.initialized) this.loadScreen(this.currentScreen);
+        });
     }
 
     /**
@@ -1365,12 +1390,14 @@ class FitnessTrackerApp {
                 const file = importFile.files[0];
                 if (!file) return;
 
+                ui.showLoading('Reading file…');
                 try {
                     const text = await file.text();
                     let data;
                     try {
                         data = JSON.parse(text);
                     } catch (e) {
+                        ui.hideLoading();
                         ui.showError('Invalid JSON file: ' + e.message);
                         importFile.value = '';
                         return;
@@ -1428,6 +1455,8 @@ class FitnessTrackerApp {
                     const totalValid = Object.values(validEntries).reduce((s, arr) => s + arr.length, 0);
                     const totalAll = knownStores.reduce((s, k) => s + (Array.isArray(data[k]) ? data[k].length : 0), 0);
 
+                    ui.hideLoading();
+
                     if (errors.length > 0) {
                         // Show modal with errors and offer to import valid entries only
                         const errorList = errors.slice(0, 20).map(e => `<li style="font-size:0.85em;">${e}</li>`).join('');
@@ -1447,7 +1476,9 @@ class FitnessTrackerApp {
                                 className: 'btn-primary',
                                 onClick: async () => {
                                     try {
+                                        ui.showLoading('Importing…');
                                         await db.importData(validEntries);
+                                        ui.hideLoading();
                                         importFile.value = '';
                                         ui.createModal('Import Successful', `
                                             <div style="text-align:center;padding:var(--spacing-md);">
@@ -1457,6 +1488,7 @@ class FitnessTrackerApp {
                                         `, [{ text: 'OK', className: 'btn-primary' }]);
                                         await this.loadScreen(this.currentScreen);
                                     } catch (err) {
+                                        ui.hideLoading();
                                         console.error('Import error:', err);
                                         ui.showError('Failed to import data: ' + err.message);
                                     }
@@ -1468,7 +1500,9 @@ class FitnessTrackerApp {
                     }
 
                     // No errors — import everything
+                    ui.showLoading('Importing…');
                     await db.importData(data);
+                    ui.hideLoading();
                     importFile.value = '';
                     ui.createModal('Import Successful', `
                         <div style="text-align: center; padding: var(--spacing-md);">
@@ -1478,6 +1512,7 @@ class FitnessTrackerApp {
                     `, [{ text: 'OK', className: 'btn-primary' }]);
                     await this.loadScreen(this.currentScreen);
                 } catch (error) {
+                    ui.hideLoading();
                     console.error('Import error:', error);
                     ui.showError('Failed to import data: ' + error.message);
                     importFile.value = '';

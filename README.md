@@ -144,7 +144,15 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.7
+**Current**: v2.3.8
+- **Status bar overlap fixed**: `viewport-fit=cover` + `env(safe-area-inset-top)` padding on header so content no longer hides behind the Android/iOS status bar
+- **Import loading modal**: shows "Reading file…" / "Importing…" spinner during data import
+- **Swipe navigation**: swipe left/right on main content to switch between tabs
+- **Auto-refresh tabs**: any save (food log, workout, measurement, run finish) now dispatches `fp:data-changed` which refreshes the current tab immediately — no more manual refresh needed
+- **Run tracker centred**: stats now vertically centred on screen with larger fonts (distance 7.5em, stats 2.2em); updates every 500ms
+- **Native app logo**: redesigned as a fig & prosciutto pizza with arugula garnish — richer colour palette with purple figs, rose prosciutto, and golden cheese
+
+**Previous**: v2.3.7
 - **Capacitor native app**: wraps the PWA in a native Android/iOS shell so GPS keeps running while the screen is locked — the limitation that caused the run tracker to be removed in v2.3.0
 - **Run Tracker**: new "Go for a Run" button appears in the Workouts tab when running inside the native app; tracks distance, duration, pace, and calories in real-time; announces each kilometre via text-to-speech; auto-saves the run as a Cardio workout on finish
 - **Native app download**: Settings → Help & Feedback now shows an Android APK download link and an iOS TestFlight placeholder; see `BUILD.md` for build instructions

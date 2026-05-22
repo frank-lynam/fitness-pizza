@@ -267,17 +267,7 @@ function setupFoodLibraryButtons(modal, foods) {
                 });
 
                 ui.closeModal(modal);
-
-                // Reload macros if on macros screen
-                if (window.fitnessApp && window.fitnessApp.currentScreen === 'macros') {
-                    const { loadTodaysMacros } = await import('./macro-form.js');
-                    await loadTodaysMacros();
-                }
-
-                // Update dashboard if visible
-                if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
-                    await window.fitnessApp.loadDashboard();
-                }
+                window.dispatchEvent(new CustomEvent('fp:data-changed'));
             }
         });
     });
@@ -578,14 +568,7 @@ function showQuickAddForm(food) {
                 });
 
                 ui.closeModal(modal);
-
-                // Reload macros if on macros screen
-                if (window.fitnessApp && window.fitnessApp.currentScreen === 'macros') {
-                    const { loadTodaysMacros } = await import('./macro-form.js');
-                    await loadTodaysMacros();
-                } else if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
-                    await window.fitnessApp.loadDashboard();
-                }
+                window.dispatchEvent(new CustomEvent('fp:data-changed'));
             }
         }
     ]);

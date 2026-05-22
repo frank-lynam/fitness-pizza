@@ -544,6 +544,10 @@ body {
     display: block;
 }
 
+.screen.no-anim {
+    animation: none !important;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;

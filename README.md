@@ -144,7 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.9
+**Current**: v2.4.0
+- **Icon rescaled**: pizza slice scaled to 75% so it fits cleanly inside the circular launcher icon mask
+- **Swipe animation**: finger-following slide transition with ghost preview of the next tab; vertical scroll is no longer mis-detected as a swipe
+- **Feedback button**: opens a mailto: link directly to the domain owner's email
+
+**v2.3.9**
 - **Export fixed on native**: uses `navigator.share()` with a file on Android/iOS instead of `<a download>` which is silently ignored in WebViews
 - **Android launcher icon**: all mipmap icon sizes regenerated from new logo SVG (fig & prosciutto pizza)
 

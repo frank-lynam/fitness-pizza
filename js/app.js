@@ -133,22 +133,89 @@ class FitnessTrackerApp {
         // Set initial history state
         history.replaceState({ screen: 'dashboard' }, '', '#dashboard');
 
-        // Horizontal swipe to switch tabs
+        // Horizontal swipe with sliding animation
         const content = document.getElementById('main-content');
         if (content) {
-            let sx = 0, sy = 0;
+            let startX = 0, startY = 0, dirLocked = null, dragging = false;
+            let swipeDir = 0, activeEl = null, ghostEl = null;
+
             content.addEventListener('touchstart', e => {
-                sx = e.touches[0].clientX;
-                sy = e.touches[0].clientY;
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                dirLocked = null;
+                dragging = false;
             }, { passive: true });
-            content.addEventListener('touchend', async e => {
-                const dx = e.changedTouches[0].clientX - sx;
-                const dy = e.changedTouches[0].clientY - sy;
-                if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.8) return;
+
+            content.addEventListener('touchmove', e => {
+                const dx = e.touches[0].clientX - startX;
+                const dy = e.touches[0].clientY - startY;
+
+                if (!dirLocked) {
+                    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+                    dirLocked = Math.abs(dx) > Math.abs(dy) * 1.3 ? 'h' : 'v';
+                }
+                if (dirLocked !== 'h') return;
+                e.preventDefault();
+
                 const idx = SCREENS.indexOf(this.currentScreen);
-                if (dx < 0 && idx < SCREENS.length - 1) await this.navigateTo(SCREENS[idx + 1]);
-                else if (dx > 0 && idx > 0) await this.navigateTo(SCREENS[idx - 1]);
-            }, { passive: true });
+                const dir = dx < 0 ? -1 : 1;
+                if (dir === -1 && idx >= SCREENS.length - 1) return;
+                if (dir === 1 && idx <= 0) return;
+
+                if (!dragging) {
+                    dragging = true;
+                    swipeDir = dir;
+                    activeEl = document.getElementById(`screen-${this.currentScreen}`);
+                    ghostEl = document.getElementById(`screen-${SCREENS[idx - dir]}`);
+                    if (activeEl) activeEl.style.transition = 'none';
+                    if (ghostEl) {
+                        const w = content.offsetWidth;
+                        ghostEl.style.cssText = `display:block;transition:none;transform:translateX(${dir === -1 ? w : -w}px)`;
+                    }
+                }
+
+                const w = content.offsetWidth;
+                const cx = Math.max(-w, Math.min(w, dx));
+                if (activeEl) activeEl.style.transform = `translateX(${cx}px)`;
+                if (ghostEl) ghostEl.style.transform = `translateX(${(swipeDir === -1 ? w : -w) + cx}px)`;
+            }, { passive: false });
+
+            const finishSwipe = async (e) => {
+                if (!dragging) return;
+                const dx = (e.changedTouches?.[0]?.clientX ?? startX) - startX;
+                const w = content.offsetWidth || 1;
+                const THRESHOLD = w * 0.3;
+                const complete = (swipeDir === -1 && dx < -THRESHOLD) || (swipeDir === 1 && dx > THRESHOLD);
+                const idx = SCREENS.indexOf(this.currentScreen);
+                const target = SCREENS[idx - swipeDir];
+
+                dragging = false; dirLocked = null;
+                const ae = activeEl, ge = ghostEl;
+                activeEl = null; ghostEl = null;
+
+                if (complete && target) {
+                    if (ae) { ae.style.transition = 'transform 0.25s ease-out'; ae.style.transform = `translateX(${swipeDir === -1 ? -w : w}px)`; }
+                    if (ge) { ge.style.transition = 'transform 0.25s ease-out'; ge.style.transform = 'translateX(0)'; }
+                    setTimeout(async () => {
+                        await this.navigateTo(target, false);
+                        if (ae) ae.style.cssText = '';
+                        if (ge) ge.style.cssText = '';
+                    }, 250);
+                } else {
+                    if (ae) { ae.style.transition = 'transform 0.25s ease-out'; ae.style.transform = ''; setTimeout(() => { ae.style.cssText = ''; }, 250); }
+                    if (ge) { ge.style.transition = 'transform 0.25s ease-out'; ge.style.transform = `translateX(${swipeDir === -1 ? w : -w}px)`; setTimeout(() => { ge.style.cssText = ''; }, 250); }
+                }
+            };
+
+            const cancelSwipe = () => {
+                if (!dragging) return;
+                dragging = false; dirLocked = null;
+                if (activeEl) { activeEl.style.cssText = ''; activeEl = null; }
+                if (ghostEl) { ghostEl.style.cssText = ''; ghostEl = null; }
+            };
+
+            content.addEventListener('touchend', finishSwipe, { passive: true });
+            content.addEventListener('touchcancel', cancelSwipe, { passive: true });
         }
 
         // Auto-refresh current tab whenever any component saves data
@@ -159,26 +226,31 @@ class FitnessTrackerApp {
 
     /**
      * Navigate to a screen
-     * @param {string} screenName - Name of the screen
+     * @param {string} screenName
+     * @param {boolean} animate - whether to play the fade-in animation (false when swipe already animated)
      */
-    async navigateTo(screenName) {
+    async navigateTo(screenName, animate = true) {
         if (this.currentScreen === screenName) return;
-
-        // Update history
         history.pushState({ screen: screenName }, '', `#${screenName}`);
-
-        // Load screen
-        await this.loadScreen(screenName);
+        await this.loadScreen(screenName, animate);
     }
 
     /**
      * Load a screen and its data
-     * @param {string} screenName - Name of the screen
+     * @param {string} screenName
+     * @param {boolean} animate
      */
-    async loadScreen(screenName) {
+    async loadScreen(screenName, animate = true) {
         try {
             this.currentScreen = screenName;
-            ui.showScreen(screenName);
+            if (!animate) {
+                const el = document.getElementById(`screen-${screenName}`);
+                el?.classList.add('no-anim');
+                ui.showScreen(screenName);
+                requestAnimationFrame(() => el?.classList.remove('no-anim'));
+            } else {
+                ui.showScreen(screenName);
+            }
 
             // Load screen-specific data
             switch (screenName) {
@@ -935,11 +1007,7 @@ class FitnessTrackerApp {
             this.showHealthyTipsModal();
         });
         document.getElementById('btn-submit-feedback')?.addEventListener('click', () => {
-            // Tally.so — free, anonymous, no account needed for submitters,
-            // form URL reveals nothing about the owner.
-            // Create your form at https://tally.so and replace the URL below.
-            const FEEDBACK_URL = 'https://tally.so/r/fitness-pizza-feedback';
-            window.open(FEEDBACK_URL, '_blank', 'noopener');
+            window.location.href = 'mailto:biryokumaru@gmail.com?subject=Fitness%20Pizza%20Feedback';
         });
     }
 

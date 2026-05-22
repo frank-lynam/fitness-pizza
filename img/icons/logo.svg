@@ -91,6 +91,9 @@
 <!-- ══ BACKGROUND ══════════════════════════════════════════ -->
 <rect width="512" height="512" rx="90" fill="url(#bg)"/>
 
+<!-- Scale pizza down 75% so it fits inside the circular icon mask -->
+<g transform="translate(256,256) scale(0.75) translate(-256,-256)">
+
 <!-- ══ PIZZA SLICE (tip pointing DOWN) ══════════════════════
      Tip      : (256, 450)
      Top-left  : (58,  104)
@@ -306,6 +309,8 @@
 <!-- Subtle dark edge on the two cut sides of the slice -->
 <path d="M 58,104 L 256,450" stroke="#5a2a06" stroke-width="2" opacity="0.35"/>
 <path d="M 454,104 L 256,450" stroke="#5a2a06" stroke-width="2" opacity="0.35"/>
+
+</g><!-- end scale group -->
 
 <!-- Icon surface sheen overlay -->
 <rect width="512" height="512" rx="90" fill="url(#iconShine)"/>

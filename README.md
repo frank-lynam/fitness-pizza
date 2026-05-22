@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.8
+**Current**: v2.3.9
+- **Export fixed on native**: uses `navigator.share()` with a file on Android/iOS instead of `<a download>` which is silently ignored in WebViews
+- **Android launcher icon**: all mipmap icon sizes regenerated from new logo SVG (fig & prosciutto pizza)
+
+**v2.3.8**
 - **Status bar overlap fixed**: `viewport-fit=cover` + `env(safe-area-inset-top)` padding on header so content no longer hides behind the Android/iOS status bar
 - **Import loading modal**: shows "Reading file…" / "Importing…" spinner during data import
 - **Swipe navigation**: swipe left/right on main content to switch between tabs

@@ -1457,16 +1457,24 @@ class FitnessTrackerApp {
                 try {
                     const data = await db.exportAllData();
                     const dataStr = JSON.stringify(data, null, 2);
-                    const blob = new Blob([dataStr], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `fitness-pizza-export-${new Date().toISOString()}.json`;
-                    a.click();
-                    URL.revokeObjectURL(url);
+                    const filename = `fitness-pizza-export-${new Date().toISOString().slice(0,10)}.json`;
+                    if (window.Capacitor?.isNativePlatform?.() && navigator.share) {
+                        const file = new File([dataStr], filename, { type: 'application/json' });
+                        await navigator.share({ files: [file], title: filename });
+                    } else {
+                        const blob = new Blob([dataStr], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    }
                 } catch (error) {
-                    console.error('Export error:', error);
-                    ui.showError('Failed to export data: ' + error.message);
+                    if (error.name !== 'AbortError') {
+                        console.error('Export error:', error);
+                        ui.showError('Failed to export data: ' + error.message);
+                    }
                 }
             };
         }

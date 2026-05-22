@@ -405,12 +405,33 @@ function onRapidClicks(el, n, windowMs, cb) {
 function onLongPress(el, ms, cb) {
     if (!el) return;
     let t = null;
-    el.addEventListener('pointerdown', () => { t = setTimeout(() => { t = null; cb(); }, ms); });
+    let startX = 0, startY = 0;
+    let didFire = false;
+
+    const start = (x, y) => {
+        startX = x; startY = y; didFire = false;
+        t = setTimeout(() => {
+            t = null; didFire = true; cb();
+        }, ms);
+    };
+    const move = (x, y) => {
+        // Only cancel if the pointer actually drifted (> 12px), not on tiny wobbles
+        if (t && Math.hypot(x - startX, y - startY) > 12) {
+            clearTimeout(t); t = null;
+        }
+    };
     const cancel = () => { if (t) { clearTimeout(t); t = null; } };
+
+    el.addEventListener('pointerdown',  e => start(e.clientX, e.clientY));
+    el.addEventListener('pointermove',  e => move(e.clientX, e.clientY));
     el.addEventListener('pointerup',    cancel);
-    el.addEventListener('pointerleave', cancel);
-    el.addEventListener('pointermove',  cancel);
+    el.addEventListener('pointercancel', cancel);
     el.addEventListener('contextmenu',  e => e.preventDefault());
+
+    // Suppress the click that fires after a long-press so the form doesn't open
+    el.addEventListener('click', e => {
+        if (didFire) { didFire = false; e.stopImmediatePropagation(); }
+    }, true);
 }
 
 // ── Konami code ───────────────────────────────────────────────────────────
@@ -462,12 +483,12 @@ export function initEasterEggs() {
 
     // 7. Type the word "unicorn" into any focused text input → unicorn appears
     let typed = '';
-    document.addEventListener('keypress', e => {
-        if (!e.target.matches('input[type=text],input:not([type]),textarea')) {
-            typed = ''; return;
-        }
-        typed += e.key.toLowerCase();
-        if (typed.length > 7) typed = typed.slice(-7);
+    document.addEventListener('keydown', e => {
+        // Only care about single printable characters typed into an input or textarea
+        if (e.key.length !== 1 || e.ctrlKey || e.metaKey) return;
+        const active = document.activeElement;
+        if (!active || !active.matches('input, textarea')) { typed = ''; return; }
+        typed = (typed + e.key.toLowerCase()).slice(-7);
         if (typed === 'unicorn') { typed = ''; doUnicornGallop(); }
     });
 }

@@ -855,6 +855,8 @@ button {
     width: 56px;
     height: 56px;
     border-radius: 50%;
+    -webkit-touch-callout: none;
+    user-select: none;
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     color: white;
     border: none;

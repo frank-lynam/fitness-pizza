@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.3.5
+**Current**: v2.3.6
+- **Fix Easter egg long-press (#3/#4)**: 12px drift tolerance so natural finger wobble no longer cancels the hold; suppress the click that fires on release so the form does not open; `-webkit-touch-callout:none` on FABs so iOS callout does not steal the event
+- **Fix Easter egg unicorn typer (#7)**: replaced deprecated `keypress` with `keydown`, broadened input selector to match all `input`/`textarea` elements
+
+**Previous**: v2.3.5
 - **Easter eggs**: 7 hidden surprises involving bunnies, rainbows, and unicorns (try the Konami code, long-press the FABs, tap Today 4×, triple-click the 🍕, ...)
 
 **Previous**: v2.3.4

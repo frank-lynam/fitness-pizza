@@ -1,7 +1,7 @@
 {
   "name": "Fitness Pizza",
   "short_name": "Fitness Pizza",
-  "version": "2.4.3",
+  "version": "2.4.4",
   "description": "Track your macros like slices of pizza - deliciously simple nutrition tracking",
   "start_url": "/",
   "display": "standalone",

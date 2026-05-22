@@ -1566,42 +1566,47 @@ class FitnessTrackerApp {
                 try {
                     const data = await db.exportAllData();
                     const dataStr = JSON.stringify(data, null, 2);
-                    const filename = `fitness-pizza-export-${new Date().toISOString().slice(0, 10)}.json`;
+                    const date = new Date().toISOString().slice(0, 10);
+
+                    // Compress with gzip if available (modern WebViews and browsers support this)
+                    let exportBuffer, filename;
+                    if (typeof CompressionStream !== 'undefined') {
+                        const cs = new CompressionStream('gzip');
+                        const writer = cs.writable.getWriter();
+                        writer.write(new TextEncoder().encode(dataStr));
+                        writer.close();
+                        exportBuffer = await new Response(cs.readable).arrayBuffer();
+                        filename = `fitness-pizza-export-${date}.json.gz`;
+                    } else {
+                        exportBuffer = new TextEncoder().encode(dataStr).buffer;
+                        filename = `fitness-pizza-export-${date}.json`;
+                    }
 
                     if (window.Capacitor?.isNativePlatform?.()) {
-                        const file = new File([dataStr], filename, { type: 'application/json' });
-                        let shared = false;
+                        const FS = window.Capacitor.Plugins.Filesystem;
+                        const SharePlugin = window.Capacitor.Plugins.Share;
 
-                        // Try file share (not all WebViews support JSON files)
-                        if (navigator.canShare?.({ files: [file] })) {
-                            try {
-                                await navigator.share({ files: [file], title: filename });
-                                shared = true;
-                            } catch (e) {
-                                if (e.name === 'AbortError') { ui.hideLoading(); return; }
-                            }
+                        // Convert ArrayBuffer → base64 in chunks to avoid stack overflow
+                        const bytes = new Uint8Array(exportBuffer);
+                        let binary = '';
+                        for (let i = 0; i < bytes.length; i += 8192) {
+                            binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
                         }
+                        const base64 = btoa(binary);
 
-                        // Fall back to sharing as plain text
-                        if (!shared && navigator.share) {
-                            try {
-                                await navigator.share({ title: filename, text: dataStr });
-                                shared = true;
-                            } catch (e) {
-                                if (e.name === 'AbortError') { ui.hideLoading(); return; }
-                            }
-                        }
+                        // Write to cache dir so Share plugin can hand it to the OS
+                        await FS.writeFile({ path: filename, data: base64, directory: 'CACHE' });
+                        const { uri } = await FS.getUri({ path: filename, directory: 'CACHE' });
 
-                        // Last resort: clipboard
-                        if (!shared) {
-                            await navigator.clipboard.writeText(dataStr);
-                            ui.hideLoading();
-                            ui.showToast('Export copied to clipboard');
-                            return;
-                        }
+                        ui.hideLoading();
+                        await SharePlugin.share({
+                            title: filename,
+                            files: [uri],
+                            dialogTitle: 'Save or share your Fitness Pizza backup',
+                        });
                     } else {
                         // Browser: trigger download
-                        const blob = new Blob([dataStr], { type: 'application/json' });
+                        const blob = new Blob([exportBuffer], { type: filename.endsWith('.gz') ? 'application/gzip' : 'application/json' });
                         const url = URL.createObjectURL(blob);
                         const a = document.createElement('a');
                         a.href = url;
@@ -1610,10 +1615,9 @@ class FitnessTrackerApp {
                         a.click();
                         document.body.removeChild(a);
                         URL.revokeObjectURL(url);
+                        ui.hideLoading();
+                        ui.showToast(`✓ Exported ${filename}`);
                     }
-
-                    ui.hideLoading();
-                    ui.showToast(`✓ Exported ${filename}`);
                 } catch (error) {
                     ui.hideLoading();
                     if (error.name !== 'AbortError') {

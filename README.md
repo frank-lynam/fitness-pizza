@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.3
+**Current**: v2.4.4
+- **Export**: gzip-compressed (.json.gz); native APK uses @capacitor/filesystem + @capacitor/share to open the Android share sheet (Save to Downloads, Drive, email, etc.); browser triggers a direct .gz download
+
+**v2.4.3**
 - **Live update prompt**: after silently downloading a JS bundle, shows "Update Available — Restart & Update / Later" modal; restart applies immediately via CU.set(), Later queues for next launch
 
 **v2.4.2**

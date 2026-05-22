@@ -1,6 +1,6 @@
 {
   "name": "fitness-pizza",
-  "version": "2.4.3",
+  "version": "2.4.4",
   "description": "Fitness Pizza — macro & workout tracker PWA with native run tracking",
   "private": true,
   "scripts": {
@@ -12,11 +12,13 @@
     "deploy:live": "bash scripts/bundle.sh"
   },
   "dependencies": {
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/ios": "^7.0.0",
     "@capacitor-community/background-geolocation": "^1.2.4",
     "@capacitor-community/text-to-speech": "^6.0.0",
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "^7.0.0",
+    "@capacitor/share": "^8.0.1",
     "@capgo/capacitor-updater": "^7.45.10"
   },
   "devDependencies": {

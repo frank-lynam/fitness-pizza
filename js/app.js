@@ -1007,7 +1007,7 @@ class FitnessTrackerApp {
             this.showHealthyTipsModal();
         });
         document.getElementById('btn-submit-feedback')?.addEventListener('click', () => {
-            window.location.href = 'mailto:biryokumaru@gmail.com?subject=Fitness%20Pizza%20Feedback';
+            window.location.href = 'mailto:Frank@fitness-pizza.com?subject=Fitness%20Pizza%20Feedback';
         });
     }
 

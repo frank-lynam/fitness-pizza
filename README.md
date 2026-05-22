@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.0
+**Current**: v2.4.1
+- **Feedback email**: updated to Frank@fitness-pizza.com
+
+**v2.4.0**
 - **Icon rescaled**: pizza slice scaled to 75% so it fits cleanly inside the circular launcher icon mask
 - **Swipe animation**: finger-following slide transition with ghost preview of the next tab; vertical scroll is no longer mis-detected as a swipe
 - **Feedback button**: opens a mailto: link directly to the domain owner's email

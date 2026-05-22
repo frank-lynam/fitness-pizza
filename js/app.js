@@ -830,23 +830,60 @@ class FitnessTrackerApp {
     }
 
     /**
-     * Initialise Capgo live updates.
-     * - notifyAppReady() tells Capgo this bundle loaded OK; without it Capgo
-     *   rolls back to the previous bundle after a timeout.
-     * - majorAvailableUpdate fires when a new bundle requires a newer native APK;
-     *   we show a download dialog instead of silently failing.
+     * Self-hosted live updates via @capgo/capacitor-updater (manual mode).
+     * Fetches fitness-pizza.com/updates/latest.json, compares versions, and
+     * silently downloads + queues the new bundle for the next app launch.
+     * No Capgo cloud account needed — just static files on the website.
      */
     initCapgoUpdater() {
         const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
         if (!CU) return;
 
-        // Confirm this bundle is healthy — prevents automatic rollback
+        // Tell the plugin this bundle loaded successfully — prevents rollback timeout
         CU.notifyAppReady();
 
-        // A bundle upload was flagged as needing a newer native binary
-        CU.addListener('majorAvailableUpdate', (info) => {
-            this.showApkUpdateDialog(info.version);
-        });
+        // Run update check in background after startup settles
+        setTimeout(() => this.checkLiveUpdate(CU), 5000);
+    }
+
+    async checkLiveUpdate(CU) {
+        const MANIFEST = 'https://fitness-pizza.com/updates/latest.json';
+        try {
+            const [{ bundle, native: nativeVersion }, latest] = await Promise.all([
+                CU.current(),
+                fetch(`${MANIFEST}?t=${Date.now()}`).then(r => r.json()),
+            ]);
+
+            // When running the built-in APK bundle treat its version as the native version
+            const currentVersion = bundle.version === 'builtin' ? nativeVersion : bundle.version;
+
+            if (!this._semverGt(latest.version, currentVersion)) return; // already up to date
+
+            // Bundle requires a newer native binary than what's installed
+            if (this._semverGt(latest.minNativeVersion, nativeVersion)) {
+                this.showApkUpdateDialog(latest.minNativeVersion);
+                return;
+            }
+
+            // Download in the background — does NOT interrupt the user
+            const newBundle = await CU.download({ url: latest.url, version: latest.version });
+            // Queue it for next launch (next() is non-destructive unlike set())
+            await CU.next({ id: newBundle.id });
+            console.log('[updater] Bundle queued, applies on next launch:', latest.version);
+        } catch (e) {
+            // Fail silently — update check should never break the app
+            console.warn('[updater] Update check skipped:', e.message);
+        }
+    }
+
+    _semverGt(a, b) {
+        const pa = (a || '0.0.0').split('.').map(n => parseInt(n) || 0);
+        const pb = (b || '0.0.0').split('.').map(n => parseInt(n) || 0);
+        for (let i = 0; i < 3; i++) {
+            if (pa[i] > pb[i]) return true;
+            if (pa[i] < pb[i]) return false;
+        }
+        return false;
     }
 
     /**

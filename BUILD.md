@@ -81,46 +81,41 @@ Update the version in **all four** files before building a release:
 
 Then run `npm run sync:android` (or `sync:ios`) to propagate the change into the native project.
 
-## Live updates with Capgo (JS/CSS changes — no APK reinstall needed)
+## Live updates (JS/CSS changes — no APK reinstall needed)
 
-Capgo pushes new web bundles (JS + CSS + HTML) directly to installed apps. Users get
-updates the next time they open the app, with no trip to the download link.
+The app uses `@capgo/capacitor-updater` in **manual mode** pointed at a self-hosted
+`updates/latest.json` on `fitness-pizza.com`. No Capgo account needed — bundles are
+just static files committed alongside the rest of the repo.
 
-### First-time Capgo setup
+On every launch the app fetches `latest.json`, compares the version against what's
+currently running, and silently downloads + queues any newer bundle. It applies on
+the user's next app open.
 
-1. Create a free account at https://capgo.app (free tier: 1 app, 500 devices)
-2. Log in with the CLI:
-   ```bash
-   npx @capgo/cli login YOUR_API_KEY
-   ```
-3. Register the app (once only):
-   ```bash
-   npx @capgo/cli app add com.fitnesspizza.app
-   ```
-
-### Deploying a JS/CSS update
+### Deploy a JS/CSS update
 
 ```bash
-# Builds www/ and uploads the bundle to Capgo's production channel
-npm run deploy:live
+# Bump versions in the four standard files, then:
+npm run deploy:live   # builds www/, zips it, updates updates/latest.json
+git add updates/ && git commit -m "Deploy live bundle 2.3.9" && git push
+curl http://localhost:12345/invalidate
 ```
 
-Installed apps will silently download the bundle in the background and apply it on next launch.
+That's it. Installed apps pick it up automatically on next launch.
 
 ### When a new APK is also needed
 
-A new APK is required when you add a new native plugin, change permissions, or bump
+Required when adding a native plugin, changing Android permissions, or bumping
 `@capacitor/core`. In that case:
 
-1. Bump the version in all four files (see above), rebuild and re-upload the APK.
-2. Upload the new web bundle with `--min-update-version` set to the new APK version:
+1. Bump the version, rebuild and commit the new APK (see Android APK section above).
+2. Deploy the live bundle with a **higher** `minNativeVersion`:
    ```bash
-   npm run prepare-web
-   npx @capgo/cli bundle upload --channel production --min-update-version 2.3.9
+   bash scripts/bundle.sh 2.3.9 2.3.9   # version=2.3.9, minNativeVersion=2.3.9
+   git add updates/ && git commit -m "Deploy live bundle 2.3.9 (requires new APK)" && git push
+   curl http://localhost:12345/invalidate
    ```
-3. Devices running the old APK will receive a **"App Update Required"** dialog (built into
-   the app) directing them to download the new APK from `/app/android/fitness-pizza.apk`.
-   Devices already on the new APK receive the bundle update silently as usual.
+3. Devices running the old APK get an **"App Update Required"** dialog linking to the
+   new APK. Devices already on the new APK silently receive the bundle as usual.
 
 ## Development workflow
 

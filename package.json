@@ -9,7 +9,7 @@
     "sync:ios": "npm run prepare-web && npx cap sync ios",
     "open:android": "npx cap open android",
     "open:ios": "npx cap open ios",
-    "deploy:live": "npm run prepare-web && npx @capgo/cli bundle upload --channel production"
+    "deploy:live": "bash scripts/bundle.sh"
   },
   "dependencies": {
     "@capacitor/core": "^7.0.0",
@@ -20,7 +20,6 @@
     "@capgo/capacitor-updater": "^7.45.10"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.0.0",
-    "@capgo/cli": "latest"
+    "@capacitor/cli": "^7.0.0"
   }
 }

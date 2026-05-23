@@ -18,9 +18,41 @@ npx cap init          # only needed once; config already exists in capacitor.con
 
 ## Android APK
 
+### Command-line build (Node 18 environment — no Android Studio needed)
+
+`npx cap sync` requires Node 20+. Web assets must be copied manually instead:
+
+```bash
+# 1. Build web assets and copy into the Android project manually
+npm run prepare-web
+cp -r www/* android/app/src/main/assets/public/
+
+# 2. Build debug APK (JAVA_HOME must point to a JDK, not just JRE)
+cd android
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew assembleDebug
+
+# 3. Copy to distribution directory with version in the filename
+VERSION=$(node -e "process.stdout.write(require('../package.json').version)")
+cp app/build/outputs/apk/debug/app-debug.apk ../app/android/fitness-pizza-${VERSION}.apk
+cp app/build/outputs/apk/debug/app-debug.apk ../app/android/fitness-pizza.apk
+cd ..
+```
+
+**Note**: All Capacitor plugin `build.gradle` files declare `JavaVersion.VERSION_21` and
+`jvmToolchain(21)`. Since only Java 17 JDK is available on this machine, these are patched
+to 17 in-place (node_modules files, not checked in). If `npm install` is re-run, re-apply:
+```bash
+find node_modules -name "build.gradle" -path "*/android/*" \
+  -exec sed -i 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g; s/jvmToolchain(21)/jvmToolchain(17)/g' {} \;
+sed -i 's/case DelayUntilNext\.\(.*\):/case \1:/g' \
+  node_modules/@capgo/capacitor-updater/android/src/main/java/ee/forgr/capacitor_updater/DelayUpdateUtils.java
+```
+
+### Android Studio build (alternative, produces signed release APK)
+
 ```bash
 # 1. Copy web assets into www/ and sync to the native project
-npm run sync:android
+npm run sync:android   # requires Node 20+
 
 # 2. Open in Android Studio
 npm run open:android

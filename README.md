@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.9
+**Current**: v2.4.10
+- **Remove iOS coming-soon note**: Settings now only shows Android APK download
+
+**v2.4.9**
 - **Default food library**: 36 common foods seeded on first launch (eggs, egg whites, chicken, salmon, oats, fruits, vegetables, nuts, etc.); existing users unaffected
 - **Healthy Tips modal**: populated with actual content (permanent diet change, tracking, exercise vs weight loss, no ultra-processed foods)
 

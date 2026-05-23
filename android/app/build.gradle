@@ -7,8 +7,9 @@ android {
         applicationId "com.fitnesspizza.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 11
-        versionName "2.5.2"
+        versionCode 12
+        versionName "2.5.3"
+        manifestPlaceholders = [appLabel: "Fitness Pizza"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -17,6 +18,9 @@ android {
         }
     }
     buildTypes {
+        debug {
+            manifestPlaceholders = [appLabel: "Fitness Pizza " + defaultConfig.versionName]
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

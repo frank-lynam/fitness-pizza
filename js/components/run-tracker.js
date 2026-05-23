@@ -56,13 +56,15 @@ function spokenDuration(totalSec) {
 }
 
 async function tts(text) {
+    if (window.AndroidBridge) {
+        window.AndroidBridge.speak(text);
+        return;
+    }
     const TTS = window.Capacitor?.Plugins?.TextToSpeech;
     if (!TTS) return;
-    window.AndroidBridge?.requestAudioDuck();
     try {
         await TTS.speak({ text, rate: 1.0, locale: 'en-US', volume: 1.0 });
     } catch (_) {}
-    window.AndroidBridge?.releaseAudioDuck();
 }
 
 export function initRunTracker() {

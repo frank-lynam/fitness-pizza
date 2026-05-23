@@ -113,11 +113,8 @@ function launchRunOverlay() {
     let weakSignalTimer = null;
 
     // Use most recent weight measurement for calorie accuracy
-    db.getAllMeasurements()
-        .then(ms => {
-            const wm = ms.filter(m => m.type === 'weight').sort((a, b) => b.timestamp - a.timestamp);
-            if (wm.length) weightKg = (wm[0].value || 0) * 0.453592 || 70;
-        })
+    db.getLatestWeight()
+        .then(lbs => { weightKg = lbs / 2.20462; })
         .catch(() => {});
 
     const BGL = window.Capacitor?.Plugins?.BackgroundGeolocation;

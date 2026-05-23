@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.5.0
+**Current**: v2.5.1
+- **Fix run calorie calculation**: Use `db.getLatestWeight()` (which respects lbs/kg unit preference) instead of blindly applying a lbs→kg conversion; previously treating a kg weight as lbs halved the calorie estimate
+
+**v2.5.0**
 - **TTS while screen locked**: Override `MainActivity.onPause()` to keep the WebView running during active runs so GPS callbacks and TTS fire while the screen is locked (APK rebuild)
 
 **v2.4.15**

@@ -15,6 +15,11 @@ import { initFoodLibrary } from './components/food-library.js';
 import { initEasterEggs } from './easter-eggs.js';
 import { initRunTracker } from './components/run-tracker.js';
 
+// Authoritative running version — baked in at build time so we never rely
+// on CU.current().bundle.version, which unreliably returns 'builtin' after
+// CU.set() reloads the webview.
+const APP_VERSION = '2.4.15';
+
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
     if (f <= 1.375)  return 'Lightly active (1–3 days/wk)';
@@ -944,8 +949,10 @@ class FitnessTrackerApp {
             ]);
 
             const nativeVersion = current.native;
-            const bundleVersion = current.bundle?.version;
-            const currentVersion = (bundleVersion === 'builtin' || !bundleVersion) ? nativeVersion : bundleVersion;
+            // Use APP_VERSION (baked into this JS file) as the authoritative current
+            // version — CU.current().bundle.version unreliably returns 'builtin' after
+            // CU.set() reloads the webview, which caused false update loops.
+            const currentVersion = APP_VERSION;
             const handledVersion = localStorage.getItem('fp_update_handled');
 
             console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} handled=${handledVersion}`);
@@ -1060,8 +1067,12 @@ class FitnessTrackerApp {
 
         document.getElementById('live-update-now').addEventListener('click', async () => {
             modal.remove();
-            ui.showLoading('Applying update…');
-            await CU.set({ id: bundleId });
+            ui.showLoading('Closing app to apply update…');
+            await CU.next({ id: bundleId });
+            // exitApp gives a clean close so the OS relaunches with the new bundle.
+            // CU.set() was avoided here because it triggers an in-session webview
+            // reload that can fire mid-activity (e.g. during GPS acquisition).
+            window.Capacitor?.Plugins?.App?.exitApp?.();
         });
 
         document.getElementById('live-update-later').addEventListener('click', async () => {

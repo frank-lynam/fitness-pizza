@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.14
+**Current**: v2.4.15
+- **Fix update loop / mid-session flash**: APP_VERSION constant in JS replaces CU.current().bundle.version (which unreliably returned 'builtin' causing false version detection); "Restart & Update" now uses CU.next() + App.exitApp() instead of CU.set(), preventing mid-session webview reloads during GPS acquisition
+
+**v2.4.14**
 - **Run tracker GPS robustness**: distanceFilter changed from 0 to 1 m (avoids plugin edge case); 30-second fallback enables Start with "weak GPS" warning if accuracy never reaches ±30 m; weakSignalTimer cleared cleanly on finish/close
 
 **v2.4.13**

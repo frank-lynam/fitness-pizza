@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.8
+**Current**: v2.4.9
+- **Default food library**: 36 common foods seeded on first launch (eggs, egg whites, chicken, salmon, oats, fruits, vegetables, nuts, etc.); existing users unaffected
+- **Healthy Tips modal**: populated with actual content (permanent diet change, tracking, exercise vs weight loss, no ultra-processed foods)
+
+**v2.4.8**
 - **Fix update check CORS**: manifest fetch now uses CapacitorHttp (native) on Android, bypassing the CORS block that caused "Failed to fetch" for fitness-pizza.com; live bundle — no APK reinstall needed
 
 **v2.4.7**

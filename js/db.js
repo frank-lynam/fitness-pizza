@@ -8,6 +8,52 @@
  * - settings: User preferences
  */
 
+const DEFAULT_FOODS = [
+    // --- Eggs & Dairy ---
+    { name: 'Egg', format_type: 'per_serving', serving_size: '1 egg', protein: 6.3, carbs: 0.7, fat: 4.5, fiber: 0, calories: 69 },
+    { name: 'Egg White', format_type: 'per_serving', serving_size: '1 white', protein: 3.6, carbs: 0.2, fat: 0, fiber: 0, calories: 15 },
+    { name: 'Egg Yolk', format_type: 'per_serving', serving_size: '1 yolk', protein: 2.7, carbs: 0.6, fat: 4.5, fiber: 0, calories: 54 },
+    { name: 'Greek Yogurt, Non-fat', format_type: 'per_gram', protein: 10.2, carbs: 3.6, fat: 0.4, fiber: 0, calories: 59 },
+    { name: 'Cottage Cheese, Non-fat', format_type: 'per_gram', protein: 10.6, carbs: 5.3, fat: 0, fiber: 0, calories: 64 },
+    { name: 'Cheddar Cheese', format_type: 'per_gram', protein: 24.9, carbs: 1.3, fat: 33.1, fiber: 0, calories: 403 },
+    { name: 'Milk, 2%', format_type: 'per_gram', protein: 3.4, carbs: 5, fat: 2, fiber: 0, calories: 52 },
+    { name: 'Almond Milk, Unsweetened', format_type: 'per_gram', protein: 1.11, carbs: 0.56, fat: 1.39, fiber: 0.56, calories: 14 },
+    { name: 'Butter', format_type: 'per_serving', serving_size: '1 tbsp', protein: 0, carbs: 0, fat: 11, fiber: 0, calories: 99 },
+    // --- Meat & Fish ---
+    { name: 'Chicken Breast, Raw', format_type: 'per_gram', protein: 31, carbs: 0, fat: 3.6, fiber: 0, calories: 156 },
+    { name: 'Ground Beef, 92% Lean', format_type: 'per_gram', protein: 23.4, carbs: 0, fat: 8.5, fiber: 0, calories: 170 },
+    { name: 'Salmon, Raw', format_type: 'per_gram', protein: 20, carbs: 0, fat: 13, fiber: 0, calories: 208 },
+    { name: 'Tuna, Canned in Water', format_type: 'per_gram', protein: 23.6, carbs: 0, fat: 0.8, fiber: 0, calories: 101 },
+    // --- Grains & Legumes ---
+    { name: 'Oats, Rolled', format_type: 'per_gram', protein: 16.9, carbs: 66.3, fat: 6.9, fiber: 10.6, calories: 389 },
+    { name: 'White Rice, Cooked', format_type: 'per_serving', serving_size: '1 cup', protein: 4, carbs: 40, fat: 1, fiber: 0, calories: 185 },
+    { name: 'All-Purpose Flour', format_type: 'per_serving', serving_size: '1 tbsp', protein: 1, carbs: 6, fat: 0, fiber: 0, calories: 28 },
+    { name: 'Black Beans, Cooked', format_type: 'per_serving', serving_size: '1/2 cup', protein: 7, carbs: 20, fat: 4.5, fiber: 7.5, calories: 114 },
+    { name: 'Lentils, Cooked', format_type: 'per_gram', protein: 9, carbs: 20, fat: 0.4, fiber: 7.9, calories: 116 },
+    // --- Vegetables ---
+    { name: 'Broccoli, Raw', format_type: 'per_gram', protein: 2.8, carbs: 6.6, fat: 0.4, fiber: 2.6, calories: 34 },
+    { name: 'Spinach, Raw', format_type: 'per_gram', protein: 2.9, carbs: 3.6, fat: 0.4, fiber: 2.2, calories: 23 },
+    { name: 'Sweet Potato', format_type: 'per_gram', protein: 1.6, carbs: 20.1, fat: 0.1, fiber: 3, calories: 86 },
+    // --- Fruits ---
+    { name: 'Banana', format_type: 'per_serving', serving_size: '1 medium', protein: 1, carbs: 24, fat: 0, fiber: 2.6, calories: 100 },
+    { name: 'Apple', format_type: 'per_gram', protein: 0.1, carbs: 14.7, fat: 0.1, fiber: 1.7, calories: 60 },
+    { name: 'Strawberries', format_type: 'per_gram', protein: 0.7, carbs: 4.9, fat: 0.3, fiber: 2, calories: 25 },
+    { name: 'Blueberries', format_type: 'per_gram', protein: 0.7, carbs: 14.5, fat: 0.3, fiber: 2.4, calories: 57 },
+    { name: 'Orange', format_type: 'per_serving', serving_size: '1 medium', protein: 1, carbs: 15, fat: 0, fiber: 3.1, calories: 64 },
+    { name: 'Mango', format_type: 'per_gram', protein: 0.8, carbs: 15, fat: 0.4, fiber: 1.6, calories: 60 },
+    { name: 'Avocado', format_type: 'per_gram', protein: 2, carbs: 5, fat: 14.7, fiber: 6.7, calories: 160 },
+    // --- Nuts, Seeds & Oils ---
+    { name: 'Almonds', format_type: 'per_gram', protein: 21.2, carbs: 21.7, fat: 49.9, fiber: 12.5, calories: 579 },
+    { name: 'Cashews', format_type: 'per_gram', protein: 17.9, carbs: 28.6, fat: 42.8, fiber: 3.3, calories: 571 },
+    { name: 'Peanut Butter', format_type: 'per_serving', serving_size: '2 tbsp', protein: 8, carbs: 7, fat: 16, fiber: 2, calories: 188 },
+    { name: 'Powdered Peanut Butter', format_type: 'per_serving', serving_size: '1 tbsp', protein: 3, carbs: 2.5, fat: 0.75, fiber: 0, calories: 29 },
+    { name: 'Olive Oil', format_type: 'per_serving', serving_size: '1 tbsp', protein: 0, carbs: 0, fat: 14, fiber: 0, calories: 119 },
+    // --- Other ---
+    { name: 'Protein Powder', format_type: 'per_serving', serving_size: '1 scoop', protein: 25, carbs: 0, fat: 0, fiber: 0, calories: 100 },
+    { name: 'Honey', format_type: 'per_serving', serving_size: '1 tbsp', protein: 0, carbs: 17, fat: 0, fiber: 0, calories: 68 },
+    { name: 'Tofu, Firm', format_type: 'per_gram', protein: 8.1, carbs: 1.9, fat: 4.8, fiber: 0.3, calories: 76 },
+];
+
 class DatabaseManager {
     constructor() {
         this.db = null;
@@ -543,6 +589,16 @@ class DatabaseManager {
         const foods = await this.getAll('named_foods');
         // Sort alphabetically by name
         return foods.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    async seedDefaultFoodsIfEmpty() {
+        const existing = await this.getAll('named_foods');
+        if (existing.length > 0) return;
+        const now = Date.now();
+        for (const food of DEFAULT_FOODS) {
+            await this.addNamedFood({ ...food, created_at: now, updated_at: now });
+        }
+        console.log(`[db] Seeded ${DEFAULT_FOODS.length} default foods`);
     }
 
     /**

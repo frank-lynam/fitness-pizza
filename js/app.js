@@ -41,6 +41,7 @@ class FitnessTrackerApp {
             console.log('Initializing database...');
             await db.init();
             console.log('Database initialized successfully');
+            await db.seedDefaultFoodsIfEmpty();
 
             // Apply saved theme
             const savedTheme = await db.getSetting('theme') || 'dark';
@@ -1165,22 +1166,52 @@ class FitnessTrackerApp {
         modal.addEventListener('click', e => { if (e.target === modal) close(); });
     }
 
-    /** Healthy Tips modal (content TBD) */
     showHealthyTipsModal() {
         const existing = document.getElementById('healthy-tips-modal');
         if (existing) existing.remove();
+
+        const tips = [
+            {
+                title: 'Permanent Change of Diet',
+                body: `You need to find a way to make permanent changes, to change what you eat every day, forever. Find things you like that also won't harm you! There's so many options, maybe you love passion fruit, who knows if you don't try it?
+                <br><br>Don't think in the back of your head that you're going to start eating cookies every day again, learn to look forward to something new. Fried chicken used to be my fave, now salad is! Yum 🥗!`
+            },
+            {
+                title: 'Track Your Intake',
+                body: `This sounds a little self-serving for a food tracking app, but most people just don't realize what they eat. Always try to track your real intake, every extra cookie, when you binge 10,000 calories, everything.
+                <br><br>Some people say not to worry about the occasional binge or missed meal, but I'm always worried one will turn into two will turn into many. This app has a responsive target system, a "PI controller", which will help you rebalance variances over time, to help you keep your overall average on target.
+                <br><br>It's ultimately about being healthy and eating what your body needs. You can't do that by lying to yourself about what you eat. 🙂‍↔️`
+            },
+            {
+                title: 'Exercise Isn\'t Weight Loss',
+                body: `I love to work out! Check out these guns 💪! But, realistically, workouts burn far less calories then you think they do. Work out to be healthy. Are you tired all the time? Can't walk upstairs without getting winded? You need to work out.
+                <br><br>But it won't make you thin. Only eating right will.`
+            },
+            {
+                title: 'No Sugar, No Ultra-Processed Foods',
+                body: `Just stop eating them. Made by a billion dollar corporation, comes in a box with flashy advertising? It's almost certainly designed to addict you, not feed you, not satiate you. Stop eating them, they're made by the same people who got kids addicted to cigarettes, <a href="https://onlinelibrary.wiley.com/doi/10.1111/1468-0009.70066" target="_blank" style="color:var(--accent-primary)">I'm not even joking</a>. 💀
+                <br><br>Learn to cook! It's fun! And yummy! And cheaper, omg, so cheap! I recommend zero sugar meringues, literally just egg whites and powdered erithrytol, whip it until it's stiff, dollop it onto parchment paper, 45 minutes at 225F, let it cool in the oven and then on the counter. So easy! Dust them with zero sugar pudding mix before baking for delicious flavors!`
+            },
+        ];
+
+        const tipsHtml = tips.map(t => `
+            <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:16px 18px;margin-bottom:14px;">
+                <h4 style="color:var(--accent-primary);margin:0 0 10px;font-size:15px;">${t.title}</h4>
+                <p style="color:var(--text-primary);font-size:14px;line-height:1.6;margin:0;">${t.body}</p>
+            </div>
+        `).join('');
 
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.id = 'healthy-tips-modal';
         modal.innerHTML = `
-            <div class="modal-content" style="max-width:480px;">
+            <div class="modal-content" style="max-width:520px;">
                 <div class="modal-header">
                     <h3>🥗 Healthy Tips</h3>
                     <button class="modal-close" id="tips-close">&times;</button>
                 </div>
-                <div class="modal-body" style="padding:20px;">
-                    <p style="color:var(--text-secondary);">Tips coming soon.</p>
+                <div class="modal-body" style="padding:20px;max-height:70vh;overflow-y:auto;">
+                    ${tipsHtml}
                 </div>
             </div>
         `;

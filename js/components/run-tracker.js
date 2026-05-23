@@ -59,7 +59,7 @@ function launchRunOverlay() {
         <div class="run-header">
             <button id="run-close" class="run-close-btn" aria-label="Close">✕</button>
             <h2 class="run-title">🏃 Run Tracker</h2>
-            <div id="run-status" class="run-status-badge">Ready</div>
+            <div id="run-status" class="run-status-badge">Acquiring GPS…</div>
         </div>
         <div class="run-main">
             <div class="run-big-stat">
@@ -82,14 +82,14 @@ function launchRunOverlay() {
             </div>
         </div>
         <div id="run-controls" class="run-controls">
-            <button id="run-start" class="btn-primary run-action-btn">Start Run</button>
+            <button id="run-start" class="btn-primary run-action-btn" disabled>Waiting for GPS…</button>
         </div>
-        <div id="run-gps-badge" class="run-gps-badge"></div>
+        <div id="run-gps-badge" class="run-gps-badge">GPS: searching…</div>
     `;
     document.body.appendChild(overlay);
 
     // — state —
-    let phase = 'idle';
+    let phase = 'acquiring';
     let watcherId = null;
     let totalDistKm = 0;
     let lastLat = null, lastLon = null;
@@ -134,7 +134,7 @@ function launchRunOverlay() {
 
     function setPhase(p) {
         phase = p;
-        const labels = { idle: 'Ready', acquiring: 'Acquiring GPS…', running: 'Running', paused: 'Paused', done: 'Finished!' };
+        const labels = { acquiring: 'Acquiring GPS…', ready: 'GPS Ready — tap Start', running: 'Running', paused: 'Paused', done: 'Finished!' };
         document.getElementById('run-status').textContent = labels[p] || p;
     }
 
@@ -169,13 +169,25 @@ function launchRunOverlay() {
         document.getElementById('run-finish')?.addEventListener('click', finishRun);
     }
 
-    async function startTracking() {
+    function beginRun() {
+        if (phase !== 'ready') return;
+        segmentStart = Date.now();
+        setPhase('running');
+        startTick();
+        tts('Run started.');
+        setControls(`
+            <button id="run-pause" class="btn-secondary run-action-btn">Pause</button>
+            <button id="run-finish" class="btn-danger run-action-btn">Finish</button>
+        `);
+        wireRunControls();
+    }
+
+    async function startGpsAcquisition() {
         if (!BGL) {
             document.getElementById('run-status').textContent = 'GPS unavailable — native app required';
+            document.getElementById('run-gps-badge').textContent = '';
             return;
         }
-        setPhase('acquiring');
-        setControls('');
 
         try {
             watcherId = await BGL.addWatcher(
@@ -184,32 +196,42 @@ function launchRunOverlay() {
                     backgroundTitle: 'Run in progress',
                     requestPermissions: true,
                     stale: false,
-                    distanceFilter: 5,
+                    distanceFilter: 0,
                 },
                 (loc, err) => {
                     if (err) {
                         if (err.code === 'NOT_AUTHORIZED') {
+                            setPhase('acquiring');
                             document.getElementById('run-status').textContent = 'Location permission denied';
+                            document.getElementById('run-gps-badge').textContent = '';
                             if (confirm('Location permission required. Open settings?')) BGL.openSettings?.();
                         } else {
-                            document.getElementById('run-status').textContent = `GPS error: ${err.message}`;
+                            document.getElementById('run-gps-badge').textContent = `GPS error: ${err.message}`;
                         }
                         return;
                     }
 
                     const { latitude: lat, longitude: lon, accuracy } = loc;
-                    document.getElementById('run-gps-badge').textContent = `GPS ±${Math.round(accuracy)} m`;
+                    const acc = Math.round(accuracy);
+                    const badge = document.getElementById('run-gps-badge');
 
-                    if (phase === 'acquiring' && accuracy <= 30) {
-                        setPhase('running');
-                        segmentStart = Date.now();
-                        startTick();
-                        tts('GPS acquired. Run started.');
-                        setControls(`
-                            <button id="run-pause" class="btn-secondary run-action-btn">Pause</button>
-                            <button id="run-finish" class="btn-danger run-action-btn">Finish</button>
-                        `);
-                        wireRunControls();
+                    if (phase === 'acquiring') {
+                        badge.textContent = `GPS ±${acc} m — waiting for lock…`;
+                        badge.style.color = '';
+                        if (accuracy <= 30) {
+                            setPhase('ready');
+                            badge.textContent = `GPS ±${acc} m ✓`;
+                            badge.style.color = 'var(--accent-success)';
+                            const startBtn = document.getElementById('run-start');
+                            if (startBtn) {
+                                startBtn.disabled = false;
+                                startBtn.textContent = 'Start Run';
+                            }
+                        }
+                    } else if (phase === 'ready') {
+                        badge.textContent = `GPS ±${acc} m ✓`;
+                    } else if (phase === 'running' || phase === 'paused') {
+                        badge.textContent = `GPS ±${acc} m`;
                     }
 
                     if (phase === 'running' && lastLat !== null) {
@@ -228,7 +250,7 @@ function launchRunOverlay() {
                         }
                     }
 
-                    if (phase === 'running' || phase === 'acquiring') {
+                    if (phase !== 'done') {
                         lastLat = lat;
                         lastLon = lon;
                     }
@@ -236,6 +258,7 @@ function launchRunOverlay() {
             );
         } catch (e) {
             document.getElementById('run-status').textContent = `Failed to start GPS: ${e.message}`;
+            document.getElementById('run-gps-badge').textContent = '';
         }
     }
 
@@ -287,12 +310,15 @@ function launchRunOverlay() {
         document.getElementById('run-done').addEventListener('click', () => overlay.remove());
     }
 
-    document.getElementById('run-start').addEventListener('click', startTracking);
+    document.getElementById('run-start').addEventListener('click', beginRun);
 
     document.getElementById('run-close').addEventListener('click', async () => {
-        if ((phase === 'running' || phase === 'acquiring') && !confirm('Stop the run and close?')) return;
+        if ((phase === 'running' || phase === 'paused') && !confirm('Stop the run and close?')) return;
         stopTick();
         if (watcherId && BGL) { try { await BGL.removeWatcher({ id: watcherId }); } catch (_) {} }
         overlay.remove();
     });
+
+    // Begin GPS acquisition immediately on overlay open
+    startGpsAcquisition();
 }

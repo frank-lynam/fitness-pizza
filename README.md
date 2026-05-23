@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.11
+**Current**: v2.4.12
+- **Run tracker GPS pre-acquisition**: GPS starts immediately when "Go for a Run" is tapped; "Start Run" button stays disabled until signal reaches ±30 m accuracy, then enables for manual start
+
+**v2.4.11**
 - **Fix infinite update loop**: localStorage guard (`fp_update_handled`) prevents re-downloading a bundle that's already been queued; cleared automatically when a newer version appears; APK rebuild required to escape the 2.4.9↔2.4.10 loop
 
 **v2.4.10**

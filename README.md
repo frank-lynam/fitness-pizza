@@ -144,7 +144,13 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.5.1
+**Current**: v2.5.2
+- **Accurate run calories**: Switch from fixed MET=9 to ACSM speed-dependent formula (MET = (0.2 × speed_m_per_min + 3.5) / 3.5); fixed MET was systematically low for any pace faster than ~7 min/km
+- **TTS audio ducking**: Request `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` before each announcement so music/podcasts lower while the coach speaks, then restore; volume set to 1.0 (APK rebuild)
+- **TTS on screen lock**: Add `onStop()` override alongside `onPause()` — Android 9+ calls both when screen locks (APK rebuild)
+- **Run time display**: Round `duration_minutes` to 2 decimal places in workout history list
+
+**v2.5.1**
 - **Fix run calorie calculation**: Use `db.getLatestWeight()` (which respects lbs/kg unit preference) instead of blindly applying a lbs→kg conversion; previously treating a kg weight as lbs halved the calorie estimate
 
 **v2.5.0**

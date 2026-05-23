@@ -18,7 +18,7 @@ import { initRunTracker } from './components/run-tracker.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.5.1';
+const APP_VERSION = '2.5.2';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';

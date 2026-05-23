@@ -33,8 +33,15 @@ function fmtDuration(totalSec) {
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-function calcCalories(durationMinutes, weightKg) {
-    return Math.round((MET_RUNNING * 3.5 * weightKg / 200) * durationMinutes);
+function calcCalories(durationMinutes, weightKg, distKm) {
+    let met = MET_RUNNING;
+    if (distKm > 0 && durationMinutes > 0) {
+        // ACSM formula: VO2 = 0.2 * speed_m_per_min + 3.5; MET = VO2 / 3.5
+        const speedMPerMin = (distKm * 1000) / durationMinutes;
+        met = (0.2 * speedMPerMin + 3.5) / 3.5;
+        met = Math.max(5, Math.min(18, met)); // clamp to walk–sprint range
+    }
+    return Math.round(met * 3.5 * weightKg / 200 * durationMinutes);
 }
 
 function spokenDuration(totalSec) {
@@ -49,9 +56,13 @@ function spokenDuration(totalSec) {
 }
 
 async function tts(text) {
+    const TTS = window.Capacitor?.Plugins?.TextToSpeech;
+    if (!TTS) return;
+    window.AndroidBridge?.requestAudioDuck();
     try {
-        await window.Capacitor?.Plugins?.TextToSpeech?.speak({ text, rate: 1.0, locale: 'en-US' });
+        await TTS.speak({ text, rate: 1.0, locale: 'en-US', volume: 1.0 });
     } catch (_) {}
+    window.AndroidBridge?.releaseAudioDuck();
 }
 
 export function initRunTracker() {
@@ -130,7 +141,7 @@ function launchRunOverlay() {
         document.getElementById('run-distance').textContent = totalDistKm.toFixed(2);
         document.getElementById('run-time').textContent = fmtDuration(sec);
         document.getElementById('run-pace').textContent = fmtPace(pace);
-        document.getElementById('run-calories').textContent = calcCalories(dMin, weightKg);
+        document.getElementById('run-calories').textContent = calcCalories(dMin, weightKg, totalDistKm);
     }
 
     function startTick() {
@@ -305,7 +316,7 @@ function launchRunOverlay() {
 
         const dMin = totalElapsedMs / 60000;
         const paceMi = totalDistKm > 0 ? (dMin / totalDistKm) * KM_PER_MI : 0;
-        const calories = calcCalories(dMin, weightKg);
+        const calories = calcCalories(dMin, weightKg, totalDistKm);
         const paceStr = totalDistKm > 0 ? fmtPace(dMin / totalDistKm) : '--:--';
 
         tts(`Run finished. ${totalDistKm.toFixed(1)} kilometers. Average pace: ${paceStr} per kilometer.`);

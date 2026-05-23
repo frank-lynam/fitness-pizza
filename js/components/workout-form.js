@@ -511,7 +511,7 @@ export async function loadWorkouts() {
                         : workout.pace;
                     paceStr = ` @ ${displayPace} min/${_paceUnit}`;
                 }
-                details.push(`${workout.duration_minutes} min${paceStr}`);
+                details.push(`${parseFloat(workout.duration_minutes.toFixed(2))} min${paceStr}`);
             } else if (workout.reps > 0) {
                 details.push(`${workout.reps} reps`);
             }

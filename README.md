@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.15
+**Current**: v2.5.0
+- **TTS while screen locked**: Override `MainActivity.onPause()` to keep the WebView running during active runs so GPS callbacks and TTS fire while the screen is locked (APK rebuild)
+
+**v2.4.15**
 - **Fix update loop / mid-session flash**: APP_VERSION constant in JS replaces CU.current().bundle.version (which unreliably returned 'builtin' causing false version detection); "Restart & Update" now uses CU.next() + App.exitApp() instead of CU.set(), preventing mid-session webview reloads during GPS acquisition
 
 **v2.4.14**

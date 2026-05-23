@@ -98,6 +98,7 @@ function launchRunOverlay() {
         <div id="run-gps-badge" class="run-gps-badge">GPS: searching…</div>
     `;
     document.body.appendChild(overlay);
+    window.AndroidBridge?.setRunActive(true);
 
     // — state —
     let phase = 'acquiring';
@@ -340,7 +341,10 @@ function launchRunOverlay() {
                 <button id="run-done" class="btn-primary run-action-btn" style="margin-top:16px;">Done</button>
             </div>
         `);
-        document.getElementById('run-done').addEventListener('click', () => overlay.remove());
+        document.getElementById('run-done').addEventListener('click', () => {
+            window.AndroidBridge?.setRunActive(false);
+            overlay.remove();
+        });
     }
 
     document.getElementById('run-start').addEventListener('click', beginRun);
@@ -350,6 +354,7 @@ function launchRunOverlay() {
         clearTimeout(weakSignalTimer);
         stopTick();
         if (watcherId && BGL) { try { await BGL.removeWatcher({ id: watcherId }); } catch (_) {} }
+        window.AndroidBridge?.setRunActive(false);
         overlay.remove();
     });
 

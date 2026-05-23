@@ -921,12 +921,25 @@ class FitnessTrackerApp {
         setTimeout(() => this.checkLiveUpdate(CU), 5000);
     }
 
+    async _fetchJson(url) {
+        // On native, use CapacitorHttp to bypass CORS (WebView origin is
+        // capacitor://localhost so servers without CORS headers block fetch()).
+        if (window.Capacitor?.isNativePlatform?.()) {
+            const Http = window.Capacitor?.Plugins?.CapacitorHttp;
+            if (Http) {
+                const r = await Http.request({ method: 'GET', url });
+                return typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+            }
+        }
+        return fetch(url).then(r => r.json());
+    }
+
     async checkLiveUpdate(CU, silent = true) {
         const MANIFEST = 'https://fitness-pizza.com/updates/latest.json';
         try {
             const [current, latest] = await Promise.all([
                 CU.current(),
-                fetch(`${MANIFEST}?t=${Date.now()}`).then(r => r.json()),
+                this._fetchJson(`${MANIFEST}?t=${Date.now()}`),
             ]);
 
             const nativeVersion = current.native;

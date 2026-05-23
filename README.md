@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.7
+**Current**: v2.4.8
+- **Fix update check CORS**: manifest fetch now uses CapacitorHttp (native) on Android, bypassing the CORS block that caused "Failed to fetch" for fitness-pizza.com; live bundle — no APK reinstall needed
+
+**v2.4.7**
 - **Native camera fix**: "Take Photo" and "Take Label Photo" now use @capacitor/camera on Android instead of `<input capture>` (which only opened the gallery); APK reinstall required
 
 **v2.4.6**

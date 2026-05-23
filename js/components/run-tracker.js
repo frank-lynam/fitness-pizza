@@ -111,7 +111,6 @@ function launchRunOverlay() {
         <div id="run-gps-badge" class="run-gps-badge">GPS: searching…</div>
     `;
     document.body.appendChild(overlay);
-    window.AndroidBridge?.setRunActive(true);
 
     // — state —
     let phase = 'acquiring';
@@ -170,6 +169,7 @@ function launchRunOverlay() {
             totalElapsedMs += Date.now() - segmentStart;
             segmentStart = null;
             setPhase('paused');
+            window.AndroidBridge?.pauseNativeRun();
             tts('Run paused.');
             setControls(`
                 <button id="run-resume" class="btn-secondary run-action-btn">Resume</button>
@@ -181,6 +181,7 @@ function launchRunOverlay() {
         document.getElementById('run-resume')?.addEventListener('click', () => {
             segmentStart = Date.now();
             setPhase('running');
+            window.AndroidBridge?.resumeNativeRun();
             tts('Resuming.');
             setControls(`
                 <button id="run-pause" class="btn-secondary run-action-btn">Pause</button>
@@ -197,6 +198,7 @@ function launchRunOverlay() {
         segmentStart = Date.now();
         setPhase('running');
         startTick();
+        window.AndroidBridge?.startNativeRun(weightKg);
         tts('Run started.');
         setControls(`
             <button id="run-pause" class="btn-secondary run-action-btn">Pause</button>
@@ -279,15 +281,19 @@ function launchRunOverlay() {
                         const d = haversineKm(lastLat, lastLon, lat, lon);
                         if (d < 0.5) {
                             totalDistKm += d;
-                            const halfKms = Math.floor(totalDistKm * 2);
-                            if (halfKms > halfKmsAnnounced && halfKms > 0) {
-                                halfKmsAnnounced = halfKms;
-                                const elapsedSec = getElapsedMs() / 1000;
-                                const elapsedHr = elapsedSec / 3600;
-                                const distMi = totalDistKm / KM_PER_MI;
-                                const speedMph = elapsedHr > 0 ? distMi / elapsedHr : 0;
-                                const distStr = (halfKms * 0.5).toFixed(1).replace(/\.0$/, '');
-                                tts(`${distStr} kilometer${halfKms === 2 ? '' : 's'}. ${spokenDuration(elapsedSec)}. ${speedMph.toFixed(1)} miles per hour.`);
+                            // Native GPS listener handles km announcements when running
+                            // in the Android app so they work when the screen is locked.
+                            if (!window.AndroidBridge) {
+                                const halfKms = Math.floor(totalDistKm * 2);
+                                if (halfKms > halfKmsAnnounced && halfKms > 0) {
+                                    halfKmsAnnounced = halfKms;
+                                    const elapsedSec = getElapsedMs() / 1000;
+                                    const elapsedHr = elapsedSec / 3600;
+                                    const distMi = totalDistKm / KM_PER_MI;
+                                    const speedMph = elapsedHr > 0 ? distMi / elapsedHr : 0;
+                                    const distStr = (halfKms * 0.5).toFixed(1).replace(/\.0$/, '');
+                                    tts(`${distStr} kilometer${halfKms === 2 ? '' : 's'}. ${spokenDuration(elapsedSec)}. ${speedMph.toFixed(1)} miles per hour.`);
+                                }
                             }
                         }
                     }
@@ -309,6 +315,7 @@ function launchRunOverlay() {
         clearTimeout(weakSignalTimer);
         if (segmentStart) { totalElapsedMs += Date.now() - segmentStart; segmentStart = null; }
         stopTick();
+        window.AndroidBridge?.stopNativeRun();
         if (watcherId && BGL) {
             try { await BGL.removeWatcher({ id: watcherId }); } catch (_) {}
             watcherId = null;
@@ -352,7 +359,6 @@ function launchRunOverlay() {
             </div>
         `);
         document.getElementById('run-done').addEventListener('click', () => {
-            window.AndroidBridge?.setRunActive(false);
             overlay.remove();
         });
     }
@@ -364,7 +370,7 @@ function launchRunOverlay() {
         clearTimeout(weakSignalTimer);
         stopTick();
         if (watcherId && BGL) { try { await BGL.removeWatcher({ id: watcherId }); } catch (_) {} }
-        window.AndroidBridge?.setRunActive(false);
+        window.AndroidBridge?.stopNativeRun();
         overlay.remove();
     });
 

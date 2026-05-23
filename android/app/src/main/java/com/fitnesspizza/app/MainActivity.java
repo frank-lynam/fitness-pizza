@@ -1,10 +1,12 @@
 package com.fitnesspizza.app;
 
+import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.webkit.JavascriptInterface;
@@ -12,20 +14,22 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
-    // Set true while a run is active so the WebView keeps executing JS when
-    // the screen is locked. Cleared when the run overlay is closed.
-    static volatile boolean runActive = false;
+    // Held during an active run to keep the CPU awake (screen off but JS
+    // still executing) so GPS callbacks and TTS announcements continue.
+    private PowerManager.WakeLock wakeLock;
 
     // Held during TTS announcements to duck media audio (navigation-style).
     private volatile AudioFocusRequest focusRequest;
 
-    // Native TTS engine — runs independently of WebView lifecycle so
-    // announcements work when the screen is locked.
+    // Native TTS engine — runs independently of WebView lifecycle.
     private TextToSpeech nativeTts;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "FitnessPizza:RunTracker");
 
         nativeTts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -43,7 +47,11 @@ public class MainActivity extends BridgeActivity {
 
             @JavascriptInterface
             public void setRunActive(boolean active) {
-                runActive = active;
+                if (active) {
+                    if (!wakeLock.isHeld()) wakeLock.acquire();
+                } else {
+                    if (wakeLock.isHeld()) wakeLock.release();
+                }
             }
 
             @JavascriptInterface
@@ -66,6 +74,7 @@ public class MainActivity extends BridgeActivity {
             nativeTts.shutdown();
             nativeTts = null;
         }
+        if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         super.onDestroy();
     }
 
@@ -99,7 +108,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onPause() {
         super.onPause();
-        if (runActive) {
+        if (wakeLock.isHeld()) {
             getBridge().getWebView().onResume();
         }
     }
@@ -108,7 +117,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onStop() {
         super.onStop();
-        if (runActive) {
+        if (wakeLock.isHeld()) {
             getBridge().getWebView().onResume();
         }
     }

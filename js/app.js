@@ -946,10 +946,15 @@ class FitnessTrackerApp {
             const nativeVersion = current.native;
             const bundleVersion = current.bundle?.version;
             const currentVersion = (bundleVersion === 'builtin' || !bundleVersion) ? nativeVersion : bundleVersion;
+            const handledVersion = localStorage.getItem('fp_update_handled');
 
-            console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} minNative=${latest.minNativeVersion}`);
+            console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} handled=${handledVersion}`);
 
             if (!this._semverGt(latest.version, currentVersion)) {
+                // Clear stale guard if we're genuinely on the latest version
+                if (handledVersion && !this._semverGt(latest.version, handledVersion)) {
+                    localStorage.removeItem('fp_update_handled');
+                }
                 if (!silent) ui.showToast('Already up to date');
                 return;
             }
@@ -960,10 +965,19 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // Download silently, then prompt the user
+            // Already downloaded/queued this version — capgo will apply on next launch
+            if (handledVersion === latest.version) {
+                if (!silent) ui.showToast('Update pending — restart the app to apply');
+                return;
+            }
+
+            // Mark as handled before downloading to prevent concurrent/repeated downloads
+            localStorage.setItem('fp_update_handled', latest.version);
+
             const newBundle = await CU.download({ url: latest.url, version: latest.version });
             this.showLiveBundleUpdateDialog(CU, newBundle.id, latest.version);
         } catch (e) {
+            localStorage.removeItem('fp_update_handled'); // allow retry on error
             console.warn('[updater] Update check failed:', e.message);
             if (!silent) {
                 const msg = (e.message === 'Failed to fetch' || e.name === 'TypeError')

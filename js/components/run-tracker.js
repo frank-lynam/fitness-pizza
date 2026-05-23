@@ -37,6 +37,17 @@ function calcCalories(durationMinutes, weightKg) {
     return Math.round((MET_RUNNING * 3.5 * weightKg / 200) * durationMinutes);
 }
 
+function spokenDuration(totalSec) {
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = Math.floor(totalSec % 60);
+    const parts = [];
+    if (h > 0) parts.push(`${h} hour${h !== 1 ? 's' : ''}`);
+    if (m > 0) parts.push(`${m} minute${m !== 1 ? 's' : ''}`);
+    if (h === 0 && s > 0) parts.push(`${s} second${s !== 1 ? 's' : ''}`);
+    return parts.join(' ') || '0 seconds';
+}
+
 async function tts(text) {
     try {
         await window.Capacitor?.Plugins?.TextToSpeech?.speak({ text, rate: 1.0, locale: 'en-US' });
@@ -95,7 +106,7 @@ function launchRunOverlay() {
     let lastLat = null, lastLon = null;
     let totalElapsedMs = 0;
     let segmentStart = null;
-    let kmAnnounced = 0;
+    let halfKmsAnnounced = 0;
     let weightKg = 70;
     let tickInterval = null;
 
@@ -238,14 +249,15 @@ function launchRunOverlay() {
                         const d = haversineKm(lastLat, lastLon, lat, lon);
                         if (d < 0.5) {
                             totalDistKm += d;
-                            const km = Math.floor(totalDistKm);
-                            if (km > kmAnnounced && km > 0) {
-                                kmAnnounced = km;
-                                const elapsed = getElapsedMs() / 60000;
-                                const pace = elapsed > 0 && totalDistKm > 0 ? elapsed / totalDistKm : 0;
-                                const pMin = Math.floor(pace);
-                                const pSec = Math.round((pace - pMin) * 60);
-                                tts(`${km} kilometer${km !== 1 ? 's' : ''}. Pace: ${pMin} minutes ${pSec} seconds.`);
+                            const halfKms = Math.floor(totalDistKm * 2);
+                            if (halfKms > halfKmsAnnounced && halfKms > 0) {
+                                halfKmsAnnounced = halfKms;
+                                const elapsedSec = getElapsedMs() / 1000;
+                                const elapsedHr = elapsedSec / 3600;
+                                const distMi = totalDistKm / KM_PER_MI;
+                                const speedMph = elapsedHr > 0 ? distMi / elapsedHr : 0;
+                                const distStr = (halfKms * 0.5).toFixed(1).replace(/\.0$/, '');
+                                tts(`${distStr} kilometer${halfKms === 2 ? '' : 's'}. ${spokenDuration(elapsedSec)}. ${speedMph.toFixed(1)} miles per hour.`);
                             }
                         }
                     }

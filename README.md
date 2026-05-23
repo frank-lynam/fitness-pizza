@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.12
+**Current**: v2.4.13
+- **Run tracker TTS at 500 m intervals**: announces distance (km), elapsed time, and speed in mph at every 0.5 km; replaces per-km-only announcements
+
+**v2.4.12**
 - **Run tracker GPS pre-acquisition**: GPS starts immediately when "Go for a Run" is tapped; "Start Run" button stays disabled until signal reaches ±30 m accuracy, then enables for manual start
 
 **v2.4.11**

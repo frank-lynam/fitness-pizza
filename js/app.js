@@ -18,7 +18,7 @@ import { initRunTracker } from './components/run-tracker.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.5.5';
+const APP_VERSION = '2.5.6';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -2083,15 +2083,18 @@ class FitnessTrackerApp {
         try {
             const lastBackup = localStorage.getItem('last_auto_backup');
             const now = Date.now();
-            const oneDay = 24 * 60 * 60 * 1000; // 1 day in milliseconds
+            const oneDay = 24 * 60 * 60 * 1000;
 
-            if (!lastBackup || (now - parseInt(lastBackup)) > oneDay) {
+            if (!lastBackup) {
+                // First visit — start the clock but don't download empty data.
+                localStorage.setItem('last_auto_backup', now.toString());
+                return;
+            }
+
+            if ((now - parseInt(lastBackup)) > oneDay) {
                 console.log('Performing daily auto-backup...');
                 await this.performAutoBackup();
                 localStorage.setItem('last_auto_backup', now.toString());
-            } else {
-                const hoursUntilNext = Math.ceil((oneDay - (now - parseInt(lastBackup))) / (60 * 60 * 1000));
-                console.log(`Next auto-backup in ${hoursUntilNext} hours`);
             }
         } catch (error) {
             console.error('Error checking auto-backup:', error);

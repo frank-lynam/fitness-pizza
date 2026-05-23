@@ -109,6 +109,7 @@ function launchRunOverlay() {
     let halfKmsAnnounced = 0;
     let weightKg = 70;
     let tickInterval = null;
+    let weakSignalTimer = null;
 
     // Use most recent weight measurement for calorie accuracy
     db.getAllMeasurements()
@@ -200,6 +201,18 @@ function launchRunOverlay() {
             return;
         }
 
+        // After 30 s, enable Start with whatever accuracy we have (rather than lock the user out)
+        let firstFixReceived = false;
+        weakSignalTimer = setTimeout(() => {
+            if (phase === 'acquiring' && firstFixReceived) {
+                setPhase('ready');
+                const badge = document.getElementById('run-gps-badge');
+                if (badge) { badge.textContent = badge.textContent.replace('— waiting for lock…', '⚠ weak signal'); }
+                const startBtn = document.getElementById('run-start');
+                if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Start Run (weak GPS)'; }
+            }
+        }, 30000);
+
         try {
             watcherId = await BGL.addWatcher(
                 {
@@ -207,11 +220,12 @@ function launchRunOverlay() {
                     backgroundTitle: 'Run in progress',
                     requestPermissions: true,
                     stale: false,
-                    distanceFilter: 0,
+                    distanceFilter: 1,
                 },
                 (loc, err) => {
                     if (err) {
                         if (err.code === 'NOT_AUTHORIZED') {
+                            clearTimeout(weakSignalTimer);
                             setPhase('acquiring');
                             document.getElementById('run-status').textContent = 'Location permission denied';
                             document.getElementById('run-gps-badge').textContent = '';
@@ -222,6 +236,7 @@ function launchRunOverlay() {
                         return;
                     }
 
+                    firstFixReceived = true;
                     const { latitude: lat, longitude: lon, accuracy } = loc;
                     const acc = Math.round(accuracy);
                     const badge = document.getElementById('run-gps-badge');
@@ -230,6 +245,7 @@ function launchRunOverlay() {
                         badge.textContent = `GPS ±${acc} m — waiting for lock…`;
                         badge.style.color = '';
                         if (accuracy <= 30) {
+                            clearTimeout(weakSignalTimer);
                             setPhase('ready');
                             badge.textContent = `GPS ±${acc} m ✓`;
                             badge.style.color = 'var(--accent-success)';
@@ -240,7 +256,10 @@ function launchRunOverlay() {
                             }
                         }
                     } else if (phase === 'ready') {
-                        badge.textContent = `GPS ±${acc} m ✓`;
+                        badge.textContent = accuracy <= 30
+                            ? `GPS ±${acc} m ✓`
+                            : `GPS ±${acc} m ⚠`;
+                        badge.style.color = accuracy <= 30 ? 'var(--accent-success)' : '';
                     } else if (phase === 'running' || phase === 'paused') {
                         badge.textContent = `GPS ±${acc} m`;
                     }
@@ -269,12 +288,14 @@ function launchRunOverlay() {
                 }
             );
         } catch (e) {
+            clearTimeout(weakSignalTimer);
             document.getElementById('run-status').textContent = `Failed to start GPS: ${e.message}`;
             document.getElementById('run-gps-badge').textContent = '';
         }
     }
 
     async function finishRun() {
+        clearTimeout(weakSignalTimer);
         if (segmentStart) { totalElapsedMs += Date.now() - segmentStart; segmentStart = null; }
         stopTick();
         if (watcherId && BGL) {
@@ -326,6 +347,7 @@ function launchRunOverlay() {
 
     document.getElementById('run-close').addEventListener('click', async () => {
         if ((phase === 'running' || phase === 'paused') && !confirm('Stop the run and close?')) return;
+        clearTimeout(weakSignalTimer);
         stopTick();
         if (watcherId && BGL) { try { await BGL.removeWatcher({ id: watcherId }); } catch (_) {} }
         overlay.remove();

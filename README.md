@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.4.13
+**Current**: v2.4.14
+- **Run tracker GPS robustness**: distanceFilter changed from 0 to 1 m (avoids plugin edge case); 30-second fallback enables Start with "weak GPS" warning if accuracy never reaches ±30 m; weakSignalTimer cleared cleanly on finish/close
+
+**v2.4.13**
 - **Run tracker TTS at 500 m intervals**: announces distance (km), elapsed time, and speed in mph at every 0.5 km; replaces per-km-only announcements
 
 **v2.4.12**

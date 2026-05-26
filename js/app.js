@@ -18,7 +18,7 @@ import { initRunTracker } from './components/run-tracker.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.5.9';
+const APP_VERSION = '2.5.10';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -958,9 +958,9 @@ class FitnessTrackerApp {
             console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} handled=${handledVersion}`);
 
             if (!this._semverGt(latest.version, currentVersion)) {
-                // Clear stale guard if we're genuinely on the latest version
                 if (handledVersion && !this._semverGt(latest.version, handledVersion)) {
                     localStorage.removeItem('fp_update_handled');
+                    localStorage.removeItem('fp_update_bundle_id');
                 }
                 if (!silent) ui.showToast('Already up to date');
                 return;
@@ -972,19 +972,21 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // Already downloaded/queued this version — capgo will apply on next launch
-            if (handledVersion === latest.version) {
-                if (!silent) ui.showToast('Update pending — restart the app to apply');
+            // Bundle already downloaded — re-show dialog so user can apply it
+            const storedBundleId = localStorage.getItem('fp_update_bundle_id');
+            if (handledVersion === latest.version && storedBundleId) {
+                this.showLiveBundleUpdateDialog(CU, storedBundleId, latest.version);
                 return;
             }
 
-            // Mark as handled before downloading to prevent concurrent/repeated downloads
             localStorage.setItem('fp_update_handled', latest.version);
 
             const newBundle = await CU.download({ url: latest.url, version: latest.version });
+            localStorage.setItem('fp_update_bundle_id', newBundle.id);
             this.showLiveBundleUpdateDialog(CU, newBundle.id, latest.version);
         } catch (e) {
-            localStorage.removeItem('fp_update_handled'); // allow retry on error
+            localStorage.removeItem('fp_update_handled');
+            localStorage.removeItem('fp_update_bundle_id');
             console.warn('[updater] Update check failed:', e.message);
             if (!silent) {
                 const msg = (e.message === 'Failed to fetch' || e.name === 'TypeError')
@@ -1071,16 +1073,12 @@ class FitnessTrackerApp {
             await CU.set({ id: bundleId });
         });
 
-        document.getElementById('live-update-later').addEventListener('click', async () => {
+        document.getElementById('live-update-later').addEventListener('click', () => {
             modal.remove();
-            await CU.next({ id: bundleId });
         });
 
-        modal.addEventListener('click', async e => {
-            if (e.target === modal) {
-                modal.remove();
-                await CU.next({ id: bundleId });
-            }
+        modal.addEventListener('click', e => {
+            if (e.target === modal) modal.remove();
         });
     }
 

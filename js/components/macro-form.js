@@ -438,28 +438,24 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
         ui.showLoading(isEdit ? 'Updating entry...' : 'Saving entry...');
 
         if (isEdit && existingEntry) {
-            // Update existing entry
             entryData.id = existingEntry.id;
-            // Preserve servings if editing
-            if (existingEntry.servings) {
-                entryData.servings = existingEntry.servings;
-            }
+            if (existingEntry.servings) entryData.servings = existingEntry.servings;
+            if (existingEntry.food_id) entryData.food_id = existingEntry.food_id;
             await db.updateMacroEntry(entryData);
         } else {
-            // Add new entry
             const entryId = await db.addMacroEntry(entryData);
 
-            // Auto-add to food library if it has a name and user didn't skip library save
+            // Auto-add to food library and link back via food_id
             if (mealName && !skipLibrarySave) {
                 const existingFoods = await db.getAllNamedFoods();
-                const foodExists = existingFoods.some(f =>
+                const existingFood = existingFoods.find(f =>
                     f.name.toLowerCase() === mealName.toLowerCase()
                 );
 
-                if (!foodExists) {
+                let foodId;
+                if (!existingFood) {
                     if (shouldNormalize) {
-                        // protein/carbs/fat are already normalized to per-100g above
-                        await db.addNamedFood({
+                        foodId = await db.addNamedFood({
                             name: mealName,
                             format_type: 'per_gram',
                             protein,
@@ -469,7 +465,7 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
                             calories: calculateMacroCalories(protein, carbs, fat, 0)
                         });
                     } else {
-                        await db.addNamedFood({
+                        foodId = await db.addNamedFood({
                             name: mealName,
                             format_type: 'per_serving',
                             protein,
@@ -481,6 +477,14 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
                             notes: foodDescription
                         });
                     }
+                } else {
+                    foodId = existingFood.id;
+                }
+
+                // Backfill food_id on the entry so starring stays in sync
+                if (foodId) {
+                    const saved = await db.get('macros', entryId);
+                    if (saved) { saved.food_id = foodId; await db.updateMacroEntry(saved); }
                 }
             }
         }

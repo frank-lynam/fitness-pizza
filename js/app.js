@@ -18,7 +18,7 @@ import { initRunTracker } from './components/run-tracker.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.5.7';
+const APP_VERSION = '2.5.8';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1067,12 +1067,8 @@ class FitnessTrackerApp {
 
         document.getElementById('live-update-now').addEventListener('click', async () => {
             modal.remove();
-            ui.showLoading('Closing app to apply update…');
-            await CU.next({ id: bundleId });
-            // exitApp gives a clean close so the OS relaunches with the new bundle.
-            // CU.set() was avoided here because it triggers an in-session webview
-            // reload that can fire mid-activity (e.g. during GPS acquisition).
-            window.Capacitor?.Plugins?.App?.exitApp?.();
+            ui.showLoading('Applying update…');
+            await CU.set({ id: bundleId });
         });
 
         document.getElementById('live-update-later').addEventListener('click', async () => {

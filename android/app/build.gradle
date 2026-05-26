@@ -7,8 +7,8 @@ android {
         applicationId "com.fitnesspizza.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 14
-        versionName "2.5.5"
+        versionCode 15
+        versionName "2.5.11"
         manifestPlaceholders = [appLabel: "Fitness Pizza"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

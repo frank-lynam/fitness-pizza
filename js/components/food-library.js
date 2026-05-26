@@ -483,6 +483,9 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
 
         if (isEdit && existingFood) {
             foodData.id = existingFood.id;
+            foodData.starred = existingFood.starred || false;
+            foodData.starred_at = existingFood.starred_at || null;
+            foodData.created_at = existingFood.created_at;
             await db.updateNamedFood(foodData);
         } else {
             await db.addNamedFood(foodData);

@@ -675,8 +675,14 @@ export async function loadTodaysMacros() {
                 return `<span class="food-format-badge">${label}</span>`;
             };
 
+            // For library-linked entries, starred status follows the food's flag
+            const entryStarred = (macro) => macro.food_id
+                ? (namedFoodsMap[macro.food_id]?.starred || false)
+                : (macro.starred || false);
+
             const planIntensities = computePlanIntensities(macros, _dailyGoals);
             html += macros.map(macro => {
+                const starred = entryStarred(macro);
                 let itemStyle = '';
                 if (macro.status === 'planned') {
                     const intensity = planIntensities[macro.id] || 0;
@@ -692,12 +698,12 @@ export async function loadTodaysMacros() {
                             <input type="checkbox" class="entry-checkbox" data-id="${macro.id}"
                                    ${macro.status === 'completed' ? 'checked' : ''}>
                             <span class="entry-item-title">
-                                ${macro.starred ? '⭐ ' : ''}${macro.meal_name || 'Meal'} ${servingBadge(macro)}
+                                ${starred ? '⭐ ' : ''}${macro.meal_name || 'Meal'} ${servingBadge(macro)}
                             </span>
                         </label>
                         <div class="entry-item-actions">
-                            <button class="btn-star-macro ${macro.starred ? 'starred' : ''}" data-id="${macro.id}" title="${macro.starred ? 'Unstar' : 'Star'}">
-                                ${macro.starred ? '⭐' : '☆'}
+                            <button class="btn-star-macro ${starred ? 'starred' : ''}" data-id="${macro.id}" title="${starred ? 'Unstar' : 'Star'}">
+                                ${starred ? '⭐' : '☆'}
                             </button>
                             <button class="btn-edit-macro btn-secondary btn-small" data-id="${macro.id}">Edit</button>
                             <button class="btn-delete-macro btn-danger btn-small" data-id="${macro.id}">×</button>
@@ -845,12 +851,28 @@ async function handleToggleCompletion(id, completed) {
 async function handleStarMacro(id) {
     try {
         const entry = await db.get('macros', id);
-        if (entry) {
+        if (!entry) return;
+
+        if (entry.food_id) {
+            // Star state is owned by the food library entry
+            const food = await db.getNamedFood(entry.food_id);
+            if (food) {
+                food.starred = !food.starred;
+                food.starred_at = food.starred ? Date.now() : null;
+                await db.updateNamedFood(food);
+                entry.starred = food.starred;
+                entry.starred_at = food.starred_at;
+            } else {
+                entry.starred = !entry.starred;
+                entry.starred_at = entry.starred ? Date.now() : null;
+            }
+        } else {
             entry.starred = !entry.starred;
             entry.starred_at = entry.starred ? Date.now() : null;
-            await db.updateMacroEntry(entry);
-            await loadTodaysMacros();
         }
+
+        await db.updateMacroEntry(entry);
+        await loadTodaysMacros();
     } catch (error) {
         console.error('Error starring macro:', error);
         ui.showError('Failed to star entry: ' + error.message);

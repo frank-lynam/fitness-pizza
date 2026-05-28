@@ -2219,3 +2219,34 @@ textarea.error {
 .run-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; max-width:280px; margin:0 auto; font-size:0.95em; text-align:left; }
 .run-summary-grid span { color:var(--text-secondary); }
 .run-summary-grid strong { color:var(--text-primary); }
+
+
+/* Setup Wizard */
+.wizard-modal { max-width:420px; padding:28px 24px 24px; }
+.wizard-steps { display:flex; justify-content:center; gap:8px; margin-bottom:24px; }
+.wizard-step-dot { width:8px; height:8px; border-radius:50%; background:var(--border-color); transition:background 0.2s, transform 0.2s; }
+.wizard-step-dot.active { background:var(--accent-primary); transform:scale(1.3); }
+.wizard-step-dot.done { background:var(--accent-success); }
+.wizard-hero { font-size:52px; text-align:center; margin-bottom:12px; line-height:1; }
+.wizard-title { font-size:20px; font-weight:700; text-align:center; margin:0 0 8px; color:var(--text-primary); }
+.wizard-subtitle { font-size:13px; color:var(--text-secondary); text-align:center; margin:0 0 20px; line-height:1.5; }
+.wizard-body { margin-bottom:20px; }
+.wizard-unit-label { font-size:13px; color:var(--text-secondary); }
+.wizard-sex-row { display:flex; gap:12px; margin:20px 0 24px; }
+.wizard-sex-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:20px 12px; border:2px solid var(--border-color); border-radius:var(--radius-lg,10px); background:var(--bg-secondary); color:var(--text-primary); cursor:pointer; transition:border-color 0.15s,background 0.15s; font-size:15px; font-weight:600; }
+.wizard-sex-btn.selected { border-color:var(--accent-primary); background:color-mix(in srgb,var(--accent-primary) 15%,transparent); }
+.wizard-sex-icon { font-size:30px; }
+.wizard-nav { display:flex; gap:10px; }
+.wizard-nav-btn { flex:1; }
+.wizard-full-btn { width:100%; }
+.wizard-skip-btn { display:block; width:100%; margin-top:10px; background:none; border:none; color:var(--text-secondary); font-size:13px; padding:8px; cursor:pointer; text-decoration:underline; text-align:center; }
+.wizard-skip-btn:hover { color:var(--text-primary); }
+.wizard-tdee-badge { display:flex; align-items:baseline; justify-content:center; gap:6px; margin:8px 0 4px; }
+.wizard-tdee-num { font-size:38px; font-weight:700; color:var(--accent-primary); line-height:1; }
+.wizard-tdee-label { font-size:13px; color:var(--text-secondary); }
+.wizard-macro-row { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid var(--border-color); }
+.wizard-macro-label { min-width:56px; font-weight:600; font-size:14px; }
+.wizard-macro-input { width:68px; text-align:right; }
+.wizard-macro-unit { font-size:13px; color:var(--text-secondary); min-width:14px; }
+.wizard-macro-kcal { flex:1; text-align:right; font-size:12px; color:var(--text-secondary); }
+.wizard-total-row { display:flex; justify-content:space-between; padding:10px 0 0; font-weight:700; font-size:14px; }

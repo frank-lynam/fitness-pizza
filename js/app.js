@@ -14,11 +14,12 @@ import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/
 import { initFoodLibrary } from './components/food-library.js';
 import { initEasterEggs } from './easter-eggs.js';
 import { initRunTracker } from './components/run-tracker.js';
+import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.5.12';
+const APP_VERSION = '2.5.13';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -98,10 +99,10 @@ class FitnessTrackerApp {
             this.initialized = true;
             ui.hideLoading();
 
-            // Show quick start on first ever visit
+            // Show setup wizard on first ever visit, quick start guide on subsequent first visits
             if (!localStorage.getItem('fp_visited')) {
                 localStorage.setItem('fp_visited', '1');
-                setTimeout(() => this.showQuickStartModal(), 600);
+                setTimeout(() => showSetupWizard(), 600);
             }
 
             console.log('Fitness Tracker PWA initialized successfully');
@@ -1087,6 +1088,9 @@ class FitnessTrackerApp {
      * Called once from init() since the buttons are in static HTML.
      */
     setupHelpButtons() {
+        document.getElementById('btn-setup-wizard')?.addEventListener('click', () => {
+            showSetupWizard();
+        });
         document.getElementById('btn-quick-start-guide')?.addEventListener('click', () => {
             this.showQuickStartModal();
         });

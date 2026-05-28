@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.5.12
+**Current**: v2.5.13
+- **Setup Wizard**: New guided walkthrough (Settings → Help) collects sex, age, height, and weight; calculates TDEE via Mifflin-St Jeor BMR × 1.2; recommends protein (1.0 g/lb male, 0.8 g/lb female), fat (25% TDEE male, 30% female), carbs to fill remaining calories; saves macro goals and a weight measurement; replaces Quick Start Guide as the first-visit prompt for new users
+
+**v2.5.12**
 - **Accurate run calories**: Switch from fixed MET=9 to ACSM speed-dependent formula (MET = (0.2 × speed_m_per_min + 3.5) / 3.5); fixed MET was systematically low for any pace faster than ~7 min/km
 - **TTS audio ducking**: Request `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK` before each announcement so music/podcasts lower while the coach speaks, then restore; volume set to 1.0 (APK rebuild)
 - **TTS on screen lock**: Add `onStop()` override alongside `onPause()` — Android 9+ calls both when screen locks (APK rebuild)

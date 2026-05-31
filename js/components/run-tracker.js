@@ -96,8 +96,8 @@ function launchRunOverlay() {
                     <span class="run-stat-label">time</span>
                 </div>
                 <div class="run-stat-box">
-                    <span id="run-pace" class="run-stat-value">--:--</span>
-                    <span id="run-pace-label" class="run-stat-label">min/km</span>
+                    <span id="run-pace" class="run-stat-value">0.0</span>
+                    <span class="run-stat-label">mph</span>
                 </div>
                 <div class="run-stat-box">
                     <span id="run-calories" class="run-stat-value">0</span>
@@ -138,10 +138,11 @@ function launchRunOverlay() {
     function refreshDisplay() {
         const sec = getElapsedMs() / 1000;
         const dMin = sec / 60;
-        const pace = dMin > 0 && totalDistKm > 0 ? dMin / totalDistKm : 0;
+        const distMi = totalDistKm / KM_PER_MI;
+        const speedMph = sec > 0 && distMi > 0 ? distMi / (sec / 3600) : 0;
         document.getElementById('run-distance').textContent = totalDistKm.toFixed(2);
         document.getElementById('run-time').textContent = fmtDuration(sec);
-        document.getElementById('run-pace').textContent = fmtPace(pace);
+        document.getElementById('run-pace').textContent = speedMph.toFixed(1);
         document.getElementById('run-calories').textContent = calcCalories(dMin, weightKg, totalDistKm);
     }
 
@@ -323,19 +324,13 @@ function launchRunOverlay() {
         setPhase('done');
         refreshDisplay();
 
-        // Switch middle stat from pace to speed
-        const elapsedHr = totalElapsedMs / 3600000;
-        const distMi = totalDistKm / KM_PER_MI;
-        const speedMph = elapsedHr > 0 && distMi > 0 ? distMi / elapsedHr : 0;
-        document.getElementById('run-pace').textContent = speedMph.toFixed(1);
-        document.getElementById('run-pace-label').textContent = 'mph';
-
         const dMin = totalElapsedMs / 60000;
+        const distMi = totalDistKm / KM_PER_MI;
+        const speedMph = dMin > 0 && distMi > 0 ? distMi / (dMin / 60) : 0;
         const paceMi = totalDistKm > 0 ? (dMin / totalDistKm) * KM_PER_MI : 0;
         const calories = calcCalories(dMin, weightKg, totalDistKm);
-        const paceStr = totalDistKm > 0 ? fmtPace(dMin / totalDistKm) : '--:--';
 
-        tts(`Run finished. ${totalDistKm.toFixed(1)} kilometers. Average pace: ${paceStr} per kilometer.`);
+        tts(`Run finished. ${totalDistKm.toFixed(1)} kilometers. ${speedMph.toFixed(1)} miles per hour.`);
 
         let saved = false;
         if (totalDistKm > 0.05) {

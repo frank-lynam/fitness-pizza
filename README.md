@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.5.14
+**Current**: v2.5.15
+- **Run display/TTS consistency**: During-run display now shows mph (matching the mid-run voice announcements); finish TTS says mph instead of min/km pace
+
+**v2.5.14**
 - **Run finish display**: After finishing, the middle stat switches from min/km pace to mph speed, matching the during-run layout (distance, duration, speed, calories) and dropping the redundant summary grid
 
 **v2.5.13**

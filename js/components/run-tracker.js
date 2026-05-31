@@ -97,7 +97,7 @@ function launchRunOverlay() {
                 </div>
                 <div class="run-stat-box">
                     <span id="run-pace" class="run-stat-value">--:--</span>
-                    <span class="run-stat-label">min/km</span>
+                    <span id="run-pace-label" class="run-stat-label">min/km</span>
                 </div>
                 <div class="run-stat-box">
                     <span id="run-calories" class="run-stat-value">0</span>
@@ -323,6 +323,13 @@ function launchRunOverlay() {
         setPhase('done');
         refreshDisplay();
 
+        // Switch middle stat from pace to speed
+        const elapsedHr = totalElapsedMs / 3600000;
+        const distMi = totalDistKm / KM_PER_MI;
+        const speedMph = elapsedHr > 0 && distMi > 0 ? distMi / elapsedHr : 0;
+        document.getElementById('run-pace').textContent = speedMph.toFixed(1);
+        document.getElementById('run-pace-label').textContent = 'mph';
+
         const dMin = totalElapsedMs / 60000;
         const paceMi = totalDistKm > 0 ? (dMin / totalDistKm) * KM_PER_MI : 0;
         const calories = calcCalories(dMin, weightKg, totalDistKm);
@@ -349,13 +356,7 @@ function launchRunOverlay() {
         setControls(`
             <div class="run-summary">
                 ${saved ? '<p class="run-saved-notice">✓ Workout saved</p>' : ''}
-                <div class="run-summary-grid">
-                    <span>Distance</span><strong>${totalDistKm.toFixed(2)} km</strong>
-                    <span>Duration</span><strong>${fmtDuration(totalElapsedMs / 1000)}</strong>
-                    <span>Avg Pace</span><strong>${paceStr} /km</strong>
-                    <span>Calories</span><strong>~${calories} kcal</strong>
-                </div>
-                <button id="run-done" class="btn-primary run-action-btn" style="margin-top:16px;">Done</button>
+                <button id="run-done" class="btn-primary run-action-btn">Done</button>
             </div>
         `);
         document.getElementById('run-done').addEventListener('click', () => {

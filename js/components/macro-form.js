@@ -206,13 +206,13 @@ export async function showMacroForm(existingEntry = null) {
                 </div>
 
                 <div class="form-group" style="margin-bottom: 4px;">
-                    <input type="text" id="serving-label" placeholder="Serving (e.g. 1 cup, 200g, 1 apple)"
-                           value="${entry.serving_label || ''}">
+                    <input type="text" id="meal-name" placeholder="Meal Name"
+                           value="${entry.meal_name || ''}">
                 </div>
 
                 <div class="form-group" style="margin-bottom: 4px;">
-                    <input type="text" id="meal-name" placeholder="Meal Name"
-                           value="${entry.meal_name || ''}">
+                    <input type="text" id="serving-label" placeholder="Serving (e.g. 1 cup, 200g, 1 apple)"
+                           value="${entry.serving_label || ''}">
                 </div>
 
                 <div class="macros-grid" style="gap: 4px; margin-bottom: 4px;">
@@ -227,10 +227,6 @@ export async function showMacroForm(existingEntry = null) {
                     <div class="form-group-inline" style="margin-bottom: 0;">
                         <label for="protein" style="min-width: 60px;">Protein (g)</label>
                         <input type="number" id="protein" step="0.001" min="0" value="${entry.protein}">
-                    </div>
-                    <div class="form-group-inline" style="margin-bottom: 0;">
-                        <label for="fiber" style="min-width: 60px;">Fiber (g)</label>
-                        <input type="number" id="fiber" step="0.001" min="0" value="${entry.fiber}">
                     </div>
                 </div>
 
@@ -273,11 +269,10 @@ function setupMacroFormListeners(isEdit, existingEntry) {
     const proteinInput = document.getElementById('protein');
     const carbsInput = document.getElementById('carbs');
     const fatInput = document.getElementById('fat');
-    const fiberInput = document.getElementById('fiber');
     const caloriesField = document.getElementById('calories-field');
 
     // When macros change, auto-populate calories field unless the user has manually edited it
-    [proteinInput, carbsInput, fatInput, fiberInput].forEach(input => {
+    [proteinInput, carbsInput, fatInput].forEach(input => {
         if (input) {
             input.addEventListener('input', () => {
                 clearFieldError(input);
@@ -328,20 +323,18 @@ function updateCalculatedCalories() {
     const protein = parseFloat(document.getElementById('protein')?.value || 0);
     const carbs = parseFloat(document.getElementById('carbs')?.value || 0);
     const fat = parseFloat(document.getElementById('fat')?.value || 0);
-    const fiber = parseFloat(document.getElementById('fiber')?.value || 0);
     const isBatch = document.getElementById('is-batch-recipe')?.checked || false;
     const batchServings = parseFloat(document.getElementById('batch-servings')?.value || 1);
     const servingsEaten = parseFloat(document.getElementById('servings-eaten')?.value || 1);
 
-    let dP = protein, dC = carbs, dF = fat, dFi = fiber;
+    let dP = protein, dC = carbs, dF = fat;
     if (isBatch && batchServings > 0) {
         dP = (protein / batchServings) * servingsEaten;
         dC = (carbs   / batchServings) * servingsEaten;
         dF = (fat     / batchServings) * servingsEaten;
-        dFi = (fiber  / batchServings) * servingsEaten;
     }
 
-    const calories = calculateMacroCalories(dP, dC, dF, dFi);
+    const calories = calculateMacroCalories(dP, dC, dF, 0);
 
     // Auto-populate calories field unless the user has manually edited it
     const caloriesField = document.getElementById('calories-field');
@@ -369,7 +362,6 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
         let protein = parseFloat(document.getElementById('protein')?.value || 0);
         let carbs   = parseFloat(document.getElementById('carbs')?.value   || 0);
         let fat     = parseFloat(document.getElementById('fat')?.value     || 0);
-        let fiber   = parseFloat(document.getElementById('fiber')?.value   || 0);
 
         const isBatch = document.getElementById('is-batch-recipe')?.checked || false;
         const batchServings = parseFloat(document.getElementById('batch-servings')?.value || 1);
@@ -379,7 +371,6 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             protein = (protein / batchServings) * servingsEaten;
             carbs   = (carbs   / batchServings) * servingsEaten;
             fat     = (fat     / batchServings) * servingsEaten;
-            fiber   = (fiber   / batchServings) * servingsEaten;
         }
 
         const normalizeCheckbox = document.getElementById('normalize-to-100g');
@@ -391,10 +382,9 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             protein = Math.round(protein * scale * 10) / 10;
             carbs   = Math.round(carbs   * scale * 10) / 10;
             fat     = Math.round(fat     * scale * 10) / 10;
-            fiber   = Math.round(fiber   * scale * 10) / 10;
         }
 
-        // Determine mode: if all macros are empty/zero AND user entered a calorie value → calorie-only
+        // Determine mode: if all macros are zero AND user entered calories → calorie-only
         const caloriesField = document.getElementById('calories-field');
         const caloriesFieldVal = parseFloat(caloriesField?.value || 0);
         const hasMacros = (protein + carbs + fat) > 0;
@@ -403,20 +393,12 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
         let calories;
         if (isCalMode) {
             calories = caloriesFieldVal;
-            if (calories <= 0) {
+        } else {
+            if (!hasMacros) {
                 ui.showError('Please enter macros or a calorie amount');
                 return;
             }
-        } else {
-            const validation = validateMacros({ protein, carbs, fat, fiber });
-            if (!validation.valid) {
-                Object.keys(validation.errors).forEach(field => {
-                    const input = document.getElementById(field);
-                    if (input) showFieldError(input, validation.errors[field]);
-                });
-                return;
-            }
-            calories = calculateMacroCalories(protein, carbs, fat, fiber);
+            calories = calculateMacroCalories(protein, carbs, fat, 0);
         }
 
         // Prepare entry data
@@ -425,7 +407,7 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             protein: isCalMode ? 0 : protein,
             carbs:   isCalMode ? 0 : carbs,
             fat:     isCalMode ? 0 : fat,
-            fiber:   isCalMode ? 0 : fiber,
+            fiber:   0,
             calories,
             entry_mode: isCalMode ? 'calories' : 'macros',
             meal_name: mealName,
@@ -472,7 +454,7 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
                             protein,
                             carbs,
                             fat,
-                            fiber,
+                            fiber: 0,
                             calories,
                             serving_size: servingLabel || '1 serving',
                         });

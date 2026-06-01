@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.1
+**Current**: v2.6.2
+- **Macro form**: serving moved below meal name; fiber field removed
+
+**v2.6.1**
 - **Macro form redesign**: removed mode toggle and More options collapsible; checkboxes now always visible above meal name; description box removed; serving label added (free text like "1 cup", "200g"); calories field auto-populates from macros, manual entry switches to calorie-only mode
 - **Fix goalCalories ReferenceError** on dashboard first load
 

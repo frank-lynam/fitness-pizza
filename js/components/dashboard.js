@@ -33,7 +33,6 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const calOnlyCalories = completedMacros
             .filter(m => m.entry_mode === 'calories')
             .reduce((sum, m) => sum + m.calories, 0);
-        const calOnlyCaloriesPercent = goalCalories > 0 ? (calOnlyCalories / goalCalories) * 100 : 0;
 
         const plannedProtein = plannedMacros.reduce((sum, m) => sum + m.protein, 0);
         const plannedCarbs = plannedMacros.reduce((sum, m) => sum + m.carbs, 0);
@@ -55,6 +54,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const goalProtein = goals.protein;
         const goalCarbs = goals.carbs;
         const goalCalories = goals.calories;
+        const calOnlyCaloriesPercent = goalCalories > 0 ? (calOnlyCalories / goalCalories) * 100 : 0;
 
         // Calculate RAW percentages for completed (can exceed 100%)
         let fatPercent = (totalFat / goalFat) * 100;

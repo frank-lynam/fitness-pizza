@@ -19,7 +19,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.5.15';
+const APP_VERSION = '2.5.16';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -34,6 +34,7 @@ class FitnessTrackerApp {
         this.currentScreen = 'dashboard';
         this.currentDate = getTodayDate(); // Track selected date
         this.initialized = false;
+        this._piGoalHistoryWrittenFor = null; // cache key: date+goals JSON, avoids redundant writes
     }
 
     /**
@@ -401,7 +402,11 @@ class FitnessTrackerApp {
             cutoff.setDate(cutoff.getDate() - 14);
             const cutoffStr = cutoff.toISOString().slice(0, 10);
             Object.keys(goalHistory).forEach(k => { if (k < cutoffStr) delete goalHistory[k]; });
-            await db.setSetting('pi_goal_history', JSON.stringify(goalHistory));
+            const serialised = JSON.stringify(goalHistory);
+            if (this._piGoalHistoryWrittenFor !== serialised) {
+                await db.setSetting('pi_goal_history', serialised);
+                this._piGoalHistoryWrittenFor = serialised;
+            }
         }
 
         return {
@@ -489,9 +494,9 @@ class FitnessTrackerApp {
             // Read workout credit settings for planned workout preview
             const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
             const workoutCreditMacros = {
-                fat:     (await db.getSetting('workout_credit_fat'))     !== 'false',
-                protein: (await db.getSetting('workout_credit_protein')) !== 'false',
-                carbs:   (await db.getSetting('workout_credit_carbs'))   !== 'false',
+                fat:     parseFloat(await db.getSetting('workout_credit_fat_weight')     || '34'),
+                protein: parseFloat(await db.getSetting('workout_credit_protein_weight') || '33'),
+                carbs:   parseFloat(await db.getSetting('workout_credit_carbs_weight')   || '33'),
             };
             const baseFat     = parseFloat(await db.getSetting('goal_fat') || 70);
             const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);

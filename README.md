@@ -144,7 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.5.15
+**Current**: v2.5.16
+- **Fix workout credit in macro delta chart and dashboard** (`chart-renderer.js`, `app.js`): both were reading `workout_credit_fat/protein/carbs` as boolean flags (old setting names) instead of `workout_credit_*_weight` as numeric weights — caused the macro delta chart and planned-credit preview to compute a different distribution than the actual effective goal
+- **Remove duplicate `validateMacros`** (`calorie-calc.js`): dead positional-arg version deleted; the object-arg version in `validation.js` is the only one used
+- **Debounce `pi_goal_history` DB writes**: `calculateEffectiveGoals` was writing goal history on every screen navigation; now skips the write when the serialised history hasn't changed
+
+**v2.5.15**
 - **Run display/TTS consistency**: During-run display now shows mph (matching the mid-run voice announcements); finish TTS says mph instead of min/km pace
 
 **v2.5.14**

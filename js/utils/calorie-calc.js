@@ -205,34 +205,6 @@ export function formatCalories(calories) {
 }
 
 /**
- * Validate macro values
- * Fiber should not exceed total carbs
- *
- * @param {number} protein - Grams of protein
- * @param {number} carbs - Grams of carbs
- * @param {number} fat - Grams of fat
- * @param {number} fiber - Grams of fiber
- * @returns {Object} Validation result {valid, errors}
- */
-export function validateMacros(protein, carbs, fat, fiber) {
-    const errors = [];
-
-    if (protein < 0) errors.push('Protein cannot be negative');
-    if (carbs < 0) errors.push('Carbs cannot be negative');
-    if (fat < 0) errors.push('Fat cannot be negative');
-    if (fiber < 0) errors.push('Fiber cannot be negative');
-
-    if (fiber > carbs) {
-        errors.push('Fiber cannot exceed total carbs');
-    }
-
-    return {
-        valid: errors.length === 0,
-        errors: errors
-    };
-}
-
-/**
  * Apply workout calorie credit to macro goals.
  * Distributes credited calories according to explicit per-macro weights.
  *

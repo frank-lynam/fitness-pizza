@@ -550,9 +550,9 @@ async function renderMacroDelta(macros, workouts, days) {
     // Read workout credit settings (must match calculateEffectiveGoals)
     const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
     const workoutCreditMacros = {
-        fat:     (await db.getSetting('workout_credit_fat'))     !== 'false',
-        protein: (await db.getSetting('workout_credit_protein')) !== 'false',
-        carbs:   (await db.getSetting('workout_credit_carbs'))   !== 'false',
+        fat:     parseFloat(await db.getSetting('workout_credit_fat_weight')     || '34'),
+        protein: parseFloat(await db.getSetting('workout_credit_protein_weight') || '33'),
+        carbs:   parseFloat(await db.getSetting('workout_credit_carbs_weight')   || '33'),
     };
 
     // Build per-day workout calories map

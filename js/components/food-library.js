@@ -10,7 +10,7 @@ import * as ui from '../ui.js';
 
 // Retain search state across library sessions
 let lastSearchTerm = '';
-let lastSortBy = 'name';
+let lastSortBy = localStorage.getItem('food_library_sort') || 'name';
 
 /**
  * Initialize the food library component
@@ -56,6 +56,7 @@ export async function showFoodLibrary() {
                 <label for="food-sort">Sort by</label>
                 <select id="food-sort">
                     <option value="name" ${lastSortBy === 'name' ? 'selected' : ''}>Name</option>
+                    <option value="recent" ${lastSortBy === 'recent' ? 'selected' : ''}>Recent</option>
                     <option value="macro-match" ${lastSortBy === 'macro-match' ? 'selected' : ''}>Macro Match</option>
                 </select>
             </div>
@@ -98,6 +99,13 @@ export async function showFoodLibrary() {
 
         if (sortBy === 'macro-match') {
             filteredFoods = await sortByMacroMatch(filteredFoods);
+        } else if (sortBy === 'recent') {
+            // Sort by most recently used (updated_at desc), starred first
+            filteredFoods.sort((a, b) => {
+                if (a.starred && !b.starred) return -1;
+                if (!a.starred && b.starred) return 1;
+                return (b.updated_at || 0) - (a.updated_at || 0);
+            });
         } else {
             // Sort by starred first, then by name
             filteredFoods.sort((a, b) => {
@@ -106,6 +114,7 @@ export async function showFoodLibrary() {
                 return a.name.localeCompare(b.name);
             });
         }
+        localStorage.setItem('food_library_sort', sortBy);
 
         foodList.innerHTML = filteredFoods.length === 0
             ? '<p class="text-muted">No foods found</p>'
@@ -234,7 +243,9 @@ function createFoodItemHTML(food) {
             </div>
             <div class="entry-item-content">
                 <div class="entry-macros">
-                    F: ${food.fat.toFixed(1)}g | C: ${food.carbs.toFixed(1)}g | P: ${food.protein.toFixed(1)}g | ${food.calories} cal
+                    ${food.entry_mode === 'calories' || (!food.fat && !food.protein && !food.carbs && food.calories)
+                        ? `<span style="background:var(--bg-tertiary);border-radius:4px;padding:1px 6px;font-size:0.8em;color:var(--text-secondary);">cal only</span> ${food.calories} cal`
+                        : `F: ${food.fat.toFixed(1)}g | C: ${food.carbs.toFixed(1)}g | P: ${food.protein.toFixed(1)}g | ${food.calories} cal`}
                 </div>
             </div>
         </div>
@@ -286,9 +297,14 @@ function setupFoodLibraryButtons(modal, foods) {
     modal.querySelectorAll('.btn-delete-food').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const id = parseInt(e.target.dataset.id);
-            ui.confirm('Delete this food from your library?', async () => {
-                await db.deleteNamedFood(id);
-                ui.closeModal(modal);
+            const food = foods.find(f => f.id === id);
+            if (!food) return;
+            await db.deleteNamedFood(id);
+            ui.closeModal(modal);
+            showFoodLibrary();
+            ui.showUndoToast('Food deleted', async () => {
+                const { id: _id, ...restoreData } = food;
+                await db.addNamedFood(restoreData);
                 showFoodLibrary();
             });
         });

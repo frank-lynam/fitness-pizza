@@ -26,6 +26,7 @@
 
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
     <!-- App Container -->
@@ -59,6 +60,7 @@
                 <div id="dashboard-content">
                     <div class="stat-card">
                         <div id="today-macros-summary">Loading...</div>
+                        <div id="streak-counter" style="display:none;text-align:center;font-size:0.9em;font-weight:600;color:var(--accent-warning);padding:6px 0 2px;"></div>
                     </div>
 <div class="recent-activity">
                         <div id="recent-activity-list">No activity today</div>
@@ -78,7 +80,7 @@
                     <div style="margin: 12px 0; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-md);">
                         <label class="checkbox-label">
                             <input type="checkbox" id="cheat-day-toggle">
-                            <span>🎉 Cheat Day (exclude from PI controller)</span>
+                            <span>🎉 Cheat Day (Today)</span>
                         </label>
                     </div>
                     <div id="macro-form-container" class="hidden"></div>
@@ -192,6 +194,14 @@
 
                     <div class="settings-section">
                         <h3>Daily Goals</h3>
+                        <div class="form-group-inline" style="margin-bottom: 12px;">
+                            <label for="tracking-mode">Tracking mode</label>
+                            <select id="tracking-mode">
+                                <option value="macros">Macro targets</option>
+                                <option value="calories">Calorie target only</option>
+                            </select>
+                        </div>
+                        <div id="macro-goals-section">
                         <div class="form-group-inline">
                             <label for="goal-fat">Fat (g)</label>
                             <input type="number" id="goal-fat" placeholder="70" step="1">
@@ -220,10 +230,10 @@
                         <div class="form-group" style="margin-top: 12px;">
                             <label class="checkbox-label">
                                 <input type="checkbox" id="running-average-mode">
-                                <span>PI Controller</span>
+                                <span>Auto-adjust daily targets</span>
                             </label>
                             <p class="help-text" style="margin-top: 4px; font-size: 12px;">
-                                Automatically adjusts daily macro targets based on recent intake history
+                                Automatically nudges your macro goals up or down based on recent intake history (uses a PI controller internally)
                             </p>
                         </div>
                         <div id="pi-gains-section" class="hidden" style="margin-top: 12px; padding: 10px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
@@ -242,6 +252,13 @@
                                     <span id="pi-ialpha-value" style="font-size: 13px; min-width: 32px; text-align: right;">0.25</span>
                                 </div>
                                 <p class="help-text" id="pi-ialpha-help" style="margin: 2px 0 0; font-size: 11px;">Memory decay rate — Ki is auto-derived from α to guarantee full compensation (Ki×W=1). Higher α = shorter memory.</p>
+                            </div>
+                        </div>
+                        </div><!-- end macro-goals-section -->
+                        <div id="calorie-goal-section" style="display:none;">
+                            <div class="form-group-inline">
+                                <label for="goal-calories-direct">Daily Calories</label>
+                                <input type="number" id="goal-calories-direct" placeholder="2000" step="10">
                             </div>
                         </div>
                     </div>
@@ -344,6 +361,13 @@
                             <button id="btn-import-data" class="btn-secondary" style="flex: 1; min-width: 120px;">Import</button>
                             <button id="btn-clear-cache" class="btn-danger" style="flex: 1; min-width: 120px;">Clear Cache</button>
                         </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-backup-toggle">
+                                <span>Auto-backup weekly</span>
+                            </label>
+                            <p class="help-text" style="margin-top: 4px; font-size: 12px;">Silently saves a backup to your Downloads folder each week</p>
+                        </div>
                     </div>
 
                     <div class="settings-section">
@@ -359,7 +383,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.5.16</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.6.0</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>

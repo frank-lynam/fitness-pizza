@@ -29,6 +29,12 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
         const totalFat = completedMacros.reduce((sum, m) => sum + m.fat, 0);
         const totalCalories = completedMacros.reduce((sum, m) => sum + m.calories, 0);
 
+        // Calories from calorie-only entries (no macro breakdown) — shown as grey "unallocated" segment
+        const calOnlyCalories = completedMacros
+            .filter(m => m.entry_mode === 'calories')
+            .reduce((sum, m) => sum + m.calories, 0);
+        const calOnlyCaloriesPercent = goalCalories > 0 ? (calOnlyCalories / goalCalories) * 100 : 0;
+
         const plannedProtein = plannedMacros.reduce((sum, m) => sum + m.protein, 0);
         const plannedCarbs = plannedMacros.reduce((sum, m) => sum + m.carbs, 0);
         const plannedFat = plannedMacros.reduce((sum, m) => sum + m.fat, 0);
@@ -300,6 +306,9 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                                 const carbsStart = scaledFatCal;
                                 const proteinStart = scaledFatCal + scaledCarbsCal;
 
+                                // Calorie-only (unallocated) segment: appended after macro segments
+                                const unallocatedPct = (calOnlyCaloriesPercent / scale) * 100;
+                                const unallocatedStart = scaledFatCal + scaledCarbsCal + scaledProteinCal;
                                 return `
                                     <!-- Planned layers -->
                                     ${plannedCalories > 0 ? `<div class="progress-fill calories-planned" style="position: absolute; left: 0%; width: ${caloriesDim.scaledTotal}%; z-index: 1;"></div>` : ''}
@@ -308,6 +317,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                                     ${scaledFatCal > 0 ? `<div class="progress-fill fat" style="position: absolute; left: ${fatStart}%; width: ${scaledFatCal}%; z-index: 2;"></div>` : ''}
                                     ${scaledCarbsCal > 0 ? `<div class="progress-fill carbs" style="position: absolute; left: ${carbsStart}%; width: ${scaledCarbsCal}%; z-index: 2;"></div>` : ''}
                                     ${scaledProteinCal > 0 ? `<div class="progress-fill protein" style="position: absolute; left: ${proteinStart}%; width: ${scaledProteinCal}%; z-index: 2;"></div>` : ''}
+                                    <!-- Calorie-only (unallocated) segment — grey -->
+                                    ${unallocatedPct > 0 ? `<div style="position:absolute;left:${unallocatedStart}%;width:${unallocatedPct}%;height:100%;background:var(--text-secondary);opacity:0.4;z-index:2;"></div>` : ''}
 
                                     <!-- Overflow portion if calories exceed 100% -->
                                     ${caloriesDim.hasOverflow ? `<div class="progress-fill-overflow calories" style="position: absolute; left: ${marker100Percent}%; width: ${caloriesDim.scaledTotal - marker100Percent}%; z-index: 3;"></div>` : ''}
@@ -327,6 +338,38 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                     </div>
                 </div>
             `;
+        }
+
+        // Streak counter
+        const streakEl = document.getElementById('streak-counter');
+        if (streakEl) {
+            const allMacros = await db.getAllMacros();
+            const baseGoalCal = parseFloat(await db.getSetting('goal_calories') || goalCalories);
+            const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+
+            // Group completed calories by date
+            const calByDate = {};
+            for (const m of allMacros) {
+                if (m.status === 'planned') continue;
+                calByDate[m.date] = (calByDate[m.date] || 0) + (parseFloat(m.calories) || 0);
+            }
+
+            // Walk back from yesterday counting consecutive on-target days
+            let streak = 0;
+            const d = new Date(today + 'T12:00:00');
+            d.setDate(d.getDate() - 1);
+            for (let i = 0; i < 365; i++) {
+                const ds = d.toISOString().slice(0, 10);
+                if (cheatDayDates[ds]) { d.setDate(d.getDate() - 1); continue; } // skip cheat days
+                const cal = calByDate[ds];
+                if (cal == null) break; // no log = streak broken
+                const pct = cal / baseGoalCal;
+                if (pct < 0.9 || pct > 1.1) break;
+                streak++;
+                d.setDate(d.getDate() - 1);
+            }
+            streakEl.style.display = streak > 0 ? 'block' : 'none';
+            streakEl.textContent = streak > 0 ? `🔥 ${streak} day streak` : '';
         }
 
         // Load latest measurement

@@ -144,7 +144,22 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.5.16
+**Current**: v2.6.0
+- **Calorie-only mode** (Phase 5): new "Tracking mode" setting; macro form has Macros/Calories-only toggle; calorie-only entries show as grey "unallocated" segment in dashboard calorie bar; calorie-only badge in food library
+- **Undo toast on delete** (Phase 3): all delete operations now immediately delete + show 5-second Undo toast instead of confirm dialog
+- **Collapsible settings sections** (Phase 3): each settings section h3 is now a clickable toggle; state persisted in localStorage
+- **Auto-adjust daily targets rename** (Phase 3): "PI Controller" label renamed to "Auto-adjust daily targets" with plain-english description
+- **Cheat-day label shows date** (Phase 3): toggle label shows "(Today)" or "(May 30)" so it's clear which date it applies to
+- **Macro form: "More options" disclosure** (Phase 3): "Don't save to library", "Save as per-100g", "batch recipe" collapsed behind ▸ More options
+- **Trend chart annotations** (Phase 4): tap any date on the weight or calorie chart to add/edit a note; shown as yellow dotted vertical line with label
+- **Streak counter** (Phase 4): "🔥 X day streak" shown on dashboard for consecutive on-target days (90–110% of calorie goal)
+- **Recent food sort** (Phase 4): food library has new "Recent" sort option (by last used date)
+- **Auto-backup toggle** (Phase 2): Data Management settings section now has an "Auto-backup weekly" toggle; default on for existing users, off for new
+- **Magic numbers → constants.js** (Phase 2): extracted GOAL_HISTORY_DAYS, GPS_WEAK_SIGNAL_TIMEOUT_MS, GPS_MAX_POINT_JUMP_KM, MIN_RUN_FINISH_DIST_KM, KCAL_PER_LB_FAT, MACRO_INTENSITY thresholds
+- **Cheat-day interval fix** (Phase 2): replaced 1s polling with one-shot setTimeout to next midnight + visibilitychange reschedule
+- **onerror filter** (Phase 2): global error modal now only fires for app's own script errors, not third-party/image-load errors
+
+**v2.5.16**
 - **Fix workout credit in macro delta chart and dashboard** (`chart-renderer.js`, `app.js`): both were reading `workout_credit_fat/protein/carbs` as boolean flags (old setting names) instead of `workout_credit_*_weight` as numeric weights — caused the macro delta chart and planned-credit preview to compute a different distribution than the actual effective goal
 - **Remove duplicate `validateMacros`** (`calorie-calc.js`): dead positional-arg version deleted; the object-arg version in `validation.js` is the only one used
 - **Debounce `pi_goal_history` DB writes**: `calculateEffectiveGoals` was writing goal history on every screen navigation; now skips the write when the serialised history hasn't changed

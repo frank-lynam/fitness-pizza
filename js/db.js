@@ -58,7 +58,7 @@ class DatabaseManager {
     constructor() {
         this.db = null;
         this.DB_NAME = 'fitness-tracker-db';
-        this.DB_VERSION = 2;
+        this.DB_VERSION = 3;
     }
 
     /**
@@ -155,6 +155,18 @@ class DatabaseManager {
                         });
                         templatesStore.createIndex('name', 'name', { unique: false });
                         console.log('Created workout_templates object store');
+                    }
+                }
+
+                // Version 3: Chart Annotations
+                if (event.oldVersion < 3) {
+                    if (!db.objectStoreNames.contains('annotations')) {
+                        const annotationsStore = db.createObjectStore('annotations', {
+                            keyPath: 'id',
+                            autoIncrement: true
+                        });
+                        annotationsStore.createIndex('date', 'date', { unique: true });
+                        console.log('Created annotations object store');
                     }
                 }
             };
@@ -715,6 +727,21 @@ class DatabaseManager {
     /**
      * Clear all data (for testing or reset)
      */
+    async getAllAnnotations() { return this.getAll('annotations'); }
+    async getAnnotationByDate(date) {
+        const all = await this.getAllAnnotations();
+        return all.find(a => a.date === date) || null;
+    }
+    async upsertAnnotation(date, label) {
+        const existing = await this.getAnnotationByDate(date);
+        if (existing) {
+            existing.label = label;
+            return this.update('annotations', existing);
+        }
+        return this.add('annotations', { date, label });
+    }
+    async deleteAnnotation(id) { return this.delete('annotations', id); }
+
     async clearAllData() {
         const stores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings', 'exercise_library', 'workout_templates'];
         const promises = stores.map(storeName => {

@@ -341,21 +341,20 @@ function createMeasurementHTML(measurement) {
  * @param {number} id - Entry ID
  */
 async function handleDeleteMeasurement(id) {
-    ui.confirm(
-        'Are you sure you want to delete this measurement?',
-        async () => {
-            try {
-                ui.showLoading('Deleting measurement...');
-                await db.deleteMeasurement(id);
-                ui.hideLoading();
-                await loadMeasurements();
-            } catch (error) {
-                console.error('Error deleting measurement:', error);
-                ui.hideLoading();
-                ui.showError('Failed to delete measurement: ' + error.message);
-            }
-        }
-    );
+    try {
+        const measurement = await db.get('measurements', id);
+        if (!measurement) return;
+        await db.deleteMeasurement(id);
+        await loadMeasurements();
+        ui.showUndoToast('Measurement deleted', async () => {
+            const { id: _id, ...restoreData } = measurement;
+            await db.addMeasurement(restoreData);
+            await loadMeasurements();
+        });
+    } catch (error) {
+        console.error('Error deleting measurement:', error);
+        ui.showError('Failed to delete measurement: ' + error.message);
+    }
 }
 
 /**

@@ -201,9 +201,7 @@ Add a note by tapping a date label on any trend chart.
 
 ## Suggested Ship Order
 
-| Version | Contents |
-|---|---|
-| v2.5.x patches | Phase 1 bugs (workout-credit fix, validateMacros, pi_goal_history) |
-| v2.6.0 | Phase 2 + 3 (code quality + UX improvements) |
-| v2.7.0 | Phase 4 features (calorie tile, water, streaks, recent-food sort) |
-| v2.8.0 | Phase 5 (calorie-only mode) |
+| Version | Contents | Status |
+|---|---|---|
+| v2.5.16 | Phase 1 bugs (workout-credit fix, validateMacros, pi_goal_history) | ✅ Shipped |
+| v2.6.0 | Phase 2 + 3 + 4 + 5 (all remaining phases) | ✅ Shipped |

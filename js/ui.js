@@ -313,6 +313,57 @@ export function setupConnectivityListeners(onOnline, onOffline) {
 }
 
 /**
+ * Show a toast with an Undo button. Immediately calls onDelete, then gives the
+ * user 5 seconds to undo by calling onUndo. Use instead of confirm() dialogs.
+ * @param {string} message - Text shown in the toast
+ * @param {Function} onUndo - Called if the user taps Undo before the toast dismisses
+ * @param {number} duration - ms before the toast auto-dismisses
+ */
+export function showUndoToast(message, onUndo, duration = 5000) {
+    const existing = document.getElementById('fp-undo-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'fp-undo-toast';
+    toast.style.cssText = [
+        'position:fixed',
+        'bottom:calc(var(--bottom-nav-height,60px) + 16px)',
+        'left:50%',
+        'transform:translateX(-50%)',
+        'background:var(--bg-secondary)',
+        'color:var(--text-primary)',
+        'padding:10px 16px',
+        'border-radius:20px',
+        'border:1px solid var(--border-color)',
+        'z-index:9999',
+        'font-size:0.9em',
+        'box-shadow:0 4px 12px rgba(0,0,0,0.4)',
+        'display:flex',
+        'align-items:center',
+        'gap:12px',
+        'white-space:nowrap',
+    ].join(';');
+
+    const msg = document.createElement('span');
+    msg.textContent = message;
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Undo';
+    btn.style.cssText = 'background:var(--accent-primary);color:#fff;border:none;padding:4px 12px;border-radius:12px;cursor:pointer;font-size:0.9em;font-weight:600;pointer-events:auto;';
+    btn.addEventListener('click', () => {
+        clearTimeout(timer);
+        toast.remove();
+        onUndo();
+    });
+
+    toast.appendChild(msg);
+    toast.appendChild(btn);
+    document.body.appendChild(toast);
+
+    const timer = setTimeout(() => toast.remove(), duration);
+}
+
+/**
  * Show a brief toast notification at the bottom of the screen
  * @param {string} message
  * @param {number} duration - ms before auto-dismiss

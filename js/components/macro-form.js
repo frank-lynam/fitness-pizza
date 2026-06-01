@@ -8,9 +8,10 @@ import { calculateMacroCalories } from '../utils/calorie-calc.js';
 import { validateMacros, showFieldError, clearFieldError, clearFormErrors } from '../utils/validation.js';
 import * as ui from '../ui.js';
 import { formatDateTime, getTodayDate } from '../utils/date-utils.js';
+import { MACRO_INTENSITY_LOW_G, MACRO_INTENSITY_HIGH_G } from '../constants.js';
 
-// Module-level interval ID so it can be cleared when the screen is re-entered
-let _cheatDayIntervalId = null;
+// One-shot timeout (fires at next midnight) for date-change detection
+let _cheatDayTimeoutId = null;
 
 // Cached effective daily goals (set by app.js before calling loadTodaysMacros)
 let _dailyGoals = null;
@@ -57,18 +58,30 @@ export function initMacroForm() {
     if (reverseDietToggle) {
         setupCheatDayToggle(reverseDietToggle);
     }
+
+    // Reschedule date check if app was backgrounded past midnight
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState !== 'visible' || !window.fitnessApp) return;
+        const toggle = document.getElementById('cheat-day-toggle');
+        if (!toggle) return;
+        const newDate = window.fitnessApp.getCurrentDate();
+        const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+        toggle.checked = cheatDayDates[newDate] === true;
+        updateCheatDayLabel(toggle, newDate);
+        scheduleCheatDayAtMidnight();
+    });
 }
 
 /**
  * Setup cheat day toggle for current day
  */
 async function setupCheatDayToggle(toggle) {
-    const { getTodayDate } = await import('../utils/date-utils.js');
     const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
 
     // Load current state from settings (stored per date)
     const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
     toggle.checked = cheatDayDates[currentDate] === true;
+    updateCheatDayLabel(toggle, currentDate);
 
     toggle.addEventListener('change', async () => {
         // Update state for this date
@@ -86,45 +99,65 @@ async function setupCheatDayToggle(toggle) {
         }
     });
 
-    // Re-check state when date changes (if fitnessApp is available)
+    // Schedule a one-shot timeout to fire at next midnight so we update when the date rolls over
     if (window.fitnessApp) {
-        let lastDate = currentDate;
-
-        // Clear any previous poll before starting a new one
-        if (_cheatDayIntervalId !== null) {
-            clearInterval(_cheatDayIntervalId);
-        }
-
-        // Poll for date changes and store the ID so it can be cleared later
-        _cheatDayIntervalId = setInterval(async () => {
-            const newDate = window.fitnessApp.getCurrentDate();
-            if (newDate !== lastDate) {
-                lastDate = newDate;
-                const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
-                toggle.checked = cheatDayDates[newDate] === true;
-            }
-        }, 1000);
+        scheduleCheatDayAtMidnight();
     }
+}
+
+function scheduleCheatDayAtMidnight() {
+    clearTimeout(_cheatDayTimeoutId);
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    _cheatDayTimeoutId = setTimeout(async () => {
+        _cheatDayTimeoutId = null;
+        const toggle = document.getElementById('cheat-day-toggle');
+        if (toggle && window.fitnessApp) {
+            const newDate = window.fitnessApp.getCurrentDate();
+            const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+            toggle.checked = cheatDayDates[newDate] === true;
+            updateCheatDayLabel(toggle, newDate);
+        }
+        scheduleCheatDayAtMidnight();
+    }, tomorrow - now);
+}
+
+function updateCheatDayLabel(toggle, date) {
+    const span = toggle ? toggle.nextElementSibling : null;
+    if (!span) return;
+    const today = getTodayDate();
+    const dateLabel = date === today
+        ? 'Today'
+        : new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    span.textContent = `🎉 Cheat Day (${dateLabel})`;
 }
 
 /**
  * Show the macro entry form
  * @param {Object} existingEntry - Existing entry to edit (optional)
  */
-export function showMacroForm(existingEntry = null) {
+export async function showMacroForm(existingEntry = null) {
     const formContainer = document.getElementById('macro-form-container');
     if (!formContainer) return;
 
     const isEdit = existingEntry !== null && existingEntry.id != null;
     const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+
+    // Determine initial entry mode: from existing entry, then per-form override, then user's default
+    const trackingMode = await db.getSetting('tracking_mode') || 'macros';
+    const entryMode = (existingEntry && existingEntry.entry_mode) || trackingMode;
+    const isCalMode = entryMode === 'calories';
+
     const entry = existingEntry || {
         protein: '',
         carbs: '',
         fat: '',
         fiber: '',
+        calories: '',
         meal_name: '',
         food_description: '',
-        date: currentDate
+        date: currentDate,
+        entry_mode: trackingMode
     };
 
     formContainer.innerHTML = `
@@ -137,27 +170,18 @@ export function showMacroForm(existingEntry = null) {
                     <button type="button" id="btn-cancel-macro" class="btn-secondary">Cancel</button>
                 </div>
 
+                <div class="form-group" style="margin-bottom: 8px; display:flex; gap:8px; align-items:center;">
+                    <span style="font-size:0.85em;color:var(--text-secondary);">Track as:</span>
+                    <button type="button" id="mode-macros" class="btn-small ${!isCalMode ? 'btn-primary' : 'btn-secondary'}" style="flex:1;">Macros</button>
+                    <button type="button" id="mode-calories" class="btn-small ${isCalMode ? 'btn-primary' : 'btn-secondary'}" style="flex:1;">Calories only</button>
+                </div>
+
                 <div class="form-group" style="margin-bottom: 4px;">
                     <label class="checkbox-label">
                         <input type="checkbox" id="meal-planned" ${entry.status === 'planned' ? 'checked' : ''}>
                         <span>Mark as planned (not yet eaten)</span>
                     </label>
                 </div>
-
-                <div class="form-group" style="margin-bottom: 4px;">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="skip-library-save" ${isEdit ? 'checked' : ''}>
-                        <span>Don't save to food library</span>
-                    </label>
-                </div>
-
-                ${(entry._scanServingGrams || 0) > 0 ? `
-                <div class="form-group" style="margin-bottom: 4px;">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="normalize-to-100g">
-                        <span>Save as per-100g food library item (serving: ${entry._scanServingGrams}g)</span>
-                    </label>
-                </div>` : ''}
 
                 <div class="form-group" style="margin-bottom: 4px;">
                     <input type="text" id="meal-name" placeholder="Meal Name"
@@ -170,10 +194,31 @@ export function showMacroForm(existingEntry = null) {
                 </div>
 
                 <div class="form-group" style="margin-bottom: 4px;">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="is-batch-recipe" ${entry.is_batch ? 'checked' : ''}>
-                        <span>This is a batch recipe (I made multiple servings)</span>
-                    </label>
+                    <button type="button" id="more-options-toggle" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:0.85em;padding:0;text-align:left;">▸ More options</button>
+                </div>
+
+                <div id="more-options-panel" style="display:none;">
+                    <div class="form-group" style="margin-bottom: 4px;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="skip-library-save" ${isEdit ? 'checked' : ''}>
+                            <span>Don't save to food library</span>
+                        </label>
+                    </div>
+
+                    ${(entry._scanServingGrams || 0) > 0 ? `
+                    <div class="form-group" style="margin-bottom: 4px;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="normalize-to-100g">
+                            <span>Save as per-100g food library item (serving: ${entry._scanServingGrams}g)</span>
+                        </label>
+                    </div>` : ''}
+
+                    <div class="form-group" style="margin-bottom: 4px;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="is-batch-recipe" ${entry.is_batch ? 'checked' : ''}>
+                            <span>This is a batch recipe (I made multiple servings)</span>
+                        </label>
+                    </div>
                 </div>
 
                 <div id="batch-fields" style="display: ${entry.is_batch ? 'block' : 'none'}; margin-bottom: 8px; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-md);">
@@ -192,35 +237,45 @@ export function showMacroForm(existingEntry = null) {
                     </div>
                 </div>
 
-                <div class="macros-grid" style="gap: 4px; margin-bottom: 4px;">
-                    <div class="form-group-inline" style="margin-bottom: 0;">
-                        <label for="fat" style="min-width: 60px;">Fat (g)</label>
-                        <input type="number" id="fat" step="0.001" min="0"
-                               value="${entry.fat}">
+                <div id="macros-grid-section" style="display:${isCalMode ? 'none' : 'block'};">
+                    <div class="macros-grid" style="gap: 4px; margin-bottom: 4px;">
+                        <div class="form-group-inline" style="margin-bottom: 0;">
+                            <label for="fat" style="min-width: 60px;">Fat (g)</label>
+                            <input type="number" id="fat" step="0.001" min="0"
+                                   value="${entry.fat}">
+                        </div>
+
+                        <div class="form-group-inline" style="margin-bottom: 0;">
+                            <label for="carbs" style="min-width: 60px;">Carbs (g)</label>
+                            <input type="number" id="carbs" step="0.001" min="0"
+                                   value="${entry.carbs}">
+                        </div>
+
+                        <div class="form-group-inline" style="margin-bottom: 0;">
+                            <label for="protein" style="min-width: 60px;">Protein (g)</label>
+                            <input type="number" id="protein" step="0.001" min="0"
+                                   value="${entry.protein}">
+                        </div>
+
+                        <div class="form-group-inline" style="margin-bottom: 0;">
+                            <label for="fiber" style="min-width: 60px;">Fiber (g)</label>
+                            <input type="number" id="fiber" step="0.001" min="0"
+                                   value="${entry.fiber}">
+                        </div>
                     </div>
 
-                    <div class="form-group-inline" style="margin-bottom: 0;">
-                        <label for="carbs" style="min-width: 60px;">Carbs (g)</label>
-                        <input type="number" id="carbs" step="0.001" min="0"
-                               value="${entry.carbs}">
-                    </div>
-
-                    <div class="form-group-inline" style="margin-bottom: 0;">
-                        <label for="protein" style="min-width: 60px;">Protein (g)</label>
-                        <input type="number" id="protein" step="0.001" min="0"
-                               value="${entry.protein}">
-                    </div>
-
-                    <div class="form-group-inline" style="margin-bottom: 0;">
-                        <label for="fiber" style="min-width: 60px;">Fiber (g)</label>
-                        <input type="number" id="fiber" step="0.001" min="0"
-                               value="${entry.fiber}">
+                    <div class="calories-display">
+                        <div class="calories-label">Calculated Calories:</div>
+                        <div class="calories-value" id="calculated-calories">0 cal</div>
                     </div>
                 </div>
 
-                <div class="calories-display">
-                    <div class="calories-label">Calculated Calories:</div>
-                    <div class="calories-value" id="calculated-calories">0 cal</div>
+                <div id="calorie-only-section" style="display:${isCalMode ? 'block' : 'none'};">
+                    <div class="form-group-inline" style="margin-bottom: 4px;">
+                        <label for="calories-direct" style="min-width: 80px;">Calories</label>
+                        <input type="number" id="calories-direct" step="1" min="0"
+                               value="${isCalMode && entry.calories ? Math.round(entry.calories) : ''}">
+                    </div>
                 </div>
             </form>
         </div>
@@ -259,6 +314,31 @@ function setupMacroFormListeners(isEdit, existingEntry) {
     const cancelBtn = document.getElementById('btn-cancel-macro');
     const batchCheckbox = document.getElementById('is-batch-recipe');
     const batchFields = document.getElementById('batch-fields');
+
+    // More options toggle
+    const moreOptionsToggle = document.getElementById('more-options-toggle');
+    const moreOptionsPanel = document.getElementById('more-options-panel');
+    if (moreOptionsToggle && moreOptionsPanel) {
+        moreOptionsToggle.addEventListener('click', () => {
+            const open = moreOptionsPanel.style.display !== 'none';
+            moreOptionsPanel.style.display = open ? 'none' : 'block';
+            moreOptionsToggle.textContent = open ? '▸ More options' : '▾ More options';
+        });
+    }
+
+    // Mode toggle (macros vs calorie-only)
+    const macrosGrid = document.getElementById('macros-grid-section');
+    const calOnlySection = document.getElementById('calorie-only-section');
+    const btnModeMacros = document.getElementById('mode-macros');
+    const btnModeCalories = document.getElementById('mode-calories');
+    const setMode = (calMode) => {
+        if (macrosGrid) macrosGrid.style.display = calMode ? 'none' : 'block';
+        if (calOnlySection) calOnlySection.style.display = calMode ? 'block' : 'none';
+        if (btnModeMacros) { btnModeMacros.className = `btn-small ${calMode ? 'btn-secondary' : 'btn-primary'}`; }
+        if (btnModeCalories) { btnModeCalories.className = `btn-small ${calMode ? 'btn-primary' : 'btn-secondary'}`; }
+    };
+    if (btnModeMacros) btnModeMacros.addEventListener('click', () => setMode(false));
+    if (btnModeCalories) btnModeCalories.addEventListener('click', () => setMode(true));
 
     // Input listeners for auto-calculating calories
     const proteinInput = document.getElementById('protein');
@@ -362,61 +442,71 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
         const form = document.getElementById('macro-entry-form');
         clearFormErrors(form);
 
-        // Get form values
-        let protein = parseFloat(document.getElementById('protein').value || 0);
-        let carbs = parseFloat(document.getElementById('carbs').value || 0);
-        let fat = parseFloat(document.getElementById('fat').value || 0);
-        let fiber = parseFloat(document.getElementById('fiber').value || 0);
+        // Determine if this is calorie-only mode based on toggle state
+        const calOnlySection = document.getElementById('calorie-only-section');
+        const isCalMode = calOnlySection && calOnlySection.style.display !== 'none';
+
         const mealName = document.getElementById('meal-name').value.trim();
         const foodDescription = document.getElementById('food-description').value.trim();
         const isPlanned = document.getElementById('meal-planned').checked;
-        const skipLibrarySave = document.getElementById('skip-library-save').checked;
-        const isBatch = document.getElementById('is-batch-recipe').checked;
-        const batchServings = parseFloat(document.getElementById('batch-servings').value || 1);
-        const servingsEaten = parseFloat(document.getElementById('servings-eaten').value || 1);
+        const skipLibrarySave = document.getElementById('skip-library-save')?.checked || false;
 
-        // If batch recipe, adjust macros to actual consumed amount
-        if (isBatch && batchServings > 0) {
-            const perServing = {
-                protein: protein / batchServings,
-                carbs: carbs / batchServings,
-                fat: fat / batchServings,
-                fiber: fiber / batchServings
-            };
-            protein = perServing.protein * servingsEaten;
-            carbs = perServing.carbs * servingsEaten;
-            fat = perServing.fat * servingsEaten;
-            fiber = perServing.fiber * servingsEaten;
+        let protein = 0, carbs = 0, fat = 0, fiber = 0, calories;
+
+        if (isCalMode) {
+            // Calorie-only entry
+            calories = parseFloat(document.getElementById('calories-direct')?.value || 0);
+            if (!calories || calories <= 0) {
+                ui.showError('Please enter a calorie amount');
+                return;
+            }
+        } else {
+            // Full macro entry
+            protein = parseFloat(document.getElementById('protein').value || 0);
+            carbs = parseFloat(document.getElementById('carbs').value || 0);
+            fat = parseFloat(document.getElementById('fat').value || 0);
+            fiber = parseFloat(document.getElementById('fiber').value || 0);
+
+            const isBatch = document.getElementById('is-batch-recipe')?.checked || false;
+            const batchServings = parseFloat(document.getElementById('batch-servings')?.value || 1);
+            const servingsEaten = parseFloat(document.getElementById('servings-eaten')?.value || 1);
+
+            if (isBatch && batchServings > 0) {
+                const perServing = {
+                    protein: protein / batchServings,
+                    carbs: carbs / batchServings,
+                    fat: fat / batchServings,
+                    fiber: fiber / batchServings
+                };
+                protein = perServing.protein * servingsEaten;
+                carbs = perServing.carbs * servingsEaten;
+                fat = perServing.fat * servingsEaten;
+                fiber = perServing.fiber * servingsEaten;
+            }
+
+            const normalizeCheckbox = document.getElementById('normalize-to-100g');
+            const scanGrams = !isEdit && existingEntry && existingEntry._scanServingGrams > 0
+                ? existingEntry._scanServingGrams : 0;
+            const shouldNormalize = scanGrams > 0 && normalizeCheckbox && normalizeCheckbox.checked;
+            if (shouldNormalize) {
+                const scale = 100 / scanGrams;
+                protein = Math.round(protein * scale * 10) / 10;
+                carbs   = Math.round(carbs   * scale * 10) / 10;
+                fat     = Math.round(fat     * scale * 10) / 10;
+                fiber   = Math.round(fiber   * scale * 10) / 10;
+            }
+
+            const validation = validateMacros({ protein, carbs, fat, fiber });
+            if (!validation.valid) {
+                Object.keys(validation.errors).forEach(field => {
+                    const input = document.getElementById(field);
+                    if (input) showFieldError(input, validation.errors[field]);
+                });
+                return;
+            }
+
+            calories = calculateMacroCalories(protein, carbs, fat, fiber);
         }
-
-        // Normalize to per-100g if checkbox is checked (scan flow)
-        const normalizeCheckbox = document.getElementById('normalize-to-100g');
-        const scanGrams = !isEdit && existingEntry && existingEntry._scanServingGrams > 0
-            ? existingEntry._scanServingGrams : 0;
-        const shouldNormalize = scanGrams > 0 && normalizeCheckbox && normalizeCheckbox.checked;
-        if (shouldNormalize) {
-            const scale = 100 / scanGrams;
-            protein = Math.round(protein * scale * 10) / 10;
-            carbs   = Math.round(carbs   * scale * 10) / 10;
-            fat     = Math.round(fat     * scale * 10) / 10;
-            fiber   = Math.round(fiber   * scale * 10) / 10;
-        }
-
-        // Validate macros
-        const validation = validateMacros({ protein, carbs, fat, fiber });
-        if (!validation.valid) {
-            // Show validation errors
-            Object.keys(validation.errors).forEach(field => {
-                const input = document.getElementById(field);
-                if (input) {
-                    showFieldError(input, validation.errors[field]);
-                }
-            });
-            return;
-        }
-
-        // Calculate calories
-        const calories = calculateMacroCalories(protein, carbs, fat, fiber);
 
         // Prepare entry data
         const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
@@ -426,11 +516,11 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             fat,
             fiber,
             calories,
+            entry_mode: isCalMode ? 'calories' : 'macros',
             meal_name: mealName,
             food_description: foodDescription,
-            servings: 1, // Default to 1 serving for manual entries
+            servings: 1,
             date: currentDate,
-            // timestamp will be derived from date in db.addMacroEntry
             status: isPlanned ? 'planned' : 'completed'
         };
 
@@ -616,8 +706,8 @@ function computePlanIntensities(macros, goals) {
 
     if (ov.fat === 0 && ov.protein === 0 && ov.carbs === 0) return {};
 
-    // Scale factor: 0 when overage ≤5g, ramps linearly to 1 at 10g+
-    const scale = (x) => Math.min(1, Math.max(0, (x - 5) / 5));
+    // Scale factor: 0 when overage ≤ low threshold, ramps linearly to 1 at high threshold
+    const scale = (x) => Math.min(1, Math.max(0, (x - MACRO_INTENSITY_LOW_G) / (MACRO_INTENSITY_HIGH_G - MACRO_INTENSITY_LOW_G)));
     const fs = scale(ov.fat);
     const ps = scale(ov.protein);
     const cs = scale(ov.carbs);
@@ -926,21 +1016,20 @@ async function handleDuplicateMacro(id, allMacros) {
  * @param {number} id - Entry ID
  */
 async function handleDeleteMacro(id) {
-    ui.confirm(
-        'Are you sure you want to delete this entry?',
-        async () => {
-            try {
-                ui.showLoading('Deleting entry...');
-                await db.deleteMacroEntry(id);
-                ui.hideLoading();
-                await loadTodaysMacros();
-            } catch (error) {
-                console.error('Error deleting entry:', error);
-                ui.hideLoading();
-                ui.showError('Failed to delete entry: ' + error.message);
-            }
-        }
-    );
+    try {
+        const entry = await db.get('macros', id);
+        if (!entry) return;
+        await db.deleteMacroEntry(id);
+        await loadTodaysMacros();
+        ui.showUndoToast('Entry deleted', async () => {
+            const { id: _id, ...restoreData } = entry;
+            await db.addMacroEntry(restoreData);
+            await loadTodaysMacros();
+        });
+    } catch (error) {
+        console.error('Error deleting entry:', error);
+        ui.showError('Failed to delete entry: ' + error.message);
+    }
 }
 
 /**

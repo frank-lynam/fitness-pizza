@@ -2250,3 +2250,10 @@ textarea.error {
 .wizard-macro-unit { font-size:13px; color:var(--text-secondary); min-width:14px; }
 .wizard-macro-kcal { flex:1; text-align:right; font-size:12px; color:var(--text-secondary); }
 .wizard-total-row { display:flex; justify-content:space-between; padding:10px 0 0; font-weight:700; font-size:14px; }
+
+/* Collapsible settings sections */
+.settings-section h3 { display:flex; justify-content:space-between; align-items:center; user-select:none; }
+.settings-section h3::after { content:'▾'; font-size:14px; color:var(--text-secondary); transition:transform 0.2s; }
+.settings-section.collapsed h3::after { transform:rotate(-90deg); }
+.settings-section-body { overflow:hidden; }
+.settings-section.collapsed .settings-section-body { display:none; }

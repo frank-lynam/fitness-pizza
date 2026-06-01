@@ -5,8 +5,57 @@
 
 import { db } from '../db.js';
 import { applyWorkoutCredit } from '../utils/calorie-calc.js';
+import { KCAL_PER_LB_FAT } from '../constants.js';
 
 let charts = {};
+let _annotationCache = null;
+let _lastDays = 30;
+
+async function getAnnotations() {
+    if (!_annotationCache) _annotationCache = await db.getAllAnnotations();
+    return _annotationCache;
+}
+
+function buildAnnotationPluginConfig(labels) {
+    const annotations = (_annotationCache || []).filter(a => labels.includes(a.date));
+    const config = {};
+    annotations.forEach(a => {
+        config[`note_${a.id}`] = {
+            type: 'line',
+            xMin: a.date,
+            xMax: a.date,
+            borderColor: 'rgba(255,200,50,0.7)',
+            borderWidth: 1.5,
+            borderDash: [4, 3],
+            label: {
+                display: true,
+                content: a.label,
+                position: 'start',
+                backgroundColor: 'rgba(0,0,0,0.65)',
+                color: '#fff',
+                font: { size: 10 },
+                padding: 3,
+                yAdjust: 4,
+            },
+        };
+    });
+    return config;
+}
+
+async function showAnnotationDialog(date) {
+    const existing = (_annotationCache || []).find(a => a.date === date);
+    const label = window.prompt(
+        `Note for ${date} (leave empty to delete):`,
+        existing ? existing.label : ''
+    );
+    if (label === null) return; // cancelled
+    if (label.trim() === '') {
+        if (existing) await db.deleteAnnotation(existing.id);
+    } else {
+        await db.upsertAnnotation(date, label.trim());
+    }
+    _annotationCache = null; // clear cache so next render reloads
+}
 
 /**
  * Format a Date object as a local YYYY-MM-DD string (avoids UTC offset shifting the date).
@@ -51,7 +100,12 @@ export async function initCharts() {
  * @param {number|null} days - Number of days to show, or null for all time
  */
 async function renderCharts(days) {
+    _lastDays = days;
     try {
+        // Pre-load annotations for this render pass
+        _annotationCache = null;
+        await getAnnotations();
+
         // Get data
         const macros = await db.getAllMacros();
         const workouts = await db.getAllWorkouts();
@@ -340,6 +394,16 @@ async function renderBodyComposition(allMeasurements, days) {
             responsive: true,
             maintainAspectRatio: true,
             aspectRatio: 1.25,
+            onClick: async (evt, _elems, chart) => {
+                const xScale = chart.scales.x;
+                if (!xScale) return;
+                const xVal = xScale.getValueForPixel(evt.x);
+                const idx = Math.round(xVal);
+                const date = labels[idx];
+                if (!date) return;
+                await showAnnotationDialog(date);
+                await renderCharts(_lastDays);
+            },
             plugins: {
                 legend: { labels: { color: colors.text } },
                 tooltip: {
@@ -352,7 +416,8 @@ async function renderBodyComposition(allMeasurements, days) {
                             return `${ctx.dataset.label}: ${v.toFixed(1)} lbs`;
                         }
                     }
-                }
+                },
+                annotation: { annotations: buildAnnotationPluginConfig(labels) }
             },
             scales: {
                 x: {
@@ -493,7 +558,19 @@ async function renderCalorieBalance(macros, workouts, days) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            plugins: { legend: { labels: { color: colors.text } } },
+            onClick: async (evt, _elems, chart) => {
+                const xScale = chart.scales.x;
+                if (!xScale) return;
+                const idx = Math.round(xScale.getValueForPixel(evt.x));
+                const date = labels[idx];
+                if (!date) return;
+                await showAnnotationDialog(date);
+                await renderCharts(_lastDays);
+            },
+            plugins: {
+                legend: { labels: { color: colors.text } },
+                annotation: { annotations: buildAnnotationPluginConfig(labels) }
+            },
             scales: {
                 x: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
                 y: { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } }
@@ -844,7 +921,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         const scaledIntake = totalIntake * daysGap / daysWithData;
 
         const deltaW = endW.lbs - startW.lbs;           // positive = gained weight
-        const tdee   = (scaledIntake - deltaW * 3500) / daysGap;
+        const tdee   = (scaledIntake - deltaW * KCAL_PER_LB_FAT) / daysGap;
         if (tdee < 800 || tdee > 6000) continue;        // sanity filter
 
         // Inferred BMR = TDEE − avg workout calories per day (removes exercise component)

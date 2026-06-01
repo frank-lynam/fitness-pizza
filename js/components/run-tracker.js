@@ -5,6 +5,7 @@
  */
 
 import { db } from '../db.js';
+import { GPS_WEAK_SIGNAL_TIMEOUT_MS, GPS_MAX_POINT_JUMP_KM, MIN_RUN_FINISH_DIST_KM } from '../constants.js';
 
 const KM_PER_MI = 1.60934;
 const MET_RUNNING = 9.0;
@@ -225,7 +226,7 @@ function launchRunOverlay() {
                 const startBtn = document.getElementById('run-start');
                 if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Start Run (weak GPS)'; }
             }
-        }, 30000);
+        }, GPS_WEAK_SIGNAL_TIMEOUT_MS);
 
         try {
             watcherId = await BGL.addWatcher(
@@ -280,7 +281,7 @@ function launchRunOverlay() {
 
                     if (phase === 'running' && lastLat !== null) {
                         const d = haversineKm(lastLat, lastLon, lat, lon);
-                        if (d < 0.5) {
+                        if (d < GPS_MAX_POINT_JUMP_KM) {
                             totalDistKm += d;
                             // Native GPS listener handles km announcements when running
                             // in the Android app so they work when the screen is locked.
@@ -333,7 +334,7 @@ function launchRunOverlay() {
         tts(`Run finished. ${totalDistKm.toFixed(1)} kilometers. ${speedMph.toFixed(1)} miles per hour.`);
 
         let saved = false;
-        if (totalDistKm > 0.05) {
+        if (totalDistKm > MIN_RUN_FINISH_DIST_KM) {
             try {
                 await db.addWorkout({
                     exercise_name: 'Outdoor Run',

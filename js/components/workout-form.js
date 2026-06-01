@@ -589,19 +589,18 @@ export async function loadWorkouts() {
  * Handle deleting a workout
  */
 async function handleDeleteWorkout(id) {
-    ui.confirm(
-        'Are you sure you want to delete this workout?',
-        async () => {
-            try {
-                ui.showLoading('Deleting workout...');
-                await db.deleteWorkout(id);
-                ui.hideLoading();
-                await loadWorkouts();
-            } catch (error) {
-                console.error('Error deleting workout:', error);
-                ui.hideLoading();
-                ui.showError('Failed to delete workout: ' + error.message);
-            }
-        }
-    );
+    try {
+        const workout = await db.get('workouts', id);
+        if (!workout) return;
+        await db.deleteWorkout(id);
+        await loadWorkouts();
+        ui.showUndoToast('Workout deleted', async () => {
+            const { id: _id, ...restoreData } = workout;
+            await db.addWorkout(restoreData);
+            await loadWorkouts();
+        });
+    } catch (error) {
+        console.error('Error deleting workout:', error);
+        ui.showError('Failed to delete workout: ' + error.message);
+    }
 }

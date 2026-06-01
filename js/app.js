@@ -8,6 +8,7 @@ import * as ui from './ui.js';
 import { getTodayDate } from './utils/date-utils.js';
 import { calculateMacroCalories, applyWorkoutCredit } from './utils/calorie-calc.js';
 import { computeGoalAdjustments } from './utils/pi-controller.js';
+import { GOAL_HISTORY_DAYS } from './constants.js';
 import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
@@ -19,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.5.16';
+const APP_VERSION = '2.6.0';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -303,6 +304,16 @@ class FitnessTrackerApp {
             await db.setSetting('last_planned_cleanup', today);
         }
 
+        // In calorie-only mode, bypass all macro calculations
+        const trackingMode = await db.getSetting('tracking_mode') || 'macros';
+        if (trackingMode === 'calories') {
+            const goalCal = parseFloat(await db.getSetting('goal_calories') || 2000);
+            return { fat: 0, protein: 0, carbs: 0, calories: goalCal,
+                     workoutCreditFat_g: 0, workoutCreditProtein_g: 0, workoutCreditCarbs_g: 0,
+                     caloriesCredited: 0, plannedWorkoutCreditFat_g: 0, plannedWorkoutCreditProtein_g: 0,
+                     plannedWorkoutCreditCarbs_g: 0, plannedCaloriesCreditedFromPlanned: 0, piDebug: null };
+        }
+
         // Get base goals from settings
         const baseFat = parseFloat(await db.getSetting('goal_fat') || 70);
         const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
@@ -399,7 +410,7 @@ class FitnessTrackerApp {
             goalHistory[today] = { fat: goalFat, protein: goalProtein, carbs: goalCarbs };
             // Trim to last 14 days to bound storage size
             const cutoff = new Date(today + 'T12:00:00');
-            cutoff.setDate(cutoff.getDate() - 14);
+            cutoff.setDate(cutoff.getDate() - GOAL_HISTORY_DAYS);
             const cutoffStr = cutoff.toISOString().slice(0, 10);
             Object.keys(goalHistory).forEach(k => { if (k < cutoffStr) delete goalHistory[k]; });
             const serialised = JSON.stringify(goalHistory);
@@ -1251,10 +1262,43 @@ class FitnessTrackerApp {
     }
 
     /**
+     * Make settings sections collapsible — wraps body content, wires h3 toggles,
+     * and restores saved open/closed state from localStorage.
+     */
+    initCollapsibleSettings() {
+        const sections = document.querySelectorAll('#settings-content .settings-section');
+        sections.forEach((section) => {
+            const h3 = section.querySelector('h3');
+            if (!h3 || h3.dataset.collapsible) return;
+            h3.dataset.collapsible = '1';
+
+            // Wrap all non-h3 children in a body div
+            const body = document.createElement('div');
+            body.className = 'settings-section-body';
+            while (section.children.length > 1) {
+                body.appendChild(section.children[1]);
+            }
+            section.appendChild(body);
+
+            // Restore state (default: open)
+            const key = `settings_collapsed_${h3.textContent.trim().replace(/\s+/g, '_')}`;
+            const collapsed = localStorage.getItem(key) === '1';
+            if (collapsed) section.classList.add('collapsed');
+
+            h3.style.cursor = 'pointer';
+            h3.addEventListener('click', () => {
+                section.classList.toggle('collapsed');
+                localStorage.setItem(key, section.classList.contains('collapsed') ? '1' : '0');
+            });
+        });
+    }
+
+    /**
      * Load settings screen
      */
     async loadSettings() {
         console.log('Loading settings screen...');
+        this.initCollapsibleSettings();
 
         // Load API key
         const apiKey = localStorage.getItem('gemini_api_key');
@@ -1401,6 +1445,37 @@ class FitnessTrackerApp {
         if (proteinInput) proteinInput.addEventListener('change', autoSaveGoals);
         if (carbsInput) carbsInput.addEventListener('change', autoSaveGoals);
 
+        // Tracking mode selector (macros vs calories-only)
+        const trackingModeSelect = document.getElementById('tracking-mode');
+        const macroGoalsSection = document.getElementById('macro-goals-section');
+        const calorieGoalSection = document.getElementById('calorie-goal-section');
+        const savedTrackingMode = await db.getSetting('tracking_mode') || 'macros';
+        if (trackingModeSelect) {
+            trackingModeSelect.value = savedTrackingMode;
+            const updateGoalVisibility = (mode) => {
+                if (macroGoalsSection) macroGoalsSection.style.display = mode === 'calories' ? 'none' : '';
+                if (calorieGoalSection) calorieGoalSection.style.display = mode === 'calories' ? '' : 'none';
+            };
+            updateGoalVisibility(savedTrackingMode);
+            trackingModeSelect.addEventListener('change', async () => {
+                await db.setSetting('tracking_mode', trackingModeSelect.value);
+                updateGoalVisibility(trackingModeSelect.value);
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+            });
+        }
+
+        // Calorie-only goal input
+        const calGoalInput = document.getElementById('goal-calories-direct');
+        const savedCalGoal = await db.getSetting('goal_calories') || 2000;
+        if (calGoalInput) {
+            calGoalInput.value = savedCalGoal;
+            calGoalInput.addEventListener('change', async () => {
+                const val = parseFloat(calGoalInput.value) || 2000;
+                await db.setSetting('goal_calories', val);
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+            });
+        }
+
         // Running average mode toggle + PI gains
         const runningAvgCheckbox = document.getElementById('running-average-mode');
         const piGainsSection = document.getElementById('pi-gains-section');
@@ -1418,7 +1493,7 @@ class FitnessTrackerApp {
                 updatePiGainsVisibility(runningAvgCheckbox.checked);
                 if (this.currentScreen === 'dashboard') await this.loadDashboard();
                 ui.showSuccess(runningAvgCheckbox.checked ?
-                    'PI Controller enabled' : 'PI Controller disabled');
+                    'Auto-adjust enabled' : 'Auto-adjust disabled');
             });
         }
 
@@ -1880,6 +1955,17 @@ class FitnessTrackerApp {
                 );
             };
         }
+
+        // Auto-backup toggle
+        const autoBackupToggle = document.getElementById('auto-backup-toggle');
+        if (autoBackupToggle) {
+            const hasExistingBackup = localStorage.getItem('last_auto_backup') !== null;
+            const saved = localStorage.getItem('auto_backup_enabled');
+            autoBackupToggle.checked = saved !== null ? saved === 'true' : hasExistingBackup;
+            autoBackupToggle.addEventListener('change', () => {
+                localStorage.setItem('auto_backup_enabled', autoBackupToggle.checked ? 'true' : 'false');
+            });
+        }
     }
 
     /**
@@ -1893,8 +1979,11 @@ class FitnessTrackerApp {
             });
         }
 
-        // Global error handler
+        // Global error handler — only surface errors from our own scripts
         window.addEventListener('error', (event) => {
+            if (event.error == null) return; // resource/image load errors have no Error object
+            const src = event.filename || '';
+            if (src && !src.startsWith(location.origin)) return;
             console.error('Global error:', event.error);
             ui.showError('An unexpected error occurred. Check console for details.');
         });
@@ -2084,6 +2173,14 @@ class FitnessTrackerApp {
      */
     async checkAutoBackup() {
         try {
+            const autoBackupEnabled = localStorage.getItem('auto_backup_enabled');
+            // Default on for users who already have a backup timestamp; off for new users
+            const hasExistingBackup = localStorage.getItem('last_auto_backup') !== null;
+            const isEnabled = autoBackupEnabled !== null
+                ? autoBackupEnabled === 'true'
+                : hasExistingBackup;
+            if (!isEnabled) return;
+
             const lastBackup = localStorage.getItem('last_auto_backup');
             const now = Date.now();
             const oneDay = 24 * 60 * 60 * 1000;

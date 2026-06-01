@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.2
+**Current**: v2.6.3
+- **Macro form**: "Mark as planned"→"Mark as eaten" (default planned); "Don't save to library"→"Add to food library" (default off); added "Macros are per 100g" checkbox with weight input that scales macros on save and stores as per_gram in library
+
+**v2.6.2**
 - **Macro form**: serving moved below meal name; fiber field removed
 
 **v2.6.1**

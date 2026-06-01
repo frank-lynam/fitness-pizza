@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.0
+**Current**: v2.6.1
+- **Macro form redesign**: removed mode toggle and More options collapsible; checkboxes now always visible above meal name; description box removed; serving label added (free text like "1 cup", "200g"); calories field auto-populates from macros, manual entry switches to calorie-only mode
+- **Fix goalCalories ReferenceError** on dashboard first load
+
+**v2.6.0**
 - **Calorie-only mode** (Phase 5): new "Tracking mode" setting; macro form has Macros/Calories-only toggle; calorie-only entries show as grey "unallocated" segment in dashboard calorie bar; calorie-only badge in food library
 - **Undo toast on delete** (Phase 3): all delete operations now immediately delete + show 5-second Undo toast instead of confirm dialog
 - **Collapsible settings sections** (Phase 3): each settings section h3 is now a clickable toggle; state persisted in localStorage

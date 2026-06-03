@@ -173,7 +173,11 @@ public class MainActivity extends BridgeActivity {
         requestAudioDuck();
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
-        nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params,
+        // When audio is cold (no music playing, screen locked) the hardware codec takes
+        // ~200 ms to open. playSilentUtterance forces the stream open first so the
+        // real speech starts into a warm output and the first word isn't clipped.
+        nativeTts.playSilentUtterance(300, TextToSpeech.QUEUE_FLUSH, "prewarm");
+        nativeTts.speak(text, TextToSpeech.QUEUE_ADD, params,
             "run_" + System.currentTimeMillis());
     }
 

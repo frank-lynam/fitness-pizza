@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.4
+**Current**: v2.6.5
+- **Fix TTS clipping on cold audio** (native): prepend 300ms silent utterance before each TTS announcement so the audio hardware stream is open before speech starts — fixes first word being cut off when screen is locked and no music is playing
+
+**v2.6.4**
 - **Library UX overhaul**: food and workout library modals stay open after adding — tap Use/Add multiple times without reopening; stacking fade-out undo toasts appear bottom-of-screen for each add
 - **Star workouts**: star button on workout library items; starred workouts sort to top; uses `starred_exercises` setting
 - **Wider Use/Add buttons**: min-width 72px (~2× previous)

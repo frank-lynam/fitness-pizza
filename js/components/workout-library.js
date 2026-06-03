@@ -1,32 +1,40 @@
 /**
  * Fitness Tracker PWA - Workout Library Component
- * Shows past workouts for quick one-click adding, with edit and delete support
+ * Shows past workouts for quick one-click adding, with starring, edit and delete support
  */
 
 import { db } from '../db.js';
 import * as ui from '../ui.js';
 import { getTodayDate } from '../utils/date-utils.js';
 
-/**
- * Deduplicate all workouts by exercise name, keeping most recent of each
- */
+async function getStarredExercises() {
+    const raw = await db.getSetting('starred_exercises');
+    return new Set(raw ? JSON.parse(raw) : []);
+}
+
+async function toggleStarExercise(name) {
+    const starred = await getStarredExercises();
+    if (starred.has(name)) starred.delete(name);
+    else starred.add(name);
+    await db.setSetting('starred_exercises', JSON.stringify([...starred]));
+}
+
 async function getUniqueWorkouts() {
     const allWorkouts = await db.getAllWorkouts();
+    const starred = await getStarredExercises();
     allWorkouts.sort((a, b) => b.timestamp - a.timestamp);
     const seen = new Set();
     const unique = [];
     for (const w of allWorkouts) {
         if (w.exercise_name && !seen.has(w.exercise_name)) {
             seen.add(w.exercise_name);
-            unique.push(w);
+            unique.push({ ...w, _starred: starred.has(w.exercise_name) });
         }
     }
+    unique.sort((a, b) => (b._starred ? 1 : 0) - (a._starred ? 1 : 0));
     return unique;
 }
 
-/**
- * Render library items into the modal body
- */
 async function refreshLibraryBody(modal) {
     const uniqueWorkouts = await getUniqueWorkouts();
     const body = modal.querySelector('.modal-body');
@@ -38,9 +46,6 @@ async function refreshLibraryBody(modal) {
     attachLibraryListeners(modal);
 }
 
-/**
- * Show the workout library modal
- */
 export async function showWorkoutLibraryModal() {
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -68,16 +73,21 @@ export async function showWorkoutLibraryModal() {
     await refreshLibraryBody(modal);
 }
 
-/**
- * Attach event listeners for Add / Edit / Delete buttons
- */
 function attachLibraryListeners(modal) {
-    // Add
+    // Add — stays open, shows undo toast
     modal.querySelectorAll('.btn-add-workout-from-library').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const id = parseInt(e.currentTarget.dataset.id);
             await handleAddWorkoutFromLibrary(id);
-            ui.closeModal(modal);
+        });
+    });
+
+    // Star toggle
+    modal.querySelectorAll('.btn-star-workout').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const name = e.currentTarget.dataset.name;
+            await toggleStarExercise(name);
+            await refreshLibraryBody(modal);
         });
     });
 
@@ -95,25 +105,28 @@ function attachLibraryListeners(modal) {
         });
     });
 
-    // Delete — confirm, remove, refresh list in-place
+    // Delete — immediate with undo toast
     modal.querySelectorAll('.btn-delete-workout-library').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const id = parseInt(e.currentTarget.dataset.id);
-            ui.confirm('Remove this exercise from the library?', async () => {
-                try {
-                    await db.deleteWorkout(id);
+            const allWorkouts = await db.getAllWorkouts();
+            const entry = allWorkouts.find(w => w.id === id);
+            if (!entry) return;
+            try {
+                await db.deleteWorkout(id);
+                await refreshLibraryBody(modal);
+                ui.showUndoToast('Workout removed from library', async () => {
+                    const { id: _id, ...restoreData } = entry;
+                    await db.addWorkout(restoreData);
                     await refreshLibraryBody(modal);
-                } catch (err) {
-                    ui.showError('Failed to delete: ' + err.message);
-                }
-            });
+                });
+            } catch (err) {
+                ui.showError('Failed to delete: ' + err.message);
+            }
         });
     });
 }
 
-/**
- * Create HTML for a workout library item
- */
 function createWorkoutLibraryItemHTML(workout) {
     const typeBadge = workout.exercise_type || 'Workout';
     const name = workout.exercise_name || typeBadge;
@@ -129,9 +142,15 @@ function createWorkoutLibraryItemHTML(workout) {
     return `
         <div class="workout-library-item">
             <div class="workout-library-item-header">
-                <strong>${name}</strong>
+                <strong>${workout._starred ? '⭐ ' : ''}${name}</strong>
                 <div style="display:flex;gap:4px;flex-shrink:0;">
-                    <button class="btn-add-workout-from-library btn-primary btn-small" data-id="${workout.id}">Add</button>
+                    <button class="btn-star-workout btn-small ${workout._starred ? 'starred' : ''}"
+                            data-name="${name}" title="${workout._starred ? 'Unstar' : 'Star'}"
+                            style="padding:0 8px;">
+                        ${workout._starred ? '⭐' : '☆'}
+                    </button>
+                    <button class="btn-add-workout-from-library btn-primary btn-small"
+                            data-id="${workout.id}" style="min-width:72px;">Add</button>
                     <button class="btn-edit-workout-library btn-secondary btn-small" data-id="${workout.id}">Edit</button>
                     <button class="btn-delete-workout-library btn-danger btn-small" data-id="${workout.id}">×</button>
                 </div>
@@ -143,9 +162,6 @@ function createWorkoutLibraryItemHTML(workout) {
     `;
 }
 
-/**
- * Handle adding a workout from the library (duplicates entry to today)
- */
 async function handleAddWorkoutFromLibrary(workoutId) {
     try {
         const allWorkouts = await db.getAllWorkouts();
@@ -153,7 +169,7 @@ async function handleAddWorkoutFromLibrary(workoutId) {
         if (!sourceWorkout) { ui.showError('Workout not found'); return; }
 
         const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
-        await db.addWorkout({
+        const newId = await db.addWorkout({
             exercise_name: sourceWorkout.exercise_name,
             exercise_type: sourceWorkout.exercise_type,
             reps: sourceWorkout.reps || 0,
@@ -168,6 +184,12 @@ async function handleAddWorkoutFromLibrary(workoutId) {
         const { loadWorkouts } = await import('./workout-form.js');
         await loadWorkouts();
         window.dispatchEvent(new CustomEvent('fp:data-changed'));
+
+        ui.showAddToast(`Added ${sourceWorkout.exercise_name}`, async () => {
+            await db.deleteWorkout(newId);
+            await loadWorkouts();
+            window.dispatchEvent(new CustomEvent('fp:data-changed'));
+        });
     } catch (error) {
         console.error('Error adding workout from library:', error);
         ui.showError('Failed to add workout: ' + error.message);

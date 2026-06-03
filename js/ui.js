@@ -364,6 +364,71 @@ export function showUndoToast(message, onUndo, duration = 5000) {
 }
 
 /**
+ * Show a stacking add-confirmation toast with an Undo button.
+ * Multiple calls stack vertically; each fades independently.
+ */
+export function showAddToast(message, onUndo, duration = 4000) {
+    let container = document.getElementById('fp-add-toasts');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'fp-add-toasts';
+        container.style.cssText = [
+            'position:fixed',
+            'bottom:calc(var(--bottom-nav-height,60px) + 10px)',
+            'left:50%',
+            'transform:translateX(-50%)',
+            'display:flex',
+            'flex-direction:column',
+            'gap:6px',
+            'z-index:9998',
+            'pointer-events:none',
+            'align-items:center',
+        ].join(';');
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = [
+        'background:var(--bg-secondary)',
+        'color:var(--text-primary)',
+        'padding:8px 14px',
+        'border-radius:20px',
+        'border:1px solid var(--border-color)',
+        'font-size:0.85em',
+        'box-shadow:0 2px 8px rgba(0,0,0,0.35)',
+        'display:flex',
+        'align-items:center',
+        'gap:10px',
+        'pointer-events:auto',
+        'opacity:1',
+        'transition:opacity 0.4s',
+        'white-space:nowrap',
+    ].join(';');
+
+    const msg = document.createElement('span');
+    msg.textContent = message;
+
+    const btn = document.createElement('button');
+    btn.textContent = 'Undo';
+    btn.style.cssText = 'background:var(--accent-primary);color:#fff;border:none;padding:3px 10px;border-radius:10px;cursor:pointer;font-size:0.85em;font-weight:600;';
+
+    const dismiss = () => {
+        clearTimeout(timer);
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            toast.remove();
+            if (container && container.children.length === 0) container.remove();
+        }, 400);
+    };
+
+    btn.addEventListener('click', () => { dismiss(); onUndo(); });
+    toast.appendChild(msg);
+    toast.appendChild(btn);
+    container.insertBefore(toast, container.firstChild); // newest on top
+    const timer = setTimeout(dismiss, duration);
+}
+
+/**
  * Show a brief toast notification at the bottom of the screen
  * @param {string} message
  * @param {number} duration - ms before auto-dismiss

@@ -144,7 +144,13 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.3
+**Current**: v2.6.4
+- **Library UX overhaul**: food and workout library modals stay open after adding — tap Use/Add multiple times without reopening; stacking fade-out undo toasts appear bottom-of-screen for each add
+- **Star workouts**: star button on workout library items; starred workouts sort to top; uses `starred_exercises` setting
+- **Wider Use/Add buttons**: min-width 72px (~2× previous)
+- **Fix entry_mode/serving_label not persisted**: db.js was dropping these fields from macro entries
+
+**v2.6.3**
 - **Macro form**: "Mark as planned"→"Mark as eaten" (default planned); "Don't save to library"→"Add to food library" (default off); added "Macros are per 100g" checkbox with weight input that scales macros on save and stores as per_gram in library
 
 **v2.6.2**

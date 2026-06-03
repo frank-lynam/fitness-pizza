@@ -236,7 +236,7 @@ function createFoodItemHTML(food) {
                     <button class="btn-star-food ${food.starred ? 'starred' : ''}" data-id="${food.id}" title="${food.starred ? 'Unstar' : 'Star'}">
                         ${food.starred ? '⭐' : '☆'}
                     </button>
-                    <button class="btn-use-food btn-primary btn-small" data-id="${food.id}">Use</button>
+                    <button class="btn-use-food btn-primary btn-small" data-id="${food.id}" style="min-width:72px;">Use</button>
                     <button class="btn-edit-food btn-secondary btn-small" data-id="${food.id}">Edit</button>
                     <button class="btn-delete-food btn-danger btn-small" data-id="${food.id}">×</button>
                 </div>
@@ -262,24 +262,26 @@ function setupFoodLibraryButtons(modal, foods) {
             e.stopPropagation();
             const id = parseInt(e.target.dataset.id);
             const food = foods.find(f => f.id === id);
-            if (food) {
-                // Add directly with 1 serving/100g/1 batch
-                const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : new Date().toISOString().split('T')[0];
-                const quantity = food.format_type === 'per_gram' ? 100 : 1;
-                const macros = db.calculateMacrosFromNamedFood(food, quantity);
+            if (!food) return;
 
-                await db.addMacroEntry({
-                    ...macros,
-                    meal_name: food.name,
-                    food_id: food.id,
-                    servings: 1, // Always 1 for display purposes (1 serving of this food)
-                    date: currentDate,
-                    status: 'planned'
-                });
+            const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : new Date().toISOString().split('T')[0];
+            const quantity = food.format_type === 'per_gram' ? 100 : 1;
+            const macros = db.calculateMacrosFromNamedFood(food, quantity);
 
-                ui.closeModal(modal);
+            const entryId = await db.addMacroEntry({
+                ...macros,
+                meal_name: food.name,
+                food_id: food.id,
+                servings: 1,
+                date: currentDate,
+                status: 'planned'
+            });
+
+            window.dispatchEvent(new CustomEvent('fp:data-changed'));
+            ui.showAddToast(`Added ${food.name}`, async () => {
+                await db.deleteMacroEntry(entryId);
                 window.dispatchEvent(new CustomEvent('fp:data-changed'));
-            }
+            });
         });
     });
 

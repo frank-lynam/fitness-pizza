@@ -367,7 +367,9 @@ class DatabaseManager {
             ai_estimated: data.ai_estimated || false,
             starred: data.starred || false,
             status: data.status || 'completed', // 'planned' or 'completed'
-            synced: data.synced || false
+            synced: data.synced || false,
+            entry_mode: data.entry_mode || 'macros',
+            serving_label: data.serving_label || ''
         };
         return this.add('macros', entry);
     }

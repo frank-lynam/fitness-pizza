@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.6
+**Current**: v2.6.7
+- **Auto-backup off by default**: removed the legacy "default on if prior backup exists" logic; toggle is now strictly opt-in
+- **APK update download button fixed**: was using a relative `<a href download>` which resolves to `capacitor://localhost/...` inside the WebView and does nothing; replaced with `window.open(absoluteUrl, '_system')` which hands off to the system browser
+
+**v2.6.6**
 - **Fix TTS clipping (take 2)**: replace `playSilentUtterance` (unreliable — Google TTS treats it as a timer, never wakes hardware) with `postDelayed(500ms)` after `requestAudioFocus`; also fix `onDone` releasing audio focus after the prewarm silence instead of after real speech
 
 **v2.6.5**

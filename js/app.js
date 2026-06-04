@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.6.6';
+const APP_VERSION = '2.6.7';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1046,10 +1046,9 @@ class FitnessTrackerApp {
                         Your data won't be affected — only the app itself is updated.
                     </p>
                     <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px;">
-                        <a href="/app/android/fitness-pizza.apk" download
-                           class="btn-primary" style="text-align:center;text-decoration:none;padding:14px;">
+                        <button id="apk-download-btn" class="btn-primary" style="padding:14px;">
                             📥 Download New APK
-                        </a>
+                        </button>
                         <button id="apk-update-later" class="btn-secondary">Remind me later</button>
                     </div>
                 </div>
@@ -1057,6 +1056,11 @@ class FitnessTrackerApp {
         `;
 
         document.body.appendChild(modal);
+        // Use window.open(_system) so the system browser handles the download —
+        // <a download> and relative paths both fail inside a Capacitor WebView.
+        document.getElementById('apk-download-btn').addEventListener('click', () => {
+            window.open('https://fitness-pizza.com/app/android/fitness-pizza.apk', '_system');
+        });
         document.getElementById('apk-update-later').addEventListener('click', () => modal.remove());
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     }
@@ -1959,9 +1963,7 @@ class FitnessTrackerApp {
         // Auto-backup toggle
         const autoBackupToggle = document.getElementById('auto-backup-toggle');
         if (autoBackupToggle) {
-            const hasExistingBackup = localStorage.getItem('last_auto_backup') !== null;
-            const saved = localStorage.getItem('auto_backup_enabled');
-            autoBackupToggle.checked = saved !== null ? saved === 'true' : hasExistingBackup;
+            autoBackupToggle.checked = localStorage.getItem('auto_backup_enabled') === 'true';
             autoBackupToggle.addEventListener('change', () => {
                 localStorage.setItem('auto_backup_enabled', autoBackupToggle.checked ? 'true' : 'false');
             });
@@ -2173,13 +2175,7 @@ class FitnessTrackerApp {
      */
     async checkAutoBackup() {
         try {
-            const autoBackupEnabled = localStorage.getItem('auto_backup_enabled');
-            // Default on for users who already have a backup timestamp; off for new users
-            const hasExistingBackup = localStorage.getItem('last_auto_backup') !== null;
-            const isEnabled = autoBackupEnabled !== null
-                ? autoBackupEnabled === 'true'
-                : hasExistingBackup;
-            if (!isEnabled) return;
+            if (localStorage.getItem('auto_backup_enabled') !== 'true') return;
 
             const lastBackup = localStorage.getItem('last_auto_backup');
             const now = Date.now();

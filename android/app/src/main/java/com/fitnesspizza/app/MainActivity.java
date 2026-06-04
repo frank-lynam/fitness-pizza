@@ -48,8 +48,12 @@ public class MainActivity extends BridgeActivity {
                 nativeTts.setSpeechRate(1.0f);
                 nativeTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) {}
-                    @Override public void onDone(String id) { releaseAudioDuck(); }
-                    @Override public void onError(String id) { releaseAudioDuck(); }
+                    @Override public void onDone(String id) {
+                        if (id.startsWith("run_")) releaseAudioDuck();
+                    }
+                    @Override public void onError(String id) {
+                        if (id.startsWith("run_")) releaseAudioDuck();
+                    }
                 });
             }
         });
@@ -171,14 +175,21 @@ public class MainActivity extends BridgeActivity {
     void nativeSpeak(String text) {
         if (nativeTts == null) return;
         requestAudioDuck();
+        // Request audio focus first, then wait 500 ms before speaking. The audio
+        // subsystem (AudioFlinger mixer + hardware codec) needs time to wake from idle
+        // when no other audio is playing — typically 150-400 ms. Speaking immediately
+        // after requestAudioFocus() clips the first syllable; the delay ensures the
+        // output path is live before any PCM data arrives.
+        // playSilentUtterance() was tried but is unreliable: Google TTS implements it
+        // as a timer rather than writing PCM, so the hardware never wakes up.
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
-        // When audio is cold (no music playing, screen locked) the hardware codec takes
-        // ~200 ms to open. playSilentUtterance forces the stream open first so the
-        // real speech starts into a warm output and the first word isn't clipped.
-        nativeTts.playSilentUtterance(300, TextToSpeech.QUEUE_FLUSH, "prewarm");
-        nativeTts.speak(text, TextToSpeech.QUEUE_ADD, params,
-            "run_" + System.currentTimeMillis());
+        new android.os.Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (nativeTts != null) {
+                nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params,
+                    "run_" + System.currentTimeMillis());
+            }
+        }, 500);
     }
 
     private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {

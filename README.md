@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.5
+**Current**: v2.6.6
+- **Fix TTS clipping (take 2)**: replace `playSilentUtterance` (unreliable — Google TTS treats it as a timer, never wakes hardware) with `postDelayed(500ms)` after `requestAudioFocus`; also fix `onDone` releasing audio focus after the prewarm silence instead of after real speech
+
+**v2.6.5**
 - **Fix TTS clipping on cold audio** (native): prepend 300ms silent utterance before each TTS announcement so the audio hardware stream is open before speech starts — fixes first word being cut off when screen is locked and no music is playing
 
 **v2.6.4**

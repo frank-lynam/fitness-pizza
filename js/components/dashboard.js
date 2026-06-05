@@ -368,8 +368,22 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                 streak++;
                 d.setDate(d.getDate() - 1);
             }
-            streakEl.style.display = streak > 0 ? 'block' : 'none';
-            streakEl.textContent = streak > 0 ? `🔥 ${streak} day streak` : '';
+            // Today's planned intake vs streak zone (90–110%)
+            const todayTotal = totalCalories + plannedCalories;
+            const todayPct = baseGoalCal > 0 ? todayTotal / baseGoalCal : 0;
+            const isTodayCheat = cheatDayDates[today];
+            let todayBadge = '';
+            if (!isTodayCheat && baseGoalCal > 0) {
+                if (todayPct === 0) todayBadge = '';
+                else if (todayPct < 0.9) todayBadge = `<span style="color:var(--accent-warning);font-size:0.8em;margin-left:6px;">↓ under (${Math.round(todayPct*100)}%)</span>`;
+                else if (todayPct > 1.1) todayBadge = `<span style="color:var(--accent-danger);font-size:0.8em;margin-left:6px;">↑ over (${Math.round(todayPct*100)}%)</span>`;
+                else todayBadge = `<span style="color:var(--accent-success);font-size:0.8em;margin-left:6px;">✓ on track</span>`;
+            }
+
+            streakEl.style.display = (streak > 0 || todayBadge) ? 'block' : 'none';
+            streakEl.innerHTML = streak > 0
+                ? `🔥 ${streak} day streak${todayBadge}`
+                : todayBadge ? `Today${todayBadge}` : '';
         }
 
         // Load latest measurement

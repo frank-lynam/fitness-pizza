@@ -71,10 +71,53 @@ async function tts(text) {
 export function initRunTracker() {
     const btn = document.getElementById('btn-go-for-run');
     if (!btn) return;
+
+    // Check for a run that was interrupted by a WebView reload
+    try {
+        const savedRaw = localStorage.getItem('active_run');
+        if (savedRaw) {
+            const saved = JSON.parse(savedRaw);
+            const ageMs = Date.now() - (saved.savedAt || 0);
+            if (ageMs < 4 * 60 * 60 * 1000 && (saved.phase === 'running' || saved.phase === 'paused')) {
+                const banner = document.createElement('div');
+                banner.id = 'run-recovery-banner';
+                banner.style.cssText = 'background:var(--accent-primary);color:#fff;padding:10px 16px;border-radius:var(--radius-md);margin-bottom:8px;cursor:pointer;text-align:center;font-weight:600;';
+                banner.textContent = `▶ Resume run in progress — ${saved.totalDistKm.toFixed(2)} km`;
+                banner.addEventListener('click', () => {
+                    banner.remove();
+                    launchRunOverlay(saved);
+                });
+                const workoutsContent = document.getElementById('workouts-content');
+                if (workoutsContent) workoutsContent.prepend(banner);
+            }
+        }
+    } catch (_) {}
+
     btn.addEventListener('click', () => launchRunOverlay());
 }
 
-function launchRunOverlay() {
+function saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg) {
+    if (phase !== 'running' && phase !== 'paused') return;
+    try {
+        localStorage.setItem('active_run', JSON.stringify({
+            phase,
+            totalDistKm,
+            totalElapsedMs: getElapsedMs(),
+            segmentStart,
+            halfKmsAnnounced,
+            weightKg,
+            savedAt: Date.now()
+        }));
+    } catch (_) {}
+}
+
+function clearRunState() {
+    localStorage.removeItem('active_run');
+    const banner = document.getElementById('run-recovery-banner');
+    if (banner) banner.remove();
+}
+
+function launchRunOverlay(recoveredState = null) {
     if (document.getElementById('run-overlay')) return;
 
     const overlay = document.createElement('div');
@@ -147,9 +190,16 @@ function launchRunOverlay() {
         document.getElementById('run-calories').textContent = calcCalories(dMin, weightKg, totalDistKm);
     }
 
+    let tickCount = 0;
     function startTick() {
         stopTick();
-        tickInterval = setInterval(refreshDisplay, 500);
+        tickInterval = setInterval(() => {
+            refreshDisplay();
+            // Persist state every ~30s so a WebView reload can recover
+            if (++tickCount % 60 === 0) {
+                saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg);
+            }
+        }, 500);
     }
 
     function stopTick() {
@@ -171,6 +221,7 @@ function launchRunOverlay() {
             totalElapsedMs += Date.now() - segmentStart;
             segmentStart = null;
             setPhase('paused');
+            saveRunState('paused', totalDistKm, () => totalElapsedMs, null, halfKmsAnnounced, weightKg);
             window.AndroidBridge?.pauseNativeRun();
             tts('Run paused.');
             setControls(`
@@ -183,6 +234,7 @@ function launchRunOverlay() {
         document.getElementById('run-resume')?.addEventListener('click', () => {
             segmentStart = Date.now();
             setPhase('running');
+            saveRunState('running', totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg);
             window.AndroidBridge?.resumeNativeRun();
             tts('Resuming.');
             setControls(`
@@ -199,6 +251,7 @@ function launchRunOverlay() {
         if (phase !== 'ready') return;
         segmentStart = Date.now();
         setPhase('running');
+        saveRunState('running', totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg);
         startTick();
         window.AndroidBridge?.startNativeRun(weightKg);
         tts('Run started.');
@@ -209,12 +262,16 @@ function launchRunOverlay() {
         wireRunControls();
     }
 
-    async function startGpsAcquisition() {
+    async function startGpsAcquisition(recovering = false) {
         if (!BGL) {
-            document.getElementById('run-status').textContent = 'GPS unavailable — native app required';
-            document.getElementById('run-gps-badge').textContent = '';
+            if (!recovering) {
+                document.getElementById('run-status').textContent = 'GPS unavailable — native app required';
+                document.getElementById('run-gps-badge').textContent = '';
+            }
             return;
         }
+
+        if (!recovering) setPhase('acquiring');
 
         // After 30 s, enable Start with whatever accuracy we have (rather than lock the user out)
         let firstFixReceived = false;
@@ -314,6 +371,7 @@ function launchRunOverlay() {
     }
 
     async function finishRun() {
+        clearRunState();
         clearTimeout(weakSignalTimer);
         if (segmentStart) { totalElapsedMs += Date.now() - segmentStart; segmentStart = null; }
         stopTick();
@@ -364,6 +422,7 @@ function launchRunOverlay() {
 
     document.getElementById('run-close').addEventListener('click', async () => {
         if ((phase === 'running' || phase === 'paused') && !confirm('Stop the run and close?')) return;
+        clearRunState();
         clearTimeout(weakSignalTimer);
         stopTick();
         if (watcherId && BGL) { try { await BGL.removeWatcher({ id: watcherId }); } catch (_) {} }
@@ -371,6 +430,38 @@ function launchRunOverlay() {
         overlay.remove();
     });
 
-    // Begin GPS acquisition immediately on overlay open
-    startGpsAcquisition();
+    if (recoveredState) {
+        // Restore from a run that was interrupted by a WebView reload.
+        // Native GPS and TTS continue uninterrupted; we just need to restore the JS display.
+        totalDistKm    = recoveredState.totalDistKm;
+        halfKmsAnnounced = recoveredState.halfKmsAnnounced;
+        weightKg       = recoveredState.weightKg || weightKg;
+
+        if (recoveredState.phase === 'running') {
+            // Add time that elapsed since the last save
+            totalElapsedMs = recoveredState.totalElapsedMs + (Date.now() - recoveredState.savedAt);
+            segmentStart = Date.now();
+            setPhase('running');
+            startTick();
+            setControls(`
+                <button id="run-pause" class="btn-secondary run-action-btn">Pause</button>
+                <button id="run-finish" class="btn-danger run-action-btn">Finish</button>
+            `);
+        } else {
+            totalElapsedMs = recoveredState.totalElapsedMs;
+            segmentStart = null;
+            setPhase('paused');
+            setControls(`
+                <button id="run-resume" class="btn-secondary run-action-btn">Resume</button>
+                <button id="run-finish" class="btn-danger run-action-btn">Finish</button>
+            `);
+        }
+        wireRunControls();
+        refreshDisplay();
+        document.getElementById('run-gps-badge').textContent = 'Reconnecting GPS…';
+        // Reconnect JS GPS in the background without resetting native state or phase
+        startGpsAcquisition(true);
+    } else {
+        startGpsAcquisition(false);
+    }
 }

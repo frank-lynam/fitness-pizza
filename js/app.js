@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.6.7';
+const APP_VERSION = '2.6.8';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1968,6 +1968,15 @@ class FitnessTrackerApp {
                 localStorage.setItem('auto_backup_enabled', autoBackupToggle.checked ? 'true' : 'false');
             });
         }
+
+        // Touching a range slider while a text input is focused causes the page to
+        // scroll back to that input on mobile WebViews. Blur the focused element first.
+        document.querySelectorAll('#settings-content input[type="range"]').forEach(slider => {
+            slider.addEventListener('touchstart', () => {
+                const a = document.activeElement;
+                if (a && a !== slider && a.type !== 'range') a.blur();
+            }, { passive: true });
+        });
     }
 
     /**

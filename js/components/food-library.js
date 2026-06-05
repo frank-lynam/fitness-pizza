@@ -265,23 +265,51 @@ function setupFoodLibraryButtons(modal, foods) {
             if (!food) return;
 
             const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : new Date().toISOString().split('T')[0];
-            const quantity = food.format_type === 'per_gram' ? 100 : 1;
-            const macros = db.calculateMacrosFromNamedFood(food, quantity);
 
-            const entryId = await db.addMacroEntry({
-                ...macros,
-                meal_name: food.name,
-                food_id: food.id,
-                servings: 1,
-                date: currentDate,
-                status: 'planned'
-            });
+            // Check for an existing planned entry for this food today — increment servings instead
+            const todayMacros = await db.getMacrosByDate(currentDate);
+            const existing = todayMacros.find(m => m.status === 'planned' && m.food_id === food.id);
 
-            window.dispatchEvent(new CustomEvent('fp:data-changed'));
-            ui.showAddToast(`Added ${food.name}`, async () => {
-                await db.deleteMacroEntry(entryId);
+            if (existing) {
+                const prevServings = existing.servings || 1;
+                const newServings = prevServings + 1;
+                const mult = newServings / prevServings;
+                existing.servings = newServings;
+                existing.fat     = (existing.fat     || 0) * mult;
+                existing.protein = (existing.protein || 0) * mult;
+                existing.carbs   = (existing.carbs   || 0) * mult;
+                existing.calories = existing.fat * 9 + existing.protein * 4 + existing.carbs * 4;
+                await db.updateMacroEntry(existing);
                 window.dispatchEvent(new CustomEvent('fp:data-changed'));
-            });
+                ui.showAddToast(`${food.name} ×${newServings}`, async () => {
+                    const rev = await db.get('macros', existing.id);
+                    if (!rev) return;
+                    const revMult = prevServings / newServings;
+                    rev.servings = prevServings;
+                    rev.fat     = (rev.fat     || 0) * revMult;
+                    rev.protein = (rev.protein || 0) * revMult;
+                    rev.carbs   = (rev.carbs   || 0) * revMult;
+                    rev.calories = rev.fat * 9 + rev.protein * 4 + rev.carbs * 4;
+                    await db.updateMacroEntry(rev);
+                    window.dispatchEvent(new CustomEvent('fp:data-changed'));
+                });
+            } else {
+                const quantity = food.format_type === 'per_gram' ? 100 : 1;
+                const macros = db.calculateMacrosFromNamedFood(food, quantity);
+                const entryId = await db.addMacroEntry({
+                    ...macros,
+                    meal_name: food.name,
+                    food_id: food.id,
+                    servings: 1,
+                    date: currentDate,
+                    status: 'planned'
+                });
+                window.dispatchEvent(new CustomEvent('fp:data-changed'));
+                ui.showAddToast(`Added ${food.name}`, async () => {
+                    await db.deleteMacroEntry(entryId);
+                    window.dispatchEvent(new CustomEvent('fp:data-changed'));
+                });
+            }
         });
     });
 

@@ -144,7 +144,13 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.7
+**Current**: v2.6.8
+- **Streak indicator for planned day**: dashboard now shows "✓ on track / ↓ under / ↑ over" next to streak counter based on completed + planned calorie total vs goal
+- **Food library: merge duplicate adds**: tapping Use on the same food twice increments servings on the existing planned entry instead of creating a duplicate; undo toast shows "×N" count
+- **Settings slider scroll fix**: touching a range slider blurs any focused text input, preventing the page from scrolling back to it
+- **Run recovery after WebView reload**: run state is persisted to localStorage every 30s and on pause/resume; on app load a "Resume run in progress" banner appears if a recent run is detected; tapping it restores the overlay with correct distance/time and reconnects JS GPS without disturbing native tracking
+
+**v2.6.7**
 - **Auto-backup off by default**: removed the legacy "default on if prior backup exists" logic; toggle is now strictly opt-in
 - **APK update download button fixed**: was using a relative `<a href download>` which resolves to `capacitor://localhost/...` inside the WebView and does nothing; replaced with `window.open(absoluteUrl, '_system')` which hands off to the system browser
 

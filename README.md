@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.8
+**Current**: v2.6.9
+- **Fix streak/indicator ignoring workout credit**: today's indicator now uses the effective calorie goal (already computed, includes workout credit + PI adjustments) instead of the raw stored base goal; past-day streak uses pi_goal_history per-date goals where available
+
+**v2.6.8**
 - **Streak indicator for planned day**: dashboard now shows "✓ on track / ↓ under / ↑ over" next to streak counter based on completed + planned calorie total vs goal
 - **Food library: merge duplicate adds**: tapping Use on the same food twice increments servings on the existing planned entry instead of creating a duplicate; undo toast shows "×N" count
 - **Settings slider scroll fix**: touching a range slider blurs any focused text input, preventing the page from scrolling back to it

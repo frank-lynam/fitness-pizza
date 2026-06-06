@@ -346,6 +346,18 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
             const allMacros = await db.getAllMacros();
             const baseGoalCal = parseFloat(await db.getSetting('goal_calories') || goalCalories);
             const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+            // pi_goal_history stores {fat,protein,carbs} per date — use it for per-day calorie targets
+            const goalHistory = JSON.parse(await db.getSetting('pi_goal_history') || '{}');
+
+            // Effective calorie goal for a given date:
+            // today → use already-computed goalCalories (includes workout credit + PI)
+            // past  → pi_goal_history calories if stored (PI-adjusted), else base goal
+            function effectiveGoalForDate(ds) {
+                if (ds === today) return goalCalories;
+                const h = goalHistory[ds];
+                if (h && h.fat != null) return (h.fat * 9) + (h.protein * 4) + (h.carbs * 4);
+                return baseGoalCal;
+            }
 
             // Group completed calories by date
             const calByDate = {};
@@ -360,22 +372,23 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
             d.setDate(d.getDate() - 1);
             for (let i = 0; i < 365; i++) {
                 const ds = d.toISOString().slice(0, 10);
-                if (cheatDayDates[ds]) { d.setDate(d.getDate() - 1); continue; } // skip cheat days
+                if (cheatDayDates[ds]) { d.setDate(d.getDate() - 1); continue; }
                 const cal = calByDate[ds];
-                if (cal == null) break; // no log = streak broken
-                const pct = cal / baseGoalCal;
+                if (cal == null) break;
+                const pct = cal / effectiveGoalForDate(ds);
                 if (pct < 0.9 || pct > 1.1) break;
                 streak++;
                 d.setDate(d.getDate() - 1);
             }
-            // Today's planned intake vs streak zone (90–110%)
+
+            // Today's planned intake vs streak zone using effective goal (includes workout credit)
             const todayTotal = totalCalories + plannedCalories;
-            const todayPct = baseGoalCal > 0 ? todayTotal / baseGoalCal : 0;
+            const todayEffective = goalCalories; // already includes PI + workout credit
+            const todayPct = todayEffective > 0 ? todayTotal / todayEffective : 0;
             const isTodayCheat = cheatDayDates[today];
             let todayBadge = '';
-            if (!isTodayCheat && baseGoalCal > 0) {
-                if (todayPct === 0) todayBadge = '';
-                else if (todayPct < 0.9) todayBadge = `<span style="color:var(--accent-warning);font-size:0.8em;margin-left:6px;">↓ under (${Math.round(todayPct*100)}%)</span>`;
+            if (!isTodayCheat && todayEffective > 0 && todayTotal > 0) {
+                if (todayPct < 0.9) todayBadge = `<span style="color:var(--accent-warning);font-size:0.8em;margin-left:6px;">↓ under (${Math.round(todayPct*100)}%)</span>`;
                 else if (todayPct > 1.1) todayBadge = `<span style="color:var(--accent-danger);font-size:0.8em;margin-left:6px;">↑ over (${Math.round(todayPct*100)}%)</span>`;
                 else todayBadge = `<span style="color:var(--accent-success);font-size:0.8em;margin-left:6px;">✓ on track</span>`;
             }

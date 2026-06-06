@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.6.10';
+const APP_VERSION = '2.7.0';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1304,11 +1304,90 @@ class FitnessTrackerApp {
         console.log('Loading settings screen...');
         this.initCollapsibleSettings();
 
-        // Load API key
-        const apiKey = localStorage.getItem('gemini_api_key');
-        const apiKeyInput = document.getElementById('gemini-api-key');
-        if (apiKeyInput && apiKey) {
-            apiKeyInput.value = apiKey;
+        // AI Provider settings
+        {
+            const { PROVIDERS, getSelectedProvider, getAPIKey, saveAPIKey } = await import('./api.js');
+
+            const providerSelect = document.getElementById('ai-provider-select');
+            const apiKeyInput    = document.getElementById('ai-api-key');
+            const infoLink       = document.getElementById('ai-provider-info-link');
+            const anthropicNote  = document.getElementById('ai-anthropic-note');
+
+            const updateProviderUI = (providerId) => {
+                const p = PROVIDERS[providerId];
+                if (!p) return;
+                if (apiKeyInput) apiKeyInput.placeholder = p.keyHint;
+                if (infoLink) { infoLink.href = p.infoUrl; infoLink.textContent = p.infoText; }
+                if (anthropicNote) anthropicNote.style.display = providerId === 'anthropic' ? 'block' : 'none';
+            };
+
+            if (providerSelect) {
+                const current = getSelectedProvider();
+                providerSelect.value = current;
+                if (apiKeyInput) apiKeyInput.value = getAPIKey(current) || '';
+                updateProviderUI(current);
+
+                providerSelect.addEventListener('change', () => {
+                    const prov = providerSelect.value;
+                    localStorage.setItem('ai_provider', prov);
+                    if (apiKeyInput) apiKeyInput.value = getAPIKey(prov) || '';
+                    updateProviderUI(prov);
+                    if (document.getElementById('api-key-status')) {
+                        document.getElementById('api-key-status').style.display = 'none';
+                    }
+                });
+            }
+
+            if (apiKeyInput) {
+                apiKeyInput.addEventListener('change', () => {
+                    const key = apiKeyInput.value.trim();
+                    if (key) saveAPIKey(key, getSelectedProvider());
+                });
+            }
+
+            // Test API key button
+            const testApiKeyBtn = document.getElementById('btn-test-api-key');
+            const apiKeyStatus  = document.getElementById('api-key-status');
+            if (testApiKeyBtn) {
+                testApiKeyBtn.addEventListener('click', async () => {
+                    const key = apiKeyInput ? apiKeyInput.value.trim() : '';
+                    if (!key) {
+                        if (apiKeyStatus) {
+                            apiKeyStatus.style.display = 'block';
+                            apiKeyStatus.className = 'text-danger';
+                            apiKeyStatus.textContent = '❌ Please enter an API key first';
+                        }
+                        return;
+                    }
+                    // Save before testing
+                    saveAPIKey(key, getSelectedProvider());
+
+                    ui.showLoading('Testing API key…');
+                    try {
+                        const { testAPIKey } = await import('./api.js');
+                        const result = await testAPIKey();
+                        ui.hideLoading();
+                        if (apiKeyStatus) {
+                            apiKeyStatus.style.display = 'block';
+                            if (result.valid) {
+                                apiKeyStatus.className = 'text-success';
+                                apiKeyStatus.textContent = '✅ API key is valid!';
+                            } else {
+                                apiKeyStatus.className = 'text-danger';
+                                apiKeyStatus.style.whiteSpace = 'pre-line';
+                                apiKeyStatus.textContent = `❌ ${result.error || 'Invalid key'}`;
+                            }
+                        }
+                    } catch (err) {
+                        ui.hideLoading();
+                        if (apiKeyStatus) {
+                            apiKeyStatus.style.display = 'block';
+                            apiKeyStatus.className = 'text-danger';
+                            apiKeyStatus.textContent = `❌ ${err.message}`;
+                        }
+                    }
+                });
+            }
         }
 
         // Load daily goals
@@ -1342,86 +1421,6 @@ class FitnessTrackerApp {
         if (carbsInput) carbsInput.addEventListener('input', updateComputedCalories);
 
         updateComputedCalories();
-
-        // Auto-save API key on change
-        if (apiKeyInput) {
-            apiKeyInput.addEventListener('change', () => {
-                const key = apiKeyInput.value.trim();
-                if (key) {
-                    localStorage.setItem('gemini_api_key', key);
-                }
-            });
-        }
-
-        // Test API key button
-        const testApiKeyBtn = document.getElementById('btn-test-api-key');
-        const apiKeyStatus = document.getElementById('api-key-status');
-        if (testApiKeyBtn) {
-            testApiKeyBtn.addEventListener('click', async () => {
-                try {
-                    // Save current key first
-                    if (apiKeyInput) {
-                        const key = apiKeyInput.value.trim();
-                        if (key) {
-                            localStorage.setItem('gemini_api_key', key);
-
-                            // Show what key we're testing (first/last chars for debugging)
-                            const keyPreview = key.length > 12 ?
-                                `${key.substring(0, 8)}...${key.substring(key.length - 4)}` :
-                                key.substring(0, 12) + '...';
-
-                            console.log('Testing API key:', keyPreview);
-                            console.log('Key length:', key.length);
-                        } else {
-                            if (apiKeyStatus) {
-                                apiKeyStatus.style.display = 'block';
-                                apiKeyStatus.className = 'text-danger';
-                                apiKeyStatus.textContent = '❌ Please enter an API key first';
-                            }
-                            return;
-                        }
-                    }
-
-                    ui.showLoading('Testing API key...');
-
-                    const { testAPIKey } = await import('./api.js');
-                    const result = await testAPIKey();
-
-                    ui.hideLoading();
-
-                    if (apiKeyStatus) {
-                        apiKeyStatus.style.display = 'block';
-                        if (result.valid) {
-                            apiKeyStatus.className = 'text-success';
-                            apiKeyStatus.textContent = '✅ API key is valid!';
-                        } else {
-                            apiKeyStatus.className = 'text-danger';
-                            const storedKey = localStorage.getItem('gemini_api_key');
-                            const keyLength = storedKey ? storedKey.length : 0;
-                            let errorMsg = `❌ Invalid (length: ${keyLength})`;
-
-                            if (result.status) {
-                                errorMsg += `\nHTTP ${result.status}`;
-                            }
-                            if (result.error) {
-                                errorMsg += `\n${result.error}`;
-                            }
-
-                            apiKeyStatus.textContent = errorMsg;
-                            apiKeyStatus.style.whiteSpace = 'pre-line';
-                        }
-                    }
-                } catch (error) {
-                    ui.hideLoading();
-                    console.error('API test error:', error);
-                    if (apiKeyStatus) {
-                        apiKeyStatus.style.display = 'block';
-                        apiKeyStatus.className = 'text-danger';
-                        apiKeyStatus.textContent = `❌ Error: ${error.message}`;
-                    }
-                }
-            });
-        }
 
         // Auto-save goals on change
         const autoSaveGoals = async () => {

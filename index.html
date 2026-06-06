@@ -371,22 +371,36 @@
                     </div>
 
                     <div class="settings-section">
-                        <h3>Google Gemini API</h3>
+                        <h3>AI Provider</h3>
                         <div class="form-group-inline">
-                            <label for="gemini-api-key">API Key</label>
-                            <input type="text" id="gemini-api-key" placeholder="AIza..." style="font-family: monospace;">
+                            <label for="ai-provider-select">Provider</label>
+                            <select id="ai-provider-select">
+                                <option value="gemini">Gemini Flash (Google) — Free</option>
+                                <option value="openai">GPT-4o mini (OpenAI) — Paid</option>
+                                <option value="anthropic">Claude Haiku (Anthropic) — Paid</option>
+                                <option value="groq">Llama Vision (Groq) — Free</option>
+                            </select>
+                        </div>
+                        <div class="form-group-inline" style="margin-top: 8px;">
+                            <label for="ai-api-key">API Key</label>
+                            <input type="text" id="ai-api-key" placeholder="AIza..." style="font-family: monospace;">
                         </div>
                         <button id="btn-test-api-key" class="btn-secondary" style="margin-top: 8px;">Test API Key</button>
                         <div id="api-key-status" style="margin-top: 8px; display: none;"></div>
-                        <p class="help-text" style="margin-top: 4px; margin-bottom: 0;">Get your API key from <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></p>
+                        <p class="help-text" style="margin-top: 6px; margin-bottom: 0;">
+                            <a id="ai-provider-info-link" href="https://aistudio.google.com/apikey" target="_blank">Get a free API key at Google AI Studio</a>
+                        </p>
+                        <p id="ai-anthropic-note" class="help-text" style="display: none; margin-top: 4px; margin-bottom: 0; color: var(--accent-warning);">
+                            Note: Claude.ai Pro/Max subscriptions do not include API access — a separate Anthropic API account is required.
+                        </p>
                     </div>
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.6.10</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.7.0</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
-                        <p>Built with vanilla JavaScript, IndexedDB, and Google Gemini AI</p>
+                        <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>
                         <button id="btn-check-updates" class="btn-secondary native-only" style="margin-top:12px;">🔄 Check for Updates</button>
                     </div>
                 </div>

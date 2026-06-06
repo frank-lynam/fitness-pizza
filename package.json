@@ -1,6 +1,6 @@
 {
   "name": "fitness-pizza",
-  "version": "2.6.10",
+  "version": "2.7.0",
   "description": "Fitness Pizza — macro & workout tracker PWA with native run tracking",
   "private": true,
   "scripts": {

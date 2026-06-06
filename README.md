@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.10
+**Current**: v2.7.0
+- **Multi-provider AI**: Settings → AI Provider lets you pick Gemini Flash (Google, free), GPT-4o mini (OpenAI, paid), Claude Haiku (Anthropic, paid), or Llama Vision (Groq, free); each provider's API key is stored separately so switching doesn't require re-entry; existing Gemini key migrates automatically
+- Anthropic note: Claude.ai Pro/Max subscriptions do not include API access — a separate Anthropic API account is required
+
+**v2.6.10**
 - **Run workout display**: Outdoor Runs now show "10.5 km at 7.4 mph (54:15)" instead of raw decimal minutes and min/mile pace; distance_km is now stored on the workout entry; all other Cardio workouts also switch to mm:ss duration format
 
 **v2.6.9**

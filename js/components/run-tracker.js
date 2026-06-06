@@ -398,6 +398,7 @@ function launchRunOverlay(recoveredState = null) {
                     exercise_name: 'Outdoor Run',
                     exercise_type: 'Cardio',
                     duration_minutes: dMin,
+                    distance_km: totalDistKm,
                     pace: paceMi,
                     estimated_calories_burned: calories,
                     sets: [],

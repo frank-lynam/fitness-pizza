@@ -133,7 +133,22 @@ function createWorkoutLibraryItemHTML(workout) {
     const details = [];
 
     if (workout.exercise_type === 'Cardio' && workout.duration_minutes > 0) {
-        details.push(`${workout.duration_minutes} min${workout.pace ? ` @ ${workout.pace} min/mi` : ''}`);
+        if (workout.exercise_name === 'Outdoor Run' && workout.pace > 0) {
+            const KM_PER_MI = 1.60934;
+            const distKm = workout.distance_km > 0
+                ? workout.distance_km
+                : (workout.duration_minutes / workout.pace) * KM_PER_MI;
+            const speedMph = 60 / workout.pace;
+            const totalSec = Math.round(workout.duration_minutes * 60);
+            const mm = Math.floor(totalSec / 60);
+            const ss = String(totalSec % 60).padStart(2, '0');
+            details.push(`${distKm.toFixed(1)} km at ${speedMph.toFixed(1)} mph (${mm}:${ss})`);
+        } else {
+            const totalSec = Math.round(workout.duration_minutes * 60);
+            const mm = Math.floor(totalSec / 60);
+            const ss = String(totalSec % 60).padStart(2, '0');
+            details.push(`${mm}:${ss}${workout.pace ? ` @ ${workout.pace.toFixed(1)} min/mi` : ''}`);
+        }
     } else if (workout.reps > 0) {
         details.push(`${workout.reps} reps`);
     }

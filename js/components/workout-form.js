@@ -504,14 +504,29 @@ export async function loadWorkouts() {
             const isCompleted = workout.status !== 'planned';
             const details = [];
             if (workout.exercise_type === 'Cardio' && workout.duration_minutes > 0) {
-                let paceStr = '';
-                if (workout.pace) {
-                    const displayPace = _paceUnit === 'km'
-                        ? Math.round((workout.pace / KM_PER_MI) * 10) / 10
-                        : workout.pace;
-                    paceStr = ` @ ${displayPace} min/${_paceUnit}`;
+                if (workout.exercise_name === 'Outdoor Run' && workout.pace > 0) {
+                    // Compute distance from stored value or derive from pace + duration
+                    const distKm = workout.distance_km > 0
+                        ? workout.distance_km
+                        : (workout.duration_minutes / workout.pace) * KM_PER_MI;
+                    const speedMph = 60 / workout.pace;
+                    const totalSec = Math.round(workout.duration_minutes * 60);
+                    const mm = Math.floor(totalSec / 60);
+                    const ss = String(totalSec % 60).padStart(2, '0');
+                    details.push(`${distKm.toFixed(1)} km at ${speedMph.toFixed(1)} mph (${mm}:${ss})`);
+                } else {
+                    let paceStr = '';
+                    if (workout.pace) {
+                        const displayPace = _paceUnit === 'km'
+                            ? Math.round((workout.pace / KM_PER_MI) * 10) / 10
+                            : workout.pace;
+                        paceStr = ` @ ${displayPace} min/${_paceUnit}`;
+                    }
+                    const totalSec = Math.round(workout.duration_minutes * 60);
+                    const mm = Math.floor(totalSec / 60);
+                    const ss = String(totalSec % 60).padStart(2, '0');
+                    details.push(`${mm}:${ss}${paceStr}`);
                 }
-                details.push(`${parseFloat(workout.duration_minutes.toFixed(2))} min${paceStr}`);
             } else if (workout.reps > 0) {
                 details.push(`${workout.reps} reps`);
             }

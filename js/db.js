@@ -514,6 +514,7 @@ class DatabaseManager {
             exercise_type: data.exercise_type || '',
             reps: data.reps || 0,
             pace: data.pace || null,
+            distance_km: data.distance_km || null,
             exercise_id: data.exercise_id || null,
             template_id: data.template_id || null
         };

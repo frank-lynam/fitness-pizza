@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.6.9
+**Current**: v2.6.10
+- **Run workout display**: Outdoor Runs now show "10.5 km at 7.4 mph (54:15)" instead of raw decimal minutes and min/mile pace; distance_km is now stored on the workout entry; all other Cardio workouts also switch to mm:ss duration format
+
+**v2.6.9**
 - **Fix streak/indicator ignoring workout credit**: today's indicator now uses the effective calorie goal (already computed, includes workout credit + PI adjustments) instead of the raw stored base goal; past-day streak uses pi_goal_history per-date goals where available
 
 **v2.6.8**

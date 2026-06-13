@@ -366,7 +366,6 @@ function showFoodForm(existingFood = null) {
         protein: '',
         carbs: '',
         fat: '',
-        fiber: '',
         serving_size: '1 serving',
         batch_servings: 1
     };
@@ -423,14 +422,11 @@ function showFoodForm(existingFood = null) {
             </div>
 
             <div class="form-group-inline">
-                <label for="food-fiber">Fiber (g)</label>
-                <input type="number" id="food-fiber" step="0.001" min="0" value="${food.fiber || 0}">
+                <label for="food-calories-input" style="min-width:60px;">Calories</label>
+                <input type="number" id="food-calories-input" step="1" min="0" placeholder="auto"
+                       value="">
             </div>
-
-            <div class="calories-display">
-                <span class="calories-label">Calories:</span>
-                <span class="calories-value" id="food-calories">0 cal</span>
-            </div>
+            <small id="food-cal-note" style="color:var(--text-secondary);font-size:0.8em;display:none;margin-left:8px;"></small>
         </form>
     `, []);
 
@@ -460,24 +456,38 @@ function showFoodForm(existingFood = null) {
         updateCalories();
     });
 
-    // Set up calorie calculator — shows cal for the entered reference amount
+    // Auto-fill calories from macros unless user has manually overridden the field
     const updateCalories = () => {
         const protein = parseFloat(modal.querySelector('#food-protein').value || 0);
         const carbs = parseFloat(modal.querySelector('#food-carbs').value || 0);
         const fat = parseFloat(modal.querySelector('#food-fat').value || 0);
-        const fiber = parseFloat(modal.querySelector('#food-fiber').value || 0);
-        const calories = calculateMacroCalories(protein, carbs, fat, fiber);
+        const calories = calculateMacroCalories(protein, carbs, fat, 0);
+        const calInput = modal.querySelector('#food-calories-input');
+        if (calInput && !calInput.dataset.manuallySet) {
+            calInput.value = (protein + carbs + fat) > 0 ? Math.round(calories) : '';
+        }
         const format = modal.querySelector('#food-format').value;
         const refG = format === 'per_gram'
             ? (parseFloat(modal.querySelector('#reference-grams').value) || 100)
             : null;
-        const label = refG && refG !== 100
-            ? `${calories} cal per ${refG}g (${Math.round(calories * 100 / refG)} per 100g)`
-            : `${calories} cal`;
-        modal.querySelector('#food-calories').textContent = label;
+        const note = modal.querySelector('#food-cal-note');
+        if (note) {
+            if (refG && refG !== 100 && (protein + carbs + fat) > 0) {
+                const per100 = Math.round(calories * 100 / refG);
+                note.textContent = `for ${refG}g  (${per100} per 100g)`;
+                note.style.display = 'inline';
+            } else {
+                note.style.display = 'none';
+            }
+        }
     };
 
-    modal.querySelectorAll('#food-protein, #food-carbs, #food-fat, #food-fiber, #reference-grams').forEach(input => {
+    const calInput = modal.querySelector('#food-calories-input');
+    if (calInput) {
+        calInput.addEventListener('input', () => { calInput.dataset.manuallySet = '1'; });
+    }
+
+    modal.querySelectorAll('#food-protein, #food-carbs, #food-fat, #reference-grams').forEach(input => {
         input.addEventListener('input', updateCalories);
     });
 
@@ -494,10 +504,13 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
         const protein = parseFloat(modal.querySelector('#food-protein').value || 0);
         const carbs = parseFloat(modal.querySelector('#food-carbs').value || 0);
         const fat = parseFloat(modal.querySelector('#food-fat').value || 0);
-        const fiber = parseFloat(modal.querySelector('#food-fiber').value || 0);
-        const calories = calculateMacroCalories(protein, carbs, fat, fiber);
+        const calInput = modal.querySelector('#food-calories-input');
+        const manualCal = calInput?.dataset.manuallySet && calInput.value
+            ? parseFloat(calInput.value)
+            : null;
+        const calories = manualCal ?? calculateMacroCalories(protein, carbs, fat, 0);
 
-        let savedProtein = protein, savedCarbs = carbs, savedFat = fat, savedFiber = fiber, savedCalories = calories;
+        let savedProtein = protein, savedCarbs = carbs, savedFat = fat, savedCalories = calories;
 
         if (format_type === 'per_gram') {
             const refG = parseFloat(modal.querySelector('#reference-grams').value) || 100;
@@ -506,8 +519,7 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
                 savedFat      = fat      * scale;
                 savedProtein  = protein  * scale;
                 savedCarbs    = carbs    * scale;
-                savedFiber    = fiber    * scale;
-                savedCalories = calculateMacroCalories(savedProtein, savedCarbs, savedFat, savedFiber);
+                savedCalories = calories * scale;
             }
         }
 
@@ -517,7 +529,7 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
             protein: savedProtein,
             carbs:   savedCarbs,
             fat:     savedFat,
-            fiber:   savedFiber,
+            fiber:   0,
             calories: savedCalories
         };
 

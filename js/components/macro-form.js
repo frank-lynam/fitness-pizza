@@ -207,13 +207,13 @@ export async function showMacroForm(existingEntry = null) {
                 <div class="form-group" style="margin-bottom: 4px;">
                     <label class="checkbox-label">
                         <input type="checkbox" id="per-100g">
-                        <span>Macros are per 100g</span>
+                        <span>Enter macros by grams</span>
                     </label>
                 </div>
 
                 <div id="per-100g-weight" style="display:none; margin-bottom: 4px;">
                     <div class="form-group-inline" style="margin-bottom: 0;">
-                        <label for="weight-grams" style="min-width: 60px;">Weight (g)</label>
+                        <label for="weight-grams" style="min-width: 60px;">Grams</label>
                         <input type="number" id="weight-grams" step="1" min="1" placeholder="100">
                     </div>
                 </div>
@@ -238,6 +238,7 @@ export async function showMacroForm(existingEntry = null) {
                     <input type="number" id="calories-field" step="1" min="0" placeholder="auto"
                            value="${initCalDisplay}">
                 </div>
+                <small id="cal-per-gram-note" style="color:var(--text-secondary);font-size:0.8em;display:none;margin-left:8px;"></small>
             </form>
         </div>
     `;
@@ -338,12 +339,11 @@ function updateCalculatedCalories() {
     let carbs   = parseFloat(document.getElementById('carbs')?.value   || 0);
     let fat     = parseFloat(document.getElementById('fat')?.value     || 0);
 
+    // per-gram mode: macros are entered for the reference gram amount — no scaling needed.
     const isPer100g = document.getElementById('per-100g')?.checked || false;
-    if (isPer100g) {
-        const weightG = parseFloat(document.getElementById('weight-grams')?.value || 100);
-        const scale = weightG / 100;
-        protein *= scale; carbs *= scale; fat *= scale;
-    }
+    const refG = isPer100g
+        ? (parseFloat(document.getElementById('weight-grams')?.value) || 100)
+        : null;
 
     const isBatch = document.getElementById('is-batch-recipe')?.checked || false;
     const batchServings = parseFloat(document.getElementById('batch-servings')?.value || 1);
@@ -360,6 +360,18 @@ function updateCalculatedCalories() {
     if (caloriesField && !caloriesField.dataset.manuallySet) {
         const hasMacros = (protein + carbs + fat) > 0;
         caloriesField.value = hasMacros ? Math.round(calories) : '';
+    }
+
+    const note = document.getElementById('cal-per-gram-note');
+    if (note) {
+        if (isPer100g && refG && refG !== 100 && (protein + carbs + fat) > 0) {
+            const per100 = Math.round(calculateMacroCalories(
+                protein * (100 / refG), carbs * (100 / refG), fat * (100 / refG), 0));
+            note.textContent = `for ${refG}g  (${per100} per 100g)`;
+            note.style.display = 'inline';
+        } else {
+            note.style.display = 'none';
+        }
     }
 }
 
@@ -383,14 +395,10 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
         let carbs   = parseFloat(document.getElementById('carbs')?.value   || 0);
         let fat     = parseFloat(document.getElementById('fat')?.value     || 0);
 
-        // Apply per-100g scaling (before batch division)
-        if (isPer100g) {
-            const weightG = parseFloat(document.getElementById('weight-grams')?.value || 100);
-            const scale = weightG / 100;
-            protein = Math.round(protein * scale * 1000) / 1000;
-            carbs   = Math.round(carbs   * scale * 1000) / 1000;
-            fat     = Math.round(fat     * scale * 1000) / 1000;
-        }
+        // per-gram mode: macros are entered for the reference gram amount — save as-is.
+        const refG = isPer100g
+            ? (parseFloat(document.getElementById('weight-grams')?.value) || 100)
+            : null;
 
         const isBatch = document.getElementById('is-batch-recipe')?.checked || false;
         const batchServings = parseFloat(document.getElementById('batch-servings')?.value || 1);
@@ -456,18 +464,22 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
                 let foodId;
                 if (!existingFood) {
                     if (isPer100g) {
-                        // Store the raw per-100g values (before weight scaling)
+                        // Macros were entered for refG grams; normalize to per-100g for library storage
                         const rawProtein = parseFloat(document.getElementById('protein')?.value || 0);
                         const rawCarbs   = parseFloat(document.getElementById('carbs')?.value   || 0);
                         const rawFat     = parseFloat(document.getElementById('fat')?.value     || 0);
+                        const normScale  = 100 / (refG || 100);
+                        const libProtein = rawProtein * normScale;
+                        const libCarbs   = rawCarbs   * normScale;
+                        const libFat     = rawFat     * normScale;
                         foodId = await db.addNamedFood({
                             name: mealName,
                             format_type: 'per_gram',
-                            protein: rawProtein,
-                            carbs:   rawCarbs,
-                            fat:     rawFat,
+                            protein: libProtein,
+                            carbs:   libCarbs,
+                            fat:     libFat,
                             fiber: 0,
-                            calories: calculateMacroCalories(rawProtein, rawCarbs, rawFat, 0)
+                            calories: calculateMacroCalories(libProtein, libCarbs, libFat, 0)
                         });
                     } else {
                         foodId = await db.addNamedFood({

@@ -6,8 +6,10 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.media.AudioAttributes;
+import android.media.AudioFormat;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
+import android.media.AudioTrack;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
@@ -22,6 +24,9 @@ public class MainActivity extends BridgeActivity {
     private PowerManager.WakeLock wakeLock;
     private volatile AudioFocusRequest focusRequest;
     private TextToSpeech nativeTts;
+    private AudioTrack silentTrack;
+    private Thread silentFeedThread;
+    private volatile boolean runAudioActive = false;
 
     // Native GPS tracking — runs independently of WebView so TTS fires
     // even when the screen is locked and JS is frozen.
@@ -48,12 +53,8 @@ public class MainActivity extends BridgeActivity {
                 nativeTts.setSpeechRate(1.0f);
                 nativeTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) {}
-                    @Override public void onDone(String id) {
-                        if (id.startsWith("run_")) releaseAudioDuck();
-                    }
-                    @Override public void onError(String id) {
-                        if (id.startsWith("run_")) releaseAudioDuck();
-                    }
+                    @Override public void onDone(String id) {}
+                    @Override public void onError(String id) {}
                 });
             }
         });
@@ -72,6 +73,7 @@ public class MainActivity extends BridgeActivity {
                 nativeSegmentStartMs = System.currentTimeMillis();
                 nativeTotalElapsedMs = 0;
                 if (!wakeLock.isHeld()) wakeLock.acquire();
+                acquireRunAudio();
                 startLocationUpdates();
             }
 
@@ -96,6 +98,7 @@ public class MainActivity extends BridgeActivity {
             @JavascriptInterface
             public void stopNativeRun() {
                 stopLocationUpdates();
+                releaseRunAudio();
                 if (wakeLock.isHeld()) wakeLock.release();
             }
 
@@ -174,14 +177,8 @@ public class MainActivity extends BridgeActivity {
 
     void nativeSpeak(String text) {
         if (nativeTts == null) return;
-        requestAudioDuck();
-        // Request audio focus first, then wait 500 ms before speaking. The audio
-        // subsystem (AudioFlinger mixer + hardware codec) needs time to wake from idle
-        // when no other audio is playing — typically 150-400 ms. Speaking immediately
-        // after requestAudioFocus() clips the first syllable; the delay ensures the
-        // output path is live before any PCM data arrives.
-        // playSilentUtterance() was tried but is unreliable: Google TTS implements it
-        // as a timer rather than writing PCM, so the hardware never wakes up.
+        // Audio focus is held for the entire run and the silent AudioTrack keeps the
+        // hardware DAC warm, so we can speak immediately without the 500 ms pre-warm delay.
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
         new android.os.Handler(Looper.getMainLooper()).postDelayed(() -> {
@@ -189,7 +186,7 @@ public class MainActivity extends BridgeActivity {
                 nativeTts.speak(text, TextToSpeech.QUEUE_FLUSH, params,
                     "run_" + System.currentTimeMillis());
             }
-        }, 500);
+        }, 50);
     }
 
     private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
@@ -218,7 +215,11 @@ public class MainActivity extends BridgeActivity {
         return result.isEmpty() ? "0 seconds" : result;
     }
 
-    void requestAudioDuck() {
+    // Acquire audio focus and start a silent AudioTrack for the entire run duration.
+    // Holding focus + keeping the DAC alive via the silent track eliminates the hardware
+    // wake-up latency that clips the first syllable of TTS announcements.
+    void acquireRunAudio() {
+        runAudioActive = true;
         AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
@@ -232,9 +233,38 @@ public class MainActivity extends BridgeActivity {
             am.requestAudioFocus(null, AudioManager.STREAM_MUSIC,
                 AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
         }
+        try {
+            int sampleRate = 8000;
+            int bufSize = Math.max(
+                AudioTrack.getMinBufferSize(sampleRate,
+                    AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT),
+                1600);
+            silentTrack = new AudioTrack(AudioManager.STREAM_MUSIC, sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT,
+                bufSize, AudioTrack.MODE_STREAM);
+            silentTrack.setVolume(0.01f);
+            silentTrack.play();
+            final byte[] silence = new byte[bufSize];
+            silentFeedThread = new Thread(() -> {
+                while (runAudioActive && silentTrack != null) {
+                    silentTrack.write(silence, 0, silence.length);
+                }
+            });
+            silentFeedThread.setDaemon(true);
+            silentFeedThread.start();
+        } catch (Exception ignored) {}
     }
 
-    void releaseAudioDuck() {
+    void releaseRunAudio() {
+        runAudioActive = false;
+        if (silentFeedThread != null) {
+            silentFeedThread.interrupt();
+            silentFeedThread = null;
+        }
+        if (silentTrack != null) {
+            try { silentTrack.stop(); silentTrack.release(); } catch (Exception ignored) {}
+            silentTrack = null;
+        }
         AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest != null) {
             am.abandonAudioFocusRequest(focusRequest);
@@ -247,6 +277,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onDestroy() {
         stopLocationUpdates();
+        releaseRunAudio();
         if (nativeTts != null) {
             nativeTts.stop();
             nativeTts.shutdown();

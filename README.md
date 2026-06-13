@@ -144,7 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.0
+**Current**: v2.7.1
+- **TTS audio clipping fix**: native Android layer now holds audio focus and plays a silent AudioTrack for the entire run duration, keeping the hardware DAC warm; TTS announcements are issued immediately (50ms safety margin) instead of the previous 500ms pre-warm delay; APK rebuild required
+- **Macro entry per-gram mode**: "per 100g" mode renamed to "Enter macros by grams" — enter the macro values for whatever gram amount your label shows (e.g. 75g), then type that gram count in the "Grams" field; calories auto-calc shows context ("for 75g / 200 per 100g"); no pre-scaling on save; library add normalises to per-100g correctly
+- **Food library form**: removed fiber field; calorie field is now editable with auto-fill from macros (same pattern as main macro entry form); manual override is preserved on save
+
+**v2.7.0**
 - **Multi-provider AI**: Settings → AI Provider lets you pick Gemini Flash (Google, free), GPT-4o mini (OpenAI, paid), Claude Haiku (Anthropic, paid), or Llama Vision (Groq, free); each provider's API key is stored separately so switching doesn't require re-entry; existing Gemini key migrates automatically
 - Anthropic note: Claude.ai Pro/Max subscriptions do not include API access — a separate Anthropic API account is required
 

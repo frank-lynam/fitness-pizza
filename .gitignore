@@ -37,3 +37,4 @@ npm-debug.log*
 # Testing
 coverage/
 .nyc_output/
+.build-server-host

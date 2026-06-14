@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.2
+**Current**: v2.7.3
+- **Fix Groq model**: updated from decommissioned `llama-3.2-11b-vision-preview` to `meta-llama/llama-4-scout-17b-16e-instruct` (Llama 4 Scout); display name updated to "Llama 4 Scout (Groq)"
+- **iOS build scripts**: added `scripts/ios-setup.sh` (one-time MacBook setup), `scripts/ios-build.sh` (Xcode archive + IPA export), `scripts/ios-server.py` (local HTTP build server: POST /build, GET /status, GET /download), `scripts/trigger-ios-build.sh` (trigger remote build and download IPA from dev machine), `scripts/ExportOptions.plist.template`
+
+**v2.7.2**
 - **Setup wizard: weight goal step**: added step 4 (of 5) with a slider from −2 to +2 lbs/week in 0.5-lb increments; each lb/week = ±500 kcal/day deficit or surplus applied to TDEE; the targets screen shows the adjusted goal calories and the reasoning (e.g. "Lose 1 lb/week — TDEE 2450 − 500 = 1950 kcal/day")
 
 **v2.7.1**

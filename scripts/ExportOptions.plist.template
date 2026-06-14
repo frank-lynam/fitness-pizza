@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Copy this file to ios/ExportOptions.plist and fill in your Team ID.
+  Your Team ID is the 10-character string in Xcode → Signing & Capabilities (e.g. ABC123XYZ9).
+
+  method options:
+    development   — signed for device testing (no App Store)
+    ad-hoc        — signed for specific registered devices
+    app-store     — for App Store / TestFlight submission
+-->
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+    <key>teamID</key>
+    <string>REPLACE_WITH_YOUR_TEAM_ID</string>
+    <key>compileBitcode</key>
+    <false/>
+    <key>uploadBitcode</key>
+    <false/>
+    <key>uploadSymbols</key>
+    <true/>
+    <key>signingStyle</key>
+    <string>automatic</string>
+</dict>
+</plist>

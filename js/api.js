@@ -1,6 +1,6 @@
 /**
  * Fitness Tracker PWA - AI Provider Integration
- * Supports Gemini (Google), GPT-4o mini (OpenAI), Claude Haiku (Anthropic), Llama Vision (Groq)
+ * Supports Gemini (Google), GPT-4o mini (OpenAI), Claude Haiku (Anthropic), Llama 4 Scout (Groq)
  */
 
 export const PROVIDERS = {
@@ -30,8 +30,8 @@ export const PROVIDERS = {
         note: 'Claude.ai Pro/Max subscriptions do not include API access — a separate Anthropic API account is required.',
     },
     groq: {
-        name: 'Llama Vision (Groq)',
-        model: 'llama-3.2-11b-vision-preview',
+        name: 'Llama 4 Scout (Groq)',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         keyHint: 'gsk_...',
         free: true,
         infoUrl: 'https://console.groq.com/keys',

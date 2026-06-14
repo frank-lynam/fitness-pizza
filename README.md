@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.3
+**Current**: v2.7.4
+- **Fix live bundle updates**: eliminated the unreliable "Restart & Update" dialog — updates now auto-apply immediately after download (CU.set + window.location.reload); if a GPS run is active the bundle is queued via CU.next() for next launch; a "✨ Updated to vX.Y.Z" toast confirms the reload; re-checks on app foreground (at most once per 10 min)
+- **Fix version display**: settings version string now reads from APP_VERSION constant (was hardcoded "v2.7.0" in HTML regardless of actual bundle)
+
+**v2.7.3**
 - **Fix Groq model**: updated from decommissioned `llama-3.2-11b-vision-preview` to `meta-llama/llama-4-scout-17b-16e-instruct` (Llama 4 Scout); display name updated to "Llama 4 Scout (Groq)"
 - **iOS build scripts**: added `scripts/ios-setup.sh` (one-time MacBook setup), `scripts/ios-build.sh` (Xcode archive + IPA export), `scripts/ios-server.py` (local HTTP build server: POST /build, GET /status, GET /download), `scripts/trigger-ios-build.sh` (trigger remote build and download IPA from dev machine), `scripts/ExportOptions.plist.template`
 

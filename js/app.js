@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.7.3';
+const APP_VERSION = '2.7.4';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -87,6 +87,10 @@ class FitnessTrackerApp {
 
             // 🐰🌈🦄 Easter eggs
             initEasterEggs();
+
+            // Show correct version in settings (baked at build time)
+            const verEl = document.getElementById('secret-version');
+            if (verEl) verEl.textContent = `Fitness Pizza v${APP_VERSION}`;
 
             // Native Capacitor features (background GPS run tracking)
             if (window.Capacitor?.isNativePlatform?.()) {
@@ -925,10 +929,9 @@ class FitnessTrackerApp {
     }
 
     /**
-     * Self-hosted live updates via @capgo/capacitor-updater (manual mode).
-     * Fetches fitness-pizza.com/updates/latest.json, compares versions, and
-     * silently downloads + queues the new bundle for the next app launch.
-     * No Capgo cloud account needed — just static files on the website.
+     * Self-hosted live updates via @capgo/capacitor-updater.
+     * Downloads the latest bundle automatically and reloads immediately.
+     * If a GPS run is active the bundle is queued for next launch instead.
      */
     initCapgoUpdater() {
         const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
@@ -937,16 +940,29 @@ class FitnessTrackerApp {
             return;
         }
 
-        // Tell the plugin this bundle loaded successfully — prevents rollback timeout
+        // Required: tell the plugin this bundle loaded successfully
         CU.notifyAppReady();
 
-        // Run update check in background after startup settles
+        // Show a "just updated" toast if we reloaded to apply a bundle
+        const appliedVer = localStorage.getItem('fp_update_applied');
+        if (appliedVer === APP_VERSION) {
+            localStorage.removeItem('fp_update_applied');
+            setTimeout(() => ui.showToast(`✨ Updated to v${APP_VERSION}`), 1500);
+        }
+
+        // Check shortly after startup
         setTimeout(() => this.checkLiveUpdate(CU), 5000);
+
+        // Re-check each time the app comes to the foreground (at most once per 10 min)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState !== 'visible') return;
+            const last = parseInt(localStorage.getItem('fp_update_last_check') || '0');
+            if (Date.now() - last > 10 * 60 * 1000) this.checkLiveUpdate(CU);
+        });
     }
 
     async _fetchJson(url) {
-        // On native, use CapacitorHttp to bypass CORS (WebView origin is
-        // capacitor://localhost so servers without CORS headers block fetch()).
+        // On native use CapacitorHttp to bypass CORS (WebView origin is capacitor://localhost)
         if (window.Capacitor?.isNativePlatform?.()) {
             const Http = window.Capacitor?.Plugins?.CapacitorHttp;
             if (Http) {
@@ -959,6 +975,7 @@ class FitnessTrackerApp {
 
     async checkLiveUpdate(CU, silent = true) {
         const MANIFEST = 'https://fitness-pizza.com/updates/latest.json';
+        localStorage.setItem('fp_update_last_check', String(Date.now()));
         try {
             const [current, latest] = await Promise.all([
                 CU.current(),
@@ -966,49 +983,45 @@ class FitnessTrackerApp {
             ]);
 
             const nativeVersion = current.native;
-            // Use APP_VERSION (baked into this JS file) as the authoritative current
-            // version — CU.current().bundle.version unreliably returns 'builtin' after
-            // CU.set() reloads the webview, which caused false update loops.
             const currentVersion = APP_VERSION;
-            const handledVersion = localStorage.getItem('fp_update_handled');
 
-            console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} handled=${handledVersion}`);
+            console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} minNative=${latest.minNativeVersion}`);
 
             if (!this._semverGt(latest.version, currentVersion)) {
-                if (handledVersion && !this._semverGt(latest.version, handledVersion)) {
-                    localStorage.removeItem('fp_update_handled');
-                    localStorage.removeItem('fp_update_bundle_id');
-                }
-                if (!silent) ui.showToast('Already up to date');
+                if (!silent) ui.showToast(`Already on v${APP_VERSION}`);
                 return;
             }
 
-            // Bundle requires a newer native binary than what's installed
+            // Bundle requires a newer native binary
             if (this._semverGt(latest.minNativeVersion, nativeVersion)) {
                 this.showApkUpdateDialog(latest.minNativeVersion);
                 return;
             }
 
-            // Bundle already downloaded — re-show dialog so user can apply it
-            const storedBundleId = localStorage.getItem('fp_update_bundle_id');
-            if (handledVersion === latest.version && storedBundleId) {
-                this.showLiveBundleUpdateDialog(CU, storedBundleId, latest.version);
+            if (!silent) ui.showToast(`Downloading v${latest.version}…`);
+            console.log(`[updater] Downloading bundle v${latest.version}`);
+
+            const newBundle = await CU.download({ url: latest.url, version: latest.version });
+
+            // If a GPS run is active, queue for next launch — never reload mid-run
+            if (localStorage.getItem('active_run')) {
+                console.log('[updater] Run active — queuing bundle for next launch');
+                await CU.next({ id: newBundle.id });
                 return;
             }
 
-            localStorage.setItem('fp_update_handled', latest.version);
+            // Apply immediately: set the bundle, mark what we applied, then reload
+            localStorage.setItem('fp_update_applied', latest.version);
+            await CU.set({ id: newBundle.id });
+            // CU.set() may reload on its own; this ensures it happens regardless
+            window.location.reload();
 
-            const newBundle = await CU.download({ url: latest.url, version: latest.version });
-            localStorage.setItem('fp_update_bundle_id', newBundle.id);
-            this.showLiveBundleUpdateDialog(CU, newBundle.id, latest.version);
         } catch (e) {
-            localStorage.removeItem('fp_update_handled');
-            localStorage.removeItem('fp_update_bundle_id');
             console.warn('[updater] Update check failed:', e.message);
             if (!silent) {
                 const msg = (e.message === 'Failed to fetch' || e.name === 'TypeError')
                     ? 'Could not reach server — check your connection and try again'
-                    : 'Update check failed: ' + e.message;
+                    : 'Update failed: ' + e.message;
                 ui.showError(msg);
             }
         }
@@ -1063,44 +1076,6 @@ class FitnessTrackerApp {
         });
         document.getElementById('apk-update-later').addEventListener('click', () => modal.remove());
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
-    }
-
-    showLiveBundleUpdateDialog(CU, bundleId, version) {
-        if (document.getElementById('live-update-modal')) return;
-
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.id = 'live-update-modal';
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width:420px;">
-                <div class="modal-header">
-                    <h3>✨ Update Available</h3>
-                </div>
-                <div class="modal-body" style="padding:20px;">
-                    <p>Version <strong>${version}</strong> is ready to install. The app will restart instantly — your data is safe.</p>
-                    <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px;">
-                        <button id="live-update-now" class="btn-primary">Restart &amp; Update</button>
-                        <button id="live-update-later" class="btn-secondary">Later</button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        document.getElementById('live-update-now').addEventListener('click', async () => {
-            modal.remove();
-            ui.showLoading('Applying update…');
-            await CU.set({ id: bundleId });
-        });
-
-        document.getElementById('live-update-later').addEventListener('click', () => {
-            modal.remove();
-        });
-
-        modal.addEventListener('click', e => {
-            if (e.target === modal) modal.remove();
-        });
     }
 
     /**

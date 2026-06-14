@@ -8,28 +8,37 @@ function mifflinBmr(sex, weightKg, heightCm, age) {
         : 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
 }
 
-function calcRecs(sex, weightLbs, heightTotalIn, age) {
+function calcRecs(sex, weightLbs, heightTotalIn, age, weeklyGoalLbs = 0) {
     const weightKg = weightLbs * 0.453592;
     const heightCm = heightTotalIn * 2.54;
     const bmr = mifflinBmr(sex, weightKg, heightCm, age);
     const tdee = Math.round(bmr * 1.2);
+    const goalCal = tdee + Math.round(weeklyGoalLbs * 500);
     const proteinG = Math.round(sex === 'female' ? weightLbs * 0.8 : weightLbs * 1.0);
-    const fatG = Math.round(tdee * (sex === 'female' ? 0.30 : 0.25) / 9);
-    const remaining = Math.max(0, tdee - proteinG * 4 - fatG * 9);
+    const fatG = Math.round(goalCal * (sex === 'female' ? 0.30 : 0.25) / 9);
+    const remaining = Math.max(0, goalCal - proteinG * 4 - fatG * 9);
     const carbsG = Math.round(remaining / 4);
-    return { tdee, bmr: Math.round(bmr), proteinG, fatG, carbsG };
+    return { tdee, goalCal, bmr: Math.round(bmr), proteinG, fatG, carbsG };
+}
+
+function goalLabel(v) {
+    if (v === 0) return 'Maintain weight';
+    const dir = v < 0 ? 'Lose' : 'Gain';
+    const abs = Math.abs(v);
+    return `${dir} ${abs} lb${abs !== 1 ? 's' : ''}/week`;
 }
 
 export function showSetupWizard() {
     if (document.getElementById('setup-wizard-modal')) return;
 
-    const STEPS = 4;
+    const STEPS = 5;
     let step = 1;
     let sex = 'male';
     let age = null;
     let heightTotalIn = null;
     let weightLbs = null;
-    let recProtein = 0, recFat = 0, recCarbs = 0, recTdee = 0;
+    let weeklyGoalLbs = 0;
+    let recProtein = 0, recFat = 0, recCarbs = 0, recTdee = 0, recGoalCal = 0;
 
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
@@ -167,11 +176,8 @@ export function showSetupWizard() {
             heightTotalIn = totalIn;
             weightLbs = wt;
 
-            const recs = calcRecs(sex, weightLbs, heightTotalIn, age);
-            recTdee = recs.tdee;
-            recProtein = recs.proteinG;
-            recFat = recs.fatG;
-            recCarbs = recs.carbsG;
+            // Compute base TDEE for display in the weight-goal step
+            recTdee = Math.round(mifflinBmr(sex, wt * 0.453592, totalIn * 2.54, ageVal) * 1.2);
 
             step = 4;
             render();
@@ -179,16 +185,86 @@ export function showSetupWizard() {
     }
 
     function renderStep4() {
+        const adj = Math.round(weeklyGoalLbs * 500);
+        const previewCal = recTdee + adj;
+        modal.innerHTML = `
+            <div class="modal-content wizard-modal">
+                ${stepDots()}
+                <h2 class="wizard-title">Weight goal</h2>
+                <p class="wizard-subtitle">How fast do you want to change your weight?</p>
+                <div class="wizard-body">
+                    <div style="text-align:center;margin:12px 0 4px;">
+                        <div id="wiz-goal-name" style="font-size:1.3em;font-weight:700;">${goalLabel(weeklyGoalLbs)}</div>
+                        <div id="wiz-goal-cal" style="font-size:0.9em;color:var(--text-secondary);margin-top:4px;">
+                            ${adj === 0 ? `${recTdee} kcal/day` : `${recTdee} ${adj > 0 ? '+' : '−'} ${Math.abs(adj)} = ${previewCal} kcal/day`}
+                        </div>
+                    </div>
+                    <div style="padding:0 4px;margin:16px 0 4px;">
+                        <input type="range" id="wiz-goal-slider" min="-2" max="2" step="0.5" value="${weeklyGoalLbs}"
+                               style="width:100%;accent-color:var(--accent-primary);">
+                        <div style="display:flex;justify-content:space-between;font-size:0.75em;color:var(--text-secondary);margin-top:2px;">
+                            <span>−2 lbs/wk</span>
+                            <span>−1</span>
+                            <span>0</span>
+                            <span>+1</span>
+                            <span>+2 lbs/wk</span>
+                        </div>
+                    </div>
+                    <p class="help-text" style="text-align:center;font-size:11px;margin-top:6px;">500 kcal/day ≈ 1 lb/week. Max safe loss is ~2 lbs/week.</p>
+                </div>
+                <div class="wizard-nav">
+                    <button id="wiz-back" class="btn-secondary wizard-nav-btn">← Back</button>
+                    <button id="wiz-next" class="btn-primary wizard-nav-btn">Next →</button>
+                </div>
+            </div>
+        `;
+
+        const slider = document.getElementById('wiz-goal-slider');
+        const nameEl = document.getElementById('wiz-goal-name');
+        const calEl  = document.getElementById('wiz-goal-cal');
+
+        slider.addEventListener('input', () => {
+            const v = parseFloat(slider.value);
+            const a = Math.round(v * 500);
+            const cal = recTdee + a;
+            nameEl.textContent = goalLabel(v);
+            calEl.textContent = a === 0
+                ? `${recTdee} kcal/day`
+                : `${recTdee} ${a > 0 ? '+' : '−'} ${Math.abs(a)} = ${cal} kcal/day`;
+            calEl.style.color = v === 0 ? 'var(--text-secondary)' : v < 0 ? 'var(--accent-success)' : 'var(--accent-warning)';
+        });
+
+        document.getElementById('wiz-back').addEventListener('click', () => { step = 3; render(); });
+        document.getElementById('wiz-next').addEventListener('click', () => {
+            weeklyGoalLbs = parseFloat(slider.value);
+            const recs = calcRecs(sex, weightLbs, heightTotalIn, age, weeklyGoalLbs);
+            recTdee    = recs.tdee;
+            recGoalCal = recs.goalCal;
+            recProtein = recs.proteinG;
+            recFat     = recs.fatG;
+            recCarbs   = recs.carbsG;
+            step = 5;
+            render();
+        });
+    }
+
+    function renderStep5() {
         const totalCal = recProtein * 4 + recFat * 9 + recCarbs * 4;
+        const hasGoal = weeklyGoalLbs !== 0;
         modal.innerHTML = `
             <div class="modal-content wizard-modal">
                 ${stepDots()}
                 <h2 class="wizard-title">Your targets</h2>
                 <div class="wizard-tdee-badge">
-                    <span class="wizard-tdee-num">${recTdee}</span>
-                    <span class="wizard-tdee-label">kcal/day TDEE</span>
+                    <span class="wizard-tdee-num">${recGoalCal}</span>
+                    <span class="wizard-tdee-label">kcal/day goal</span>
                 </div>
-                <p class="wizard-subtitle" style="margin-top:6px;margin-bottom:16px;">Sedentary (1.2× BMR). Adjust activity level in Settings → Body Stats.</p>
+                <p class="wizard-subtitle" style="margin-top:6px;margin-bottom:16px;">
+                    ${hasGoal
+                        ? `${goalLabel(weeklyGoalLbs)} — TDEE ${recTdee} kcal${weeklyGoalLbs > 0 ? ' +' : ' −'}${Math.abs(Math.round(weeklyGoalLbs * 500))} kcal/day. Adjust activity in Settings → Body Stats.`
+                        : 'Sedentary (1.2× BMR). Adjust activity level in Settings → Body Stats.'
+                    }
+                </p>
                 <div class="wizard-body">
                     <div class="wizard-macro-row">
                         <span class="wizard-macro-label" style="color:var(--accent-primary)">Protein</span>
@@ -234,7 +310,7 @@ export function showSetupWizard() {
             document.getElementById(id).addEventListener('input', updateTotals);
         });
 
-        document.getElementById('wiz-back').addEventListener('click', () => { step = 3; render(); });
+        document.getElementById('wiz-back').addEventListener('click', () => { step = 4; render(); });
         document.getElementById('wiz-save').addEventListener('click', async () => {
             const p = Math.round(parseFloat(document.getElementById('wiz-protein').value) || 0);
             const f = Math.round(parseFloat(document.getElementById('wiz-fat').value) || 0);
@@ -282,6 +358,7 @@ export function showSetupWizard() {
         else if (step === 2) renderStep2();
         else if (step === 3) renderStep3();
         else if (step === 4) renderStep4();
+        else if (step === 5) renderStep5();
     }
 
     render();

@@ -16,6 +16,7 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.view.KeyEvent;
 import android.webkit.JavascriptInterface;
 import com.getcapacitor.BridgeActivity;
 
@@ -39,6 +40,12 @@ public class MainActivity extends BridgeActivity {
     private volatile boolean nativeRunPaused = false;
     private volatile long nativeSegmentStartMs = 0;
     private volatile long nativeTotalElapsedMs = 0;
+    private volatile boolean nativeRunActive = false;
+    private volatile boolean nativeSilentMode = false;
+    private volatile double nativeElevGainM = 0;
+    private volatile double nativeElevLossM = 0;
+    private volatile double nativePrevAltM = Double.NaN;
+    private static final double NATIVE_ELEV_NOISE_M = 3.0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +79,11 @@ public class MainActivity extends BridgeActivity {
                 nativeRunPaused = false;
                 nativeSegmentStartMs = System.currentTimeMillis();
                 nativeTotalElapsedMs = 0;
+                nativeRunActive = true;
+                nativeSilentMode = false;
+                nativeElevGainM = 0;
+                nativeElevLossM = 0;
+                nativePrevAltM = Double.NaN;
                 if (!wakeLock.isHeld()) wakeLock.acquire();
                 acquireRunAudio();
                 startLocationUpdates();
@@ -97,9 +109,22 @@ public class MainActivity extends BridgeActivity {
 
             @JavascriptInterface
             public void stopNativeRun() {
+                nativeRunActive = false;
                 stopLocationUpdates();
                 releaseRunAudio();
                 if (wakeLock.isHeld()) wakeLock.release();
+            }
+
+            @JavascriptInterface
+            public void setSilentMode(boolean silent) {
+                nativeSilentMode = silent;
+            }
+
+            @JavascriptInterface
+            public String getNativeElevation() {
+                return String.format(java.util.Locale.US,
+                    "{\"gainM\":%.1f,\"lossM\":%.1f}",
+                    nativeElevGainM, nativeElevLossM);
             }
 
             // Called by JS for event TTS (start, pause, resume, finish) when
@@ -139,6 +164,19 @@ public class MainActivity extends BridgeActivity {
                         }
                     }
                 }
+                if (loc.hasAltitude()) {
+                    double alt = loc.getAltitude();
+                    if (Double.isNaN(nativePrevAltM)) {
+                        nativePrevAltM = alt;
+                    } else {
+                        double delta = alt - nativePrevAltM;
+                        if (Math.abs(delta) >= NATIVE_ELEV_NOISE_M) {
+                            if (delta > 0) nativeElevGainM += delta;
+                            else nativeElevLossM += Math.abs(delta);
+                            nativePrevAltM = alt;
+                        }
+                    }
+                }
                 nativePrevLat = lat;
                 nativePrevLon = lon;
             }
@@ -160,7 +198,31 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void announceCurrentPosition() {
+        long elapsed = nativeTotalElapsedMs
+            + (nativeSegmentStartMs > 0 ? System.currentTimeMillis() - nativeSegmentStartMs : 0);
+        double distMi = nativeTotalDistKm / 1.60934;
+        double elapsedHr = elapsed / 3600000.0;
+        double speedMph = elapsedHr > 0 ? distMi / elapsedHr : 0;
+        String timeStr = spokenDuration(elapsed / 1000L);
+        String text = String.format(java.util.Locale.US,
+            "%.2f kilometers. %s. %.1f miles per hour.",
+            nativeTotalDistKm, timeStr, speedMph);
+        nativeSpeak(text);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (nativeRunActive
+                && (keyCode == KeyEvent.KEYCODE_VOLUME_UP || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            announceCurrentPosition();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
     private void announceKmMilestone(int halfKms, long elapsedSec) {
+        if (nativeSilentMode) return;
         double distMi = (halfKms * 0.5) / 1.60934;
         double elapsedHr = elapsedSec / 3600.0;
         double speedMph = elapsedHr > 0 ? distMi / elapsedHr : 0;

@@ -144,7 +144,13 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.4
+**Current**: v2.7.5
+- **Run elevation tracking**: GPS altitude accumulated with 3 m noise filter during run; ↑ gain / ↓ loss displayed in run overlay when non-zero; ACSM calorie formula extended with grade correction (uphill gain increases calorie burn); native GPS listener also tracks elevation screen-off and exposes it via `getNativeElevation()` for accurate final calorie save
+- **Pacing mode**: toggle button in run overlay; when on, announces current windowed speed (last 30 s of GPS fixes) every 30 s via TTS (vs. overall average); persists across runs in `localStorage`
+- **Silent mode**: toggle button to suppress 500 m milestone announcements; persists across runs; flag propagated to native side via `setSilentMode()` so screen-off announcements are also suppressed
+- **Earpiece tap → on-demand update**: volume UP or DOWN key press during a run (including with screen off) triggers an immediate position/pace/time announcement instead of changing volume; implemented via `onKeyDown()` override in `MainActivity.java`
+
+**v2.7.4**
 - **Fix live bundle updates**: eliminated the unreliable "Restart & Update" dialog — updates now auto-apply immediately after download (CU.set + window.location.reload); if a GPS run is active the bundle is queued via CU.next() for next launch; a "✨ Updated to vX.Y.Z" toast confirms the reload; re-checks on app foreground (at most once per 10 min)
 - **Fix version display**: settings version string now reads from APP_VERSION constant (was hardcoded "v2.7.0" in HTML regardless of actual bundle)
 

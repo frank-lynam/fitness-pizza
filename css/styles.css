@@ -2219,6 +2219,11 @@ textarea.error {
 .run-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; max-width:280px; margin:0 auto; font-size:0.95em; text-align:left; }
 .run-summary-grid span { color:var(--text-secondary); }
 .run-summary-grid strong { color:var(--text-primary); }
+.run-elev-row { display:flex; gap:20px; justify-content:center; align-items:center; font-size:0.9em; font-weight:600; color:var(--text-secondary); margin-top:-16px; }
+.run-elev-stat { letter-spacing:0.02em; }
+.run-toggles { display:flex; gap:10px; justify-content:center; padding:0 24px 10px; flex-shrink:0; }
+.run-toggle-btn { background:var(--bg-tertiary); border:1px solid var(--border-color); color:var(--text-secondary); padding:7px 18px; border-radius:999px; font-size:0.8em; cursor:pointer; font-weight:600; }
+.run-toggle-btn.active { background:var(--accent-primary); border-color:var(--accent-primary); color:#fff; }
 
 
 /* Setup Wizard */

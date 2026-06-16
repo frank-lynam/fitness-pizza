@@ -123,8 +123,8 @@ public class MainActivity extends BridgeActivity {
             @JavascriptInterface
             public String getNativeElevation() {
                 return String.format(java.util.Locale.US,
-                    "{\"gainM\":%.1f,\"lossM\":%.1f}",
-                    nativeElevGainM, nativeElevLossM);
+                    "{\"gainM\":%.1f,\"lossM\":%.1f,\"distKm\":%.3f}",
+                    nativeElevGainM, nativeElevLossM, nativeTotalDistKm);
             }
 
             // Called by JS for event TTS (start, pause, resume, finish) when

@@ -473,6 +473,10 @@ function launchRunOverlay(recoveredState = null) {
                     elevGainM = finalElevGainM;
                     elevLossM = finalElevLossM;
                 }
+                // Use native distance as fallback when BGL didn't track (screen locked)
+                if (nElev.distKm > totalDistKm) {
+                    totalDistKm = nElev.distKm;
+                }
             } catch (_) {}
         }
 

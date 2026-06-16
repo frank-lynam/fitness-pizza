@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.7
+**Current**: v2.7.8
+- **Fix run showing 0 km**: `finishRun()` now falls back to native GPS distance (`nativeTotalDistKm`) when JS BGL distance is 0 — happens when the screen stays locked during a run and the background geolocation plugin doesn't update the JS-side counter; native `getNativeElevation()` now also returns `distKm` in its JSON payload
+
+**v2.7.7**
 - **Fix pacing mode stops after 2 updates**: replaced the sliding-window `recentPoints` array approach with a simple distance-delta snapshot — records `totalDistKm` at the start of each 30 s window and divides the delta by elapsed time; no array filtering or stale-reference issues
 - **Fix Updates button color**: "Updates: On" now shows highlighted (active color) and "Updates: Off" shows dim, matching the pacing button convention
 

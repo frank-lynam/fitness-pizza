@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.6
+**Current**: v2.7.7
+- **Fix pacing mode stops after 2 updates**: replaced the sliding-window `recentPoints` array approach with a simple distance-delta snapshot — records `totalDistKm` at the start of each 30 s window and divides the delta by elapsed time; no array filtering or stale-reference issues
+- **Fix Updates button color**: "Updates: On" now shows highlighted (active color) and "Updates: Off" shows dim, matching the pacing button convention
+
+**v2.7.6**
 - **Fix label scan flow**: label photos now open the macro form directly in per-100g mode with the AI's per-100g macros pre-filled; "Add to library" is pre-checked and "Mark as eaten" is unchecked (added as planned/not eaten); grams field defaults to 100 for per-100g labels or the serving size for per-serving labels so the library normalises correctly; product name left blank if AI couldn't identify the food; the intermediate "how many grams did you eat?" prompt has been removed
 
 **v2.7.5**

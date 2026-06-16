@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.7.6';
+const APP_VERSION = '2.7.7';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';

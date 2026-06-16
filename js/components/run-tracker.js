@@ -181,8 +181,9 @@ function launchRunOverlay(recoveredState = null) {
     let elevLossM = 0;
     let lastAlt = null;
 
-    // Pacing mode: sliding window of recent GPS fixes for 30 s windowed speed
-    let recentPoints = [];
+    // Pacing mode: snapshot totalDistKm at the start of each 30 s window
+    let pacingWindowDistKm = 0;
+    let pacingWindowTime = 0;
     let pacingTimer = null;
 
     // Mode settings — persist across runs
@@ -230,25 +231,25 @@ function launchRunOverlay(recoveredState = null) {
         if (silentBtn) {
             silentBtn.textContent = silentMode ? 'Updates: Off' : 'Updates: On';
             silentBtn.setAttribute('aria-pressed', String(silentMode));
-            silentBtn.classList.toggle('active', silentMode);
+            silentBtn.classList.toggle('active', !silentMode);
         }
     }
 
-    // Announces current windowed speed every 30 s when pacing mode is enabled.
+    // Announces current 30 s windowed speed when pacing mode is enabled.
+    // Snapshots totalDistKm at window start; computes delta on each fire.
     function startPacingTimer() {
         stopPacingTimer();
         if (!pacingMode) return;
+        pacingWindowDistKm = totalDistKm;
+        pacingWindowTime = Date.now();
         pacingTimer = setInterval(() => {
             if (phase !== 'running') return;
             const now = Date.now();
-            const window30 = recentPoints.filter(p => now - p.ts < 30000);
-            if (window30.length < 2) return;
-            let d = 0;
-            for (let i = 1; i < window30.length; i++) {
-                d += haversineKm(window30[i-1].lat, window30[i-1].lon, window30[i].lat, window30[i].lon);
-            }
-            const dt = (window30[window30.length - 1].ts - window30[0].ts) / 3600000;
-            const speedMph = dt > 0 ? (d / KM_PER_MI) / dt : 0;
+            const dtHours = (now - pacingWindowTime) / 3600000;
+            const dMi = (totalDistKm - pacingWindowDistKm) / KM_PER_MI;
+            const speedMph = dtHours > 0 ? dMi / dtHours : 0;
+            pacingWindowDistKm = totalDistKm;
+            pacingWindowTime = now;
             if (speedMph > 0.5) tts(`${speedMph.toFixed(1)} miles per hour.`);
         }, 30000);
     }
@@ -423,11 +424,6 @@ function launchRunOverlay(recoveredState = null) {
                                     }
                                 }
                             }
-
-                            // Track recent points for pacing mode windowed speed
-                            const now = Date.now();
-                            recentPoints.push({ lat, lon, ts: now });
-                            if (recentPoints.length > 200) recentPoints = recentPoints.filter(p => now - p.ts < 60000);
 
                             // JS-side 500m announcements (non-native path, respects silentMode)
                             if (!window.AndroidBridge && !silentMode) {

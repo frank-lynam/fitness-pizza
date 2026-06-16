@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.5
+**Current**: v2.7.6
+- **Fix label scan flow**: label photos now open the macro form directly in per-100g mode with the AI's per-100g macros pre-filled; "Add to library" is pre-checked and "Mark as eaten" is unchecked (added as planned/not eaten); grams field defaults to 100 for per-100g labels or the serving size for per-serving labels so the library normalises correctly; product name left blank if AI couldn't identify the food; the intermediate "how many grams did you eat?" prompt has been removed
+
+**v2.7.5**
 - **Run elevation tracking**: GPS altitude accumulated with 3 m noise filter during run; ↑ gain / ↓ loss displayed in run overlay when non-zero; ACSM calorie formula extended with grade correction (uphill gain increases calorie burn); native GPS listener also tracks elevation screen-off and exposes it via `getNativeElevation()` for accurate final calorie save
 - **Pacing mode**: toggle button in run overlay; when on, announces current windowed speed (last 30 s of GPS fixes) every 30 s via TTS (vs. overall average); persists across runs in `localStorage`
 - **Silent mode**: toggle button to suppress 500 m milestone announcements; persists across runs; flag propagated to native side via `setSilentMode()` so screen-off announcements are also suppressed

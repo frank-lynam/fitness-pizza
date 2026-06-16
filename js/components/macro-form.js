@@ -169,7 +169,7 @@ export async function showMacroForm(existingEntry = null) {
 
                 <div class="form-group" style="margin-bottom: 4px;">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="add-to-library">
+                        <input type="checkbox" id="add-to-library" ${entry._addToLibrary ? 'checked' : ''}>
                         <span>Add to food library</span>
                     </label>
                 </div>
@@ -206,15 +206,15 @@ export async function showMacroForm(existingEntry = null) {
 
                 <div class="form-group" style="margin-bottom: 4px;">
                     <label class="checkbox-label">
-                        <input type="checkbox" id="per-100g">
+                        <input type="checkbox" id="per-100g" ${entry._per100gMode ? 'checked' : ''}>
                         <span>Enter macros by grams</span>
                     </label>
                 </div>
 
-                <div id="per-100g-weight" style="display:none; margin-bottom: 4px;">
+                <div id="per-100g-weight" style="display:${entry._per100gMode ? 'block' : 'none'}; margin-bottom: 4px;">
                     <div class="form-group-inline" style="margin-bottom: 0;">
                         <label for="weight-grams" style="min-width: 60px;">Grams</label>
-                        <input type="number" id="weight-grams" step="1" min="1" placeholder="100">
+                        <input type="number" id="weight-grams" step="1" min="1" placeholder="100" value="${entry._weightGrams || ''}">
                     </div>
                 </div>
 

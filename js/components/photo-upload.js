@@ -155,22 +155,28 @@ async function runLabelAnalysis(imageData) {
         loadingOverlay.remove();
         if (cancelled) return;
 
-        if (result.is_per_100g) {
-            showGramsPrompt(result);
-        } else {
-            const food_description = result.serving_size ? `Serving: ${result.serving_size}` : '';
-            showMacroForm({
-                meal_name: result.product_name,
-                protein: result.protein,
-                carbs: result.carbs,
-                fat: result.fat,
-                fiber: result.fiber,
-                food_description,
-                status: 'completed',
-                ai_estimated: true,
-                _scanServingGrams: result.serving_size_grams || 0
-            });
-        }
+        // Determine whether to use per-100g mode.
+        // For per-100g labels: macros from AI are already per-100g → grams=100.
+        // For per-serving labels with a known serving size: macros are for that serving
+        //   → grams=serving_size_grams so the library normalises to per-100g correctly.
+        // In both cases default to adding to library and adding as planned (not eaten).
+        const servingGrams = result.serving_size_grams || 0;
+        const use100gMode = result.is_per_100g || servingGrams > 0;
+        const weightGrams = result.is_per_100g ? 100 : (servingGrams || 100);
+
+        showMacroForm({
+            meal_name: result.product_name || '',
+            protein: result.protein,
+            carbs: result.carbs,
+            fat: result.fat,
+            fiber: result.fiber,
+            status: 'planned',
+            serving_label: result.serving_size || '',
+            ai_estimated: true,
+            _per100gMode: use100gMode,
+            _weightGrams: weightGrams,
+            _addToLibrary: true,
+        });
     } catch (error) {
         loadingOverlay.remove();
         if (cancelled) return;
@@ -179,49 +185,6 @@ async function runLabelAnalysis(imageData) {
     }
 }
 
-/**
- * Show a prompt asking how many grams the user ate, for per-100g labels.
- * Scales all macros by grams/100 before calling showMacroForm.
- * @param {Object} labelResult - Result from estimateMacrosFromLabel
- */
-function showGramsPrompt(labelResult) {
-    const defaultGrams = labelResult.serving_size_grams || 100;
-    ui.createModal('How many grams did you eat?', `
-        <p style="margin-bottom:10px;color:var(--text-secondary);font-size:13px;">
-            This label shows per-100g values. Enter the amount you ate to scale the macros.
-        </p>
-        <div class="form-group">
-            <label>Grams eaten</label>
-            <input type="number" id="grams-eaten-input" min="1" max="9999" step="1"
-                value="${defaultGrams}" style="width:100%;">
-        </div>
-    `, [
-        {
-            text: 'Confirm',
-            className: 'btn-primary',
-            onClick: () => {
-                const gramsInput = document.getElementById('grams-eaten-input');
-                const grams = parseFloat(gramsInput ? gramsInput.value : defaultGrams) || defaultGrams;
-                const factor = grams / 100;
-                const servingNote = `${grams}g of ${labelResult.product_name}`;
-                showMacroForm({
-                    meal_name: labelResult.product_name,
-                    protein: Math.round(labelResult.protein * factor * 10) / 10,
-                    carbs: Math.round(labelResult.carbs * factor * 10) / 10,
-                    fat: Math.round(labelResult.fat * factor * 10) / 10,
-                    fiber: Math.round(labelResult.fiber * factor * 10) / 10,
-                    notes: servingNote,
-                    status: 'completed',
-                    ai_estimated: true
-                });
-            }
-        },
-        {
-            text: 'Cancel',
-            className: 'btn-secondary'
-        }
-    ]);
-}
 
 /**
  * Show an error modal that lets the user retry the same label scan.

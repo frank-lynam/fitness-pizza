@@ -239,7 +239,9 @@ function launchRunOverlay(recoveredState = null) {
     // Snapshots totalDistKm at window start; computes delta on each fire.
     function startPacingTimer() {
         stopPacingTimer();
-        if (!pacingMode) return;
+        // On Android the native GPS listener handles pacing announcements even
+        // when the screen is locked — JS setInterval freezes in that state.
+        if (!pacingMode || window.AndroidBridge) return;
         pacingWindowDistKm = totalDistKm;
         pacingWindowTime = Date.now();
         pacingTimer = setInterval(() => {
@@ -304,6 +306,7 @@ function launchRunOverlay(recoveredState = null) {
             setPhase('running');
             saveRunState('running', totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg, elevGainM, elevLossM);
             window.AndroidBridge?.resumeNativeRun();
+            window.AndroidBridge?.setPacingMode(pacingMode);
             startPacingTimer();
             tts('Resuming.');
             setControls(`
@@ -324,6 +327,7 @@ function launchRunOverlay(recoveredState = null) {
         startTick();
         window.AndroidBridge?.startNativeRun(weightKg);
         window.AndroidBridge?.setSilentMode(silentMode);
+        window.AndroidBridge?.setPacingMode(pacingMode);
         startPacingTimer();
         tts('Run started.');
         setControls(`
@@ -532,8 +536,12 @@ function launchRunOverlay(recoveredState = null) {
         localStorage.setItem('run_pacing_mode', String(pacingMode));
         updateToggleButtons();
         if (phase === 'running') {
-            if (pacingMode) startPacingTimer();
-            else stopPacingTimer();
+            if (window.AndroidBridge) {
+                window.AndroidBridge.setPacingMode(pacingMode);
+            } else {
+                if (pacingMode) startPacingTimer();
+                else stopPacingTimer();
+            }
         }
     });
 
@@ -570,6 +578,7 @@ function launchRunOverlay(recoveredState = null) {
             setPhase('running');
             startTick();
             startPacingTimer();
+            window.AndroidBridge?.setPacingMode(pacingMode);
             setControls(`
                 <button id="run-pause" class="btn-secondary run-action-btn">Pause</button>
                 <button id="run-finish" class="btn-danger run-action-btn">Finish</button>

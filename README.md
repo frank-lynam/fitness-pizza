@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.8
+**Current**: v2.7.9
+- **Fix pacing mode stopping after 2 announcements**: pacing announcements now run in the native Java `onLocationChanged()` callback (same as km milestones) via a new `setPacingMode()` JavascriptInterface — JS `setInterval` was getting suspended by Android when the screen locked, which is why the 3rd announcement only appeared on unlock
+
+**v2.7.8**
 - **Fix run showing 0 km**: `finishRun()` now falls back to native GPS distance (`nativeTotalDistKm`) when JS BGL distance is 0 — happens when the screen stays locked during a run and the background geolocation plugin doesn't update the JS-side counter; native `getNativeElevation()` now also returns `distKm` in its JSON payload
 
 **v2.7.7**

@@ -46,6 +46,9 @@ public class MainActivity extends BridgeActivity {
     private volatile double nativeElevLossM = 0;
     private volatile double nativePrevAltM = Double.NaN;
     private static final double NATIVE_ELEV_NOISE_M = 3.0;
+    private volatile boolean nativePacingMode = false;
+    private volatile double nativePacingWindowDistKm = 0;
+    private volatile long nativePacingWindowTimeMs = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,6 +87,9 @@ public class MainActivity extends BridgeActivity {
                 nativeElevGainM = 0;
                 nativeElevLossM = 0;
                 nativePrevAltM = Double.NaN;
+                nativePacingMode = false;
+                nativePacingWindowDistKm = 0;
+                nativePacingWindowTimeMs = 0;
                 if (!wakeLock.isHeld()) wakeLock.acquire();
                 acquireRunAudio();
                 startLocationUpdates();
@@ -118,6 +124,14 @@ public class MainActivity extends BridgeActivity {
             @JavascriptInterface
             public void setSilentMode(boolean silent) {
                 nativeSilentMode = silent;
+            }
+
+            @JavascriptInterface
+            public void setPacingMode(boolean pacing) {
+                nativePacingMode = pacing;
+                // Reset window so the first interval starts from now
+                nativePacingWindowDistKm = nativeTotalDistKm;
+                nativePacingWindowTimeMs = System.currentTimeMillis();
             }
 
             @JavascriptInterface
@@ -177,6 +191,23 @@ public class MainActivity extends BridgeActivity {
                         }
                     }
                 }
+                // Pacing mode: announce windowed speed every 30 s
+                if (nativePacingMode && nativePacingWindowTimeMs > 0) {
+                    long nowMs = System.currentTimeMillis();
+                    if (nowMs - nativePacingWindowTimeMs >= 30000) {
+                        double dKm = nativeTotalDistKm - nativePacingWindowDistKm;
+                        double dMi = dKm / 1.60934;
+                        double dtHours = (nowMs - nativePacingWindowTimeMs) / 3600000.0;
+                        double speedMph = dtHours > 0 ? dMi / dtHours : 0;
+                        nativePacingWindowDistKm = nativeTotalDistKm;
+                        nativePacingWindowTimeMs = nowMs;
+                        if (speedMph > 0.5) {
+                            nativeSpeak(String.format(java.util.Locale.US,
+                                "%.1f miles per hour.", speedMph));
+                        }
+                    }
+                }
+
                 nativePrevLat = lat;
                 nativePrevLon = lon;
             }

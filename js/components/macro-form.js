@@ -30,7 +30,8 @@ export function setDailyGoals(goals) {
  */
 export function initMacroForm() {
     const btnAddMacro = document.getElementById('btn-add-macro');
-    const btnPhotoMacro = document.getElementById('btn-photo-macro');
+    const btnSnapMeal = document.getElementById('btn-snap-meal');
+    const btnScanLabel = document.getElementById('btn-scan-label');
     const btnTextAIMacro = document.getElementById('btn-text-ai-macro');
     const reverseDietToggle = document.getElementById('cheat-day-toggle');
     const formContainer = document.getElementById('macro-form-container');
@@ -41,10 +42,17 @@ export function initMacroForm() {
         });
     }
 
-    if (btnPhotoMacro) {
-        btnPhotoMacro.addEventListener('click', async () => {
-            const { showPhotoUploadModal } = await import('./photo-upload.js');
-            showPhotoUploadModal();
+    if (btnSnapMeal) {
+        btnSnapMeal.addEventListener('click', async () => {
+            const { snapMealAndDescribe } = await import('./photo-upload.js');
+            snapMealAndDescribe();
+        });
+    }
+
+    if (btnScanLabel) {
+        btnScanLabel.addEventListener('click', async () => {
+            const { scanLabelDirect } = await import('./photo-upload.js');
+            scanLabelDirect();
         });
     }
 
@@ -1078,68 +1086,41 @@ async function handleMaxServings(id) {
  * Show text-based AI macro estimation modal
  */
 function showTextAIModal() {
-    const modal = ui.createModal('AI Macro Estimation', `
-        <div class="photo-upload-container">
-            <p class="help-text" style="margin-bottom: 12px;">Describe what you ate and AI will estimate the macros:</p>
-
-            <div class="form-group">
-                <label for="food-description-ai" style="display: block; margin-bottom: 4px;">Food Description</label>
-                <textarea id="food-description-ai"
-                          placeholder="e.g., Large chicken breast with broccoli and rice, glass of milk"
-                          rows="4"
-                          style="width: 100%; resize: vertical;"></textarea>
-            </div>
-
-            <div class="button-group" style="margin-top: 12px;">
-                <button id="btn-analyze-text" class="btn-primary">Analyze</button>
-                <button id="btn-cancel-text" class="btn-secondary">Cancel</button>
-            </div>
-        </div>
-    `, []);
-
-    const textArea = modal.querySelector('#food-description-ai');
-    const analyzeBtn = modal.querySelector('#btn-analyze-text');
-    const cancelBtn = modal.querySelector('#btn-cancel-text');
-
-    // Cancel button
-    cancelBtn.addEventListener('click', () => {
-        ui.closeModal(modal);
-    });
-
-    // Analyze button
-    analyzeBtn.addEventListener('click', async () => {
-        const description = textArea.value.trim();
-        if (!description) {
-            ui.showError('Please enter a food description');
-            return;
+    // Buttons go in the footer (outside the scrolling body) so they stay
+    // visible when the virtual keyboard pushes the viewport up.
+    let modal;
+    modal = ui.createModal('What did you eat?', `
+        <textarea id="food-description-ai"
+                  placeholder="e.g., large chicken breast with broccoli and rice, glass of milk"
+                  rows="3"
+                  style="width:100%;resize:vertical;"></textarea>
+    `, [
+        { text: 'Cancel', className: 'btn-secondary' },
+        {
+            text: 'Analyze →',
+            className: 'btn-primary',
+            onClick: () => analyzeTextDescription(modal)
         }
+    ]);
+    setTimeout(() => modal.querySelector('#food-description-ai')?.focus(), 50);
+}
 
-        try {
-            // Show loading immediately
-            ui.showLoading('Analyzing food description...');
-
-            // Use setTimeout to ensure loading UI renders
-            await new Promise(resolve => setTimeout(resolve, 50));
-
-            const { estimateMacrosFromText } = await import('../api.js');
-            const estimates = await estimateMacrosFromText(description);
-
-            ui.hideLoading();
-
-            // Close modal
-            ui.closeModal(modal);
-
-            // Open macro form with AI estimates pre-filled
-            showMacroForm({
-                ...estimates,
-                serving_label: description,
-                status: 'completed'
-            });
-
-        } catch (error) {
-            ui.hideLoading();
-            console.error('Analysis error:', error);
-            ui.showError(error.message);
-        }
-    });
+async function analyzeTextDescription(modal) {
+    const description = modal.querySelector('#food-description-ai')?.value.trim();
+    if (!description) {
+        ui.showError('Please enter a food description');
+        return;
+    }
+    try {
+        ui.showLoading('Analyzing food description...');
+        await new Promise(resolve => setTimeout(resolve, 50));
+        const { estimateMacrosFromText } = await import('../api.js');
+        const estimates = await estimateMacrosFromText(description);
+        ui.hideLoading();
+        showMacroForm({ ...estimates, serving_label: description, status: 'completed' });
+    } catch (error) {
+        ui.hideLoading();
+        console.error('Analysis error:', error);
+        ui.showError(error.message);
+    }
 }

@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.0
+**Current**: v2.8.1
+- **Streamlined AI meal photo flow**: "From Photo" replaced by two direct buttons — "📷 Snap a Meal" opens camera immediately and shows a compact single-input context modal (fits on screen with keyboard open, no scrolling); "🏷️ Scan Label" opens camera and goes straight to analysis; no more sub-menu, no photo preview/approval step, fewer taps
+- **Fix AI from Text modal scrolling**: textarea reduced to 3 rows and action buttons moved to the modal footer (always visible above the keyboard)
+
+**v2.8.0**
 - **Cardio mode selector**: "Go for a Run" button renamed to "Do Some Cardio"; run overlay now has a Run/Hike/Bike toggle that persists across sessions; each mode uses the correct calorie formula (ACSM running, ACSM walking+grade for hiking, speed-based MET for cycling), saves the right exercise name (Outdoor Run / Hiking / Cycling), and uses activity-appropriate TTS phrases and UI labels; toggle locks during an active session
 
 **v2.7.9**

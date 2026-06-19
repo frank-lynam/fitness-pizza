@@ -144,7 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.2
+**Current**: v2.8.3
+- **Unicorn Mode animation restored**: unicorn gallop fires first on triple-tap of 🍕, then Unicorn Mode theme activates mid-flight (~900ms later) so the animation is clearly visible before the screen changes
+- **Rename psychedelic theme to "Unicorn Mode"**: theme option now shows 🦄 Unicorn Mode in the dropdown
+- **Fix label scan "Unknown Product"**: AI responses of "Unknown Product", "Unknown", "N/A", or "Not Available" are treated as blank — product name field is left empty instead
+
+**v2.8.2**
 - **Fix per-100g day-plan entry**: macros saved to the macro list are now normalized to 100g (÷ refG × 100) matching the library entry — previously the raw entered values (for refG grams) were saved as-is
 - **Psychedelic theme is now a secret**: removed from the theme dropdown by default; triple-tap the 🍕 emoji in About to unlock it — applies immediately and adds it to the theme selector for the rest of the session
 

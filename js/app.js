@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.8.2';
+const APP_VERSION = '2.8.3';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -2227,7 +2227,7 @@ class FitnessTrackerApp {
         if (!select || select.querySelector('[value="psychedelic"]')) return;
         const opt = document.createElement('option');
         opt.value = 'psychedelic';
-        opt.textContent = '🌈 Psychedelic';
+        opt.textContent = '🦄 Unicorn Mode';
         const pinkOpt = select.querySelector('[value="pink"]');
         if (pinkOpt) select.insertBefore(opt, pinkOpt);
         else select.appendChild(opt);

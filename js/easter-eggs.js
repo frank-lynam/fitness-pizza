@@ -451,10 +451,10 @@ function setupKonami() {
 export function initEasterEggs() {
     setupKonami();
 
-    // 1. Triple-click 🍕 in About → unlock psychedelic theme + unicorn gallops across
+    // 1. Triple-click 🍕 in About → unicorn gallops + unicorn mode unlocks mid-flight
     onRapidClicks(document.getElementById('secret-pizza'), 3, 1800, () => {
-        window.fitnessApp?.unlockPsychedelicTheme?.();
         doUnicornGallop();
+        setTimeout(() => window.fitnessApp?.unlockPsychedelicTheme?.(), 900);
     });
 
     // 2. Click version text 5× in 3s → confetti explosion at click point

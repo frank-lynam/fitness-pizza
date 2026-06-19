@@ -176,8 +176,12 @@ async function runLabelAnalysis(imageData) {
         const use100gMode = result.is_per_100g || servingGrams > 0;
         const weightGrams = result.is_per_100g ? 100 : (servingGrams || 100);
 
+        const rawName = (result.product_name || '').trim();
+        const unknownNames = ['unknown product', 'unknown', 'n/a', 'not available'];
+        const mealName = unknownNames.includes(rawName.toLowerCase()) ? '' : rawName;
+
         showMacroForm({
-            meal_name: result.product_name || '',
+            meal_name: mealName,
             protein: result.protein,
             carbs: result.carbs,
             fat: result.fat,

@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.7.9
+**Current**: v2.8.0
+- **Cardio mode selector**: "Go for a Run" button renamed to "Do Some Cardio"; run overlay now has a Run/Hike/Bike toggle that persists across sessions; each mode uses the correct calorie formula (ACSM running, ACSM walking+grade for hiking, speed-based MET for cycling), saves the right exercise name (Outdoor Run / Hiking / Cycling), and uses activity-appropriate TTS phrases and UI labels; toggle locks during an active session
+
+**v2.7.9**
 - **Fix pacing mode stopping after 2 announcements**: pacing announcements now run in the native Java `onLocationChanged()` callback (same as km milestones) via a new `setPacingMode()` JavascriptInterface — JS `setInterval` was getting suspended by Android when the screen locked, which is why the 3rd announcement only appeared on unlock
 
 **v2.7.8**

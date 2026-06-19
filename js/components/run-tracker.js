@@ -8,9 +8,32 @@ import { db } from '../db.js';
 import { GPS_WEAK_SIGNAL_TIMEOUT_MS, GPS_MAX_POINT_JUMP_KM, MIN_RUN_FINISH_DIST_KM } from '../constants.js';
 
 const KM_PER_MI = 1.60934;
-const MET_RUNNING = 9.0;
 // Altitude delta below this threshold is treated as GPS noise and ignored.
 const ELEV_NOISE_M = 3.0;
+
+const ACTIVITIES = {
+    run:  { label: 'Run',  emoji: '🏃', next: 'hike',
+            exerciseName: 'Outdoor Run',
+            startTts: 'Run started.', pauseTts: 'Run paused.',
+            finishTts: (km, mph) => `Run finished. ${km} kilometers. ${mph} miles per hour.`,
+            startBtn: 'Start Run', weakBtn: 'Start Run (weak GPS)',
+            bgMsg: 'Fitness Pizza is tracking your run.', bgTitle: 'Run in progress',
+            closeMsg: 'Stop the run and close?' },
+    hike: { label: 'Hike', emoji: '🥾', next: 'bike',
+            exerciseName: 'Hiking',
+            startTts: 'Hike started.', pauseTts: 'Hike paused.',
+            finishTts: (km)       => `Hike finished. ${km} kilometers.`,
+            startBtn: 'Start Hike', weakBtn: 'Start Hike (weak GPS)',
+            bgMsg: 'Fitness Pizza is tracking your hike.', bgTitle: 'Hike in progress',
+            closeMsg: 'Stop the hike and close?' },
+    bike: { label: 'Bike', emoji: '🚴', next: 'run',
+            exerciseName: 'Cycling',
+            startTts: 'Ride started.', pauseTts: 'Ride paused.',
+            finishTts: (km, mph) => `Ride finished. ${km} kilometers. ${mph} miles per hour.`,
+            startBtn: 'Start Ride', weakBtn: 'Start Ride (weak GPS)',
+            bgMsg: 'Fitness Pizza is tracking your ride.', bgTitle: 'Ride in progress',
+            closeMsg: 'Stop the ride and close?' },
+};
 
 function haversineKm(lat1, lon1, lat2, lon2) {
     const φ1 = lat1 * Math.PI / 180;
@@ -29,16 +52,27 @@ function fmtDuration(totalSec) {
     return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// ACSM running formula with uphill grade correction.
-// elevGainM / (distKm * 1000) gives average grade fraction.
-function calcCalories(durationMinutes, weightKg, distKm, elevGainM = 0) {
-    let met = MET_RUNNING;
-    if (distKm > 0 && durationMinutes > 0) {
+// ACSM formulas with grade correction. Activity selects coefficients.
+// Bike uses a speed-based MET estimate (no power data available).
+function calcCalories(durationMinutes, weightKg, distKm, elevGainM = 0, activity = 'run') {
+    if (durationMinutes <= 0) return 0;
+    if (activity === 'bike') {
+        const distMi = distKm / KM_PER_MI;
+        const speedMph = distMi / (durationMinutes / 60);
+        const met = Math.max(4, Math.min(16, speedMph * 0.7 + 2));
+        return Math.round(met * 3.5 * weightKg / 200 * durationMinutes);
+    }
+    const horiz = activity === 'hike' ? 0.1 : 0.2;
+    const vert  = activity === 'hike' ? 1.8 : 0.9;
+    const metMin = activity === 'hike' ? 2 : 5;
+    const metMax = activity === 'hike' ? 9 : 22;
+    const metDefault = activity === 'hike' ? 4.0 : 9.0;
+    let met = metDefault;
+    if (distKm > 0) {
         const speedMPerMin = (distKm * 1000) / durationMinutes;
         const grade = elevGainM > 0 ? elevGainM / (distKm * 1000) : 0;
-        const vo2 = 0.2 * speedMPerMin + 0.9 * grade * speedMPerMin + 3.5;
-        met = vo2 / 3.5;
-        met = Math.max(5, Math.min(22, met));
+        const vo2 = horiz * speedMPerMin + vert * grade * speedMPerMin + 3.5;
+        met = Math.max(metMin, Math.min(metMax, vo2 / 3.5));
     }
     return Math.round(met * 3.5 * weightKg / 200 * durationMinutes);
 }
@@ -126,7 +160,7 @@ function launchRunOverlay(recoveredState = null) {
     overlay.innerHTML = `
         <div class="run-header">
             <button id="run-close" class="run-close-btn" aria-label="Close">✕</button>
-            <h2 class="run-title">🏃 Run Tracker</h2>
+            <h2 class="run-title" id="run-title">🏃 Run Tracker</h2>
             <div id="run-status" class="run-status-badge">Acquiring GPS…</div>
         </div>
         <div class="run-main">
@@ -157,6 +191,7 @@ function launchRunOverlay(recoveredState = null) {
             <button id="run-start" class="btn-primary run-action-btn" disabled>Waiting for GPS…</button>
         </div>
         <div class="run-toggles">
+            <button id="run-activity-toggle" class="run-toggle-btn active">🏃 Run</button>
             <button id="run-pacing-toggle" class="run-toggle-btn" aria-pressed="false">Pacing: Off</button>
             <button id="run-silent-toggle" class="run-toggle-btn" aria-pressed="false">Updates: On</button>
         </div>
@@ -189,6 +224,8 @@ function launchRunOverlay(recoveredState = null) {
     // Mode settings — persist across runs
     let pacingMode = localStorage.getItem('run_pacing_mode') === 'true';
     let silentMode = localStorage.getItem('run_silent_mode') === 'true';
+    let activityMode = localStorage.getItem('run_activity_mode') || 'run';
+    if (!ACTIVITIES[activityMode]) activityMode = 'run';
 
     // Use most recent weight measurement for calorie accuracy
     db.getLatestWeight()
@@ -209,7 +246,7 @@ function launchRunOverlay(recoveredState = null) {
         document.getElementById('run-distance').textContent = totalDistKm.toFixed(2);
         document.getElementById('run-time').textContent = fmtDuration(sec);
         document.getElementById('run-pace').textContent = speedMph.toFixed(1);
-        document.getElementById('run-calories').textContent = calcCalories(dMin, weightKg, totalDistKm, elevGainM);
+        document.getElementById('run-calories').textContent = calcCalories(dMin, weightKg, totalDistKm, elevGainM, activityMode);
         if (elevGainM > 0 || elevLossM > 0) {
             const elevRow = document.getElementById('run-elev-row');
             if (elevRow) elevRow.style.display = '';
@@ -221,8 +258,16 @@ function launchRunOverlay(recoveredState = null) {
     }
 
     function updateToggleButtons() {
+        const act = ACTIVITIES[activityMode];
+        const actBtn    = document.getElementById('run-activity-toggle');
         const pacingBtn = document.getElementById('run-pacing-toggle');
         const silentBtn = document.getElementById('run-silent-toggle');
+        const locked = phase === 'running' || phase === 'paused' || phase === 'done';
+        if (actBtn) {
+            actBtn.textContent = `${act.emoji} ${act.label}`;
+            actBtn.classList.add('active');
+            actBtn.disabled = locked;
+        }
         if (pacingBtn) {
             pacingBtn.textContent = pacingMode ? 'Pacing: On' : 'Pacing: Off';
             pacingBtn.setAttribute('aria-pressed', String(pacingMode));
@@ -233,6 +278,9 @@ function launchRunOverlay(recoveredState = null) {
             silentBtn.setAttribute('aria-pressed', String(silentMode));
             silentBtn.classList.toggle('active', !silentMode);
         }
+        // Keep title in sync
+        const title = document.getElementById('run-title');
+        if (title) title.textContent = `${act.emoji} ${act.label} Tracker`;
     }
 
     // Announces current 30 s windowed speed when pacing mode is enabled.
@@ -293,7 +341,7 @@ function launchRunOverlay(recoveredState = null) {
             saveRunState('paused', totalDistKm, () => totalElapsedMs, null, halfKmsAnnounced, weightKg, elevGainM, elevLossM);
             window.AndroidBridge?.pauseNativeRun();
             stopPacingTimer();
-            tts('Run paused.');
+            tts(ACTIVITIES[activityMode].pauseTts);
             setControls(`
                 <button id="run-resume" class="btn-secondary run-action-btn">Resume</button>
                 <button id="run-finish" class="btn-danger run-action-btn">Finish</button>
@@ -329,7 +377,7 @@ function launchRunOverlay(recoveredState = null) {
         window.AndroidBridge?.setSilentMode(silentMode);
         window.AndroidBridge?.setPacingMode(pacingMode);
         startPacingTimer();
-        tts('Run started.');
+        tts(ACTIVITIES[activityMode].startTts);
         setControls(`
             <button id="run-pause" class="btn-secondary run-action-btn">Pause</button>
             <button id="run-finish" class="btn-danger run-action-btn">Finish</button>
@@ -355,15 +403,15 @@ function launchRunOverlay(recoveredState = null) {
                 const badge = document.getElementById('run-gps-badge');
                 if (badge) { badge.textContent = badge.textContent.replace('— waiting for lock…', '⚠ weak signal'); }
                 const startBtn = document.getElementById('run-start');
-                if (startBtn) { startBtn.disabled = false; startBtn.textContent = 'Start Run (weak GPS)'; }
+                if (startBtn) { startBtn.disabled = false; startBtn.textContent = ACTIVITIES[activityMode].weakBtn; }
             }
         }, GPS_WEAK_SIGNAL_TIMEOUT_MS);
 
         try {
             watcherId = await BGL.addWatcher(
                 {
-                    backgroundMessage: 'Fitness Pizza is tracking your run.',
-                    backgroundTitle: 'Run in progress',
+                    backgroundMessage: ACTIVITIES[activityMode].bgMsg,
+                    backgroundTitle: ACTIVITIES[activityMode].bgTitle,
                     requestPermissions: true,
                     stale: false,
                     distanceFilter: 1,
@@ -398,7 +446,7 @@ function launchRunOverlay(recoveredState = null) {
                             const startBtn = document.getElementById('run-start');
                             if (startBtn) {
                                 startBtn.disabled = false;
-                                startBtn.textContent = 'Start Run';
+                                startBtn.textContent = ACTIVITIES[activityMode].startBtn;
                             }
                         }
                     } else if (phase === 'ready') {
@@ -496,15 +544,15 @@ function launchRunOverlay(recoveredState = null) {
         const distMi = totalDistKm / KM_PER_MI;
         const speedMph = dMin > 0 && distMi > 0 ? distMi / (dMin / 60) : 0;
         const paceMi = totalDistKm > 0 ? (dMin / totalDistKm) * KM_PER_MI : 0;
-        const calories = calcCalories(dMin, weightKg, totalDistKm, finalElevGainM);
+        const calories = calcCalories(dMin, weightKg, totalDistKm, finalElevGainM, activityMode);
 
-        tts(`Run finished. ${totalDistKm.toFixed(1)} kilometers. ${speedMph.toFixed(1)} miles per hour.`);
+        tts(ACTIVITIES[activityMode].finishTts(totalDistKm.toFixed(1), speedMph.toFixed(1)));
 
         let saved = false;
         if (totalDistKm > MIN_RUN_FINISH_DIST_KM) {
             try {
                 await db.addWorkout({
-                    exercise_name: 'Outdoor Run',
+                    exercise_name: ACTIVITIES[activityMode].exerciseName,
                     exercise_type: 'Cardio',
                     duration_minutes: dMin,
                     distance_km: totalDistKm,
@@ -531,6 +579,17 @@ function launchRunOverlay(recoveredState = null) {
     // Wire toggle buttons
     updateToggleButtons();
 
+    document.getElementById('run-activity-toggle').addEventListener('click', () => {
+        activityMode = ACTIVITIES[activityMode].next;
+        localStorage.setItem('run_activity_mode', activityMode);
+        updateToggleButtons();
+        // Update start button label if still in pre-run state
+        const startBtn = document.getElementById('run-start');
+        if (startBtn && !startBtn.disabled && phase === 'ready') {
+            startBtn.textContent = ACTIVITIES[activityMode].startBtn;
+        }
+    });
+
     document.getElementById('run-pacing-toggle').addEventListener('click', () => {
         pacingMode = !pacingMode;
         localStorage.setItem('run_pacing_mode', String(pacingMode));
@@ -555,7 +614,7 @@ function launchRunOverlay(recoveredState = null) {
     document.getElementById('run-start').addEventListener('click', beginRun);
 
     document.getElementById('run-close').addEventListener('click', async () => {
-        if ((phase === 'running' || phase === 'paused') && !confirm('Stop the run and close?')) return;
+        if ((phase === 'running' || phase === 'paused') && !confirm(ACTIVITIES[activityMode].closeMsg)) return;
         clearRunState();
         clearTimeout(weakSignalTimer);
         stopTick();

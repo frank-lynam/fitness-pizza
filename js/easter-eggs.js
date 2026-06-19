@@ -451,8 +451,11 @@ function setupKonami() {
 export function initEasterEggs() {
     setupKonami();
 
-    // 1. Triple-click 🍕 in About → unicorn gallops across
-    onRapidClicks(document.getElementById('secret-pizza'), 3, 1800, () => doUnicornGallop());
+    // 1. Triple-click 🍕 in About → unlock psychedelic theme + unicorn gallops across
+    onRapidClicks(document.getElementById('secret-pizza'), 3, 1800, () => {
+        window.fitnessApp?.unlockPsychedelicTheme?.();
+        doUnicornGallop();
+    });
 
     // 2. Click version text 5× in 3s → confetti explosion at click point
     onRapidClicks(document.getElementById('secret-version'), 5, 3000,

@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.1
+**Current**: v2.8.2
+- **Fix per-100g day-plan entry**: macros saved to the macro list are now normalized to 100g (÷ refG × 100) matching the library entry — previously the raw entered values (for refG grams) were saved as-is
+- **Psychedelic theme is now a secret**: removed from the theme dropdown by default; triple-tap the 🍕 emoji in About to unlock it — applies immediately and adds it to the theme selector for the rest of the session
+
+**v2.8.1**
 - **Streamlined AI meal photo flow**: "From Photo" replaced by two direct buttons — "📷 Snap a Meal" opens camera immediately and shows a compact single-input context modal (fits on screen with keyboard open, no scrolling); "🏷️ Scan Label" opens camera and goes straight to analysis; no more sub-menu, no photo preview/approval step, fewer taps
 - **Fix AI from Text modal scrolling**: textarea reduced to 3 rows and action buttons moved to the modal footer (always visible above the keyboard)
 

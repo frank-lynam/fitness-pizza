@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.8.1';
+const APP_VERSION = '2.8.2';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1691,6 +1691,12 @@ class FitnessTrackerApp {
         if (themeToggle) {
             // Load current theme
             const currentTheme = await db.getSetting('theme') || 'dark';
+
+            // Restore unlocked psychedelic option for this session (or if somehow saved)
+            if (sessionStorage.getItem('psychedelic_unlocked') || currentTheme === 'psychedelic') {
+                this._addPsychedelicOption(themeToggle);
+            }
+
             themeToggle.value = currentTheme;
 
             // Apply theme immediately
@@ -2215,6 +2221,25 @@ class FitnessTrackerApp {
         const root = document.documentElement;
         root.setAttribute('data-theme', theme);
         console.log(`Theme applied: ${theme}`);
+    }
+
+    _addPsychedelicOption(select) {
+        if (!select || select.querySelector('[value="psychedelic"]')) return;
+        const opt = document.createElement('option');
+        opt.value = 'psychedelic';
+        opt.textContent = '🌈 Psychedelic';
+        const pinkOpt = select.querySelector('[value="pink"]');
+        if (pinkOpt) select.insertBefore(opt, pinkOpt);
+        else select.appendChild(opt);
+    }
+
+    unlockPsychedelicTheme() {
+        sessionStorage.setItem('psychedelic_unlocked', '1');
+        const select = document.getElementById('theme-toggle');
+        this._addPsychedelicOption(select);
+        if (select) select.value = 'psychedelic';
+        this.applyTheme('psychedelic');
+        db.setSetting('theme', 'psychedelic');
     }
 }
 

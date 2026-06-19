@@ -418,6 +418,15 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             fat     = (fat     / batchServings) * servingsEaten;
         }
 
+        // Per-100g mode: macros were entered for refG grams — normalize the day-plan
+        // entry to 100g so it matches what the library stores.
+        if (isPer100g && refG && refG !== 100) {
+            const scale = 100 / refG;
+            protein *= scale;
+            carbs   *= scale;
+            fat     *= scale;
+        }
+
         // Determine mode: if all macros are zero AND user entered calories → calorie-only
         const caloriesField = document.getElementById('calories-field');
         const caloriesFieldVal = parseFloat(caloriesField?.value || 0);

@@ -418,13 +418,62 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
             fat     = (fat     / batchServings) * servingsEaten;
         }
 
-        // Per-100g mode: macros were entered for refG grams — normalize the day-plan
-        // entry to 100g so it matches what the library stores.
-        if (isPer100g && refG && refG !== 100) {
-            const scale = 100 / refG;
-            protein *= scale;
-            carbs   *= scale;
-            fat     *= scale;
+        // Per-100g mode with a named food: always route through the library for consistency.
+        // The user entered macros for refG grams; normalize to per-100g for library storage,
+        // then re-derive the actual macros from the library so both records stay in sync.
+        if (isPer100g && mealName && !isEdit) {
+            const normScale  = 100 / (refG || 100);
+            const libProtein = protein * normScale;
+            const libCarbs   = carbs   * normScale;
+            const libFat     = fat     * normScale;
+
+            ui.showLoading('Saving entry...');
+
+            const existingFoods = await db.getAllNamedFoods();
+            const existingFood  = existingFoods.find(f =>
+                f.name.toLowerCase() === mealName.toLowerCase()
+            );
+
+            let foodId, libFood;
+            if (!existingFood) {
+                foodId = await db.addNamedFood({
+                    name: mealName,
+                    format_type: 'per_gram',
+                    protein: libProtein,
+                    carbs:   libCarbs,
+                    fat:     libFat,
+                    fiber:   0,
+                    calories: calculateMacroCalories(libProtein, libCarbs, libFat, 0)
+                });
+                libFood = await db.getNamedFood(foodId);
+            } else {
+                foodId = existingFood.id;
+                libFood = existingFood;
+            }
+
+            const grams      = refG || 100;
+            const actualMacros = db.calculateMacrosFromNamedFood(libFood, grams);
+            const currentDate  = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+
+            await db.addMacroEntry({
+                protein:      actualMacros.protein,
+                carbs:        actualMacros.carbs,
+                fat:          actualMacros.fat,
+                fiber:        0,
+                calories:     actualMacros.calories,
+                entry_mode:   'macros',
+                meal_name:    mealName,
+                serving_label: servingLabel || `${grams}g`,
+                servings:     grams,
+                food_id:      foodId,
+                date:         currentDate,
+                status:       isEaten ? 'completed' : 'planned'
+            });
+
+            ui.hideLoading();
+            hideMacroForm();
+            await loadTodaysMacros();
+            return;
         }
 
         // Determine mode: if all macros are zero AND user entered calories → calorie-only
@@ -480,36 +529,16 @@ async function handleMacroFormSubmit(isEdit, existingEntry) {
 
                 let foodId;
                 if (!existingFood) {
-                    if (isPer100g) {
-                        // Macros were entered for refG grams; normalize to per-100g for library storage
-                        const rawProtein = parseFloat(document.getElementById('protein')?.value || 0);
-                        const rawCarbs   = parseFloat(document.getElementById('carbs')?.value   || 0);
-                        const rawFat     = parseFloat(document.getElementById('fat')?.value     || 0);
-                        const normScale  = 100 / (refG || 100);
-                        const libProtein = rawProtein * normScale;
-                        const libCarbs   = rawCarbs   * normScale;
-                        const libFat     = rawFat     * normScale;
-                        foodId = await db.addNamedFood({
-                            name: mealName,
-                            format_type: 'per_gram',
-                            protein: libProtein,
-                            carbs:   libCarbs,
-                            fat:     libFat,
-                            fiber: 0,
-                            calories: calculateMacroCalories(libProtein, libCarbs, libFat, 0)
-                        });
-                    } else {
-                        foodId = await db.addNamedFood({
-                            name: mealName,
-                            format_type: 'per_serving',
-                            protein,
-                            carbs,
-                            fat,
-                            fiber: 0,
-                            calories,
-                            serving_size: servingLabel || '1 serving',
-                        });
-                    }
+                    foodId = await db.addNamedFood({
+                        name: mealName,
+                        format_type: 'per_serving',
+                        protein,
+                        carbs,
+                        fat,
+                        fiber: 0,
+                        calories,
+                        serving_size: servingLabel || '1 serving',
+                    });
                 } else {
                     foodId = existingFood.id;
                 }
@@ -678,6 +707,21 @@ export async function loadTodaysMacros() {
         const macroEntries = document.getElementById('macro-entries');
         if (!macroEntries) return;
 
+        // Wire up the sort button (may already be rendered from a previous load)
+        const sortBtn = document.getElementById('btn-macro-sort');
+        const SORT_MODES = ['time', 'alpha', 'qty', 'kcal'];
+        const SORT_LABELS = { time: '⇅ Time ↓', alpha: '⇅ A–Z', qty: '⇅ Qty ↓', kcal: '⇅ Kcal ↓' };
+        let macroSortMode = localStorage.getItem('macro_sort_mode') || 'time';
+        if (sortBtn) {
+            sortBtn.textContent = SORT_LABELS[macroSortMode] || SORT_LABELS.time;
+            sortBtn.onclick = () => {
+                const next = SORT_MODES[(SORT_MODES.indexOf(macroSortMode) + 1) % SORT_MODES.length];
+                localStorage.setItem('macro_sort_mode', next);
+                macroSortMode = next;
+                loadTodaysMacros();
+            };
+        }
+
         let html = '';
 
         // Show today's entries
@@ -685,8 +729,20 @@ export async function loadTodaysMacros() {
         if (macros.length === 0) {
             html += '<p class="text-muted">Add your first meal!</p>';
         } else {
-            // Sort by timestamp (most recent first)
-            macros.sort((a, b) => b.timestamp - a.timestamp);
+            // Sort by selected mode
+            switch (macroSortMode) {
+                case 'alpha':
+                    macros.sort((a, b) => (a.meal_name || '').localeCompare(b.meal_name || ''));
+                    break;
+                case 'qty':
+                    macros.sort((a, b) => (b.servings || 1) - (a.servings || 1));
+                    break;
+                case 'kcal':
+                    macros.sort((a, b) => (b.calories || 0) - (a.calories || 0));
+                    break;
+                default:
+                    macros.sort((a, b) => b.timestamp - a.timestamp);
+            }
 
             // Pre-fetch named foods for library-linked entries so we can show serving badges
             const foodIds = [...new Set(macros.filter(m => m.food_id).map(m => m.food_id))];

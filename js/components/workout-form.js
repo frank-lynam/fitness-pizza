@@ -504,7 +504,7 @@ export async function loadWorkouts() {
             const isCompleted = workout.status !== 'planned';
             const details = [];
             if (workout.exercise_type === 'Cardio' && workout.duration_minutes > 0) {
-                if (workout.exercise_name === 'Outdoor Run' && workout.pace > 0) {
+                if (['Outdoor Run', 'Hiking', 'Cycling'].includes(workout.exercise_name) && workout.pace > 0) {
                     // Compute distance from stored value or derive from pace + duration
                     const distKm = workout.distance_km > 0
                         ? workout.distance_km

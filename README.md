@@ -144,7 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.3
+**Current**: v2.8.4
+- **Fix Hiking/Cycling metrics display**: workout list now formats distance/speed/time for Hiking and Cycling the same way as Outdoor Run (e.g. "3.2 km at 5.1 mph (42:00)") instead of showing a raw float
+- **Fix per-100g day-plan via library**: when entering macros in per-100g mode with a named food, the app now saves to the food library first and re-derives the day-plan entry from there — `servings` is stored in grams (e.g. 200g) so the servings stepper shows actual gram amounts, consistent with adding from the library directly
+- **Sort control for food lists**: small ⇅ button on the dashboard and macro tab cycles through Time ↓ / A–Z / Qty ↓ / Kcal ↓ sort modes; preference is saved per-list in localStorage
+
+**v2.8.3**
 - **Unicorn Mode animation restored**: unicorn gallop fires first on triple-tap of 🍕, then Unicorn Mode theme activates mid-flight (~900ms later) so the animation is clearly visible before the screen changes
 - **Rename psychedelic theme to "Unicorn Mode"**: theme option now shows 🦄 Unicorn Mode in the dropdown
 - **Fix label scan "Unknown Product"**: AI responses of "Unknown Product", "Unknown", "N/A", or "Not Available" are treated as blank — product name field is left empty instead

@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.8.3';
+const APP_VERSION = '2.8.4';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -486,19 +486,49 @@ class FitnessTrackerApp {
             // Include all macros (both planned and completed)
             const allMacros = todayMacros;
 
-            // Combine and sort: planned items first, then by timestamp
-            const activities = [
-                ...allMacros.map(m => ({ type: 'macro', data: m, timestamp: m.timestamp })),
+            // Wire up the dashboard sort button
+            const dashSortBtn = document.getElementById('btn-dashboard-sort');
+            const DASH_SORT_MODES  = ['time', 'alpha', 'qty', 'kcal'];
+            const DASH_SORT_LABELS = { time: '⇅ Time ↓', alpha: '⇅ A–Z', qty: '⇅ Qty ↓', kcal: '⇅ Kcal ↓' };
+            let dashSortMode = localStorage.getItem('dashboard_sort_mode') || 'time';
+            if (dashSortBtn) {
+                dashSortBtn.textContent = DASH_SORT_LABELS[dashSortMode] || DASH_SORT_LABELS.time;
+                dashSortBtn.onclick = () => {
+                    const next = DASH_SORT_MODES[(DASH_SORT_MODES.indexOf(dashSortMode) + 1) % DASH_SORT_MODES.length];
+                    localStorage.setItem('dashboard_sort_mode', next);
+                    dashSortMode = next;
+                    this.loadRecentActivity();
+                };
+            }
+
+            // Sort macro items by the selected mode; other activity types keep time order
+            function sortMacros(items) {
+                switch (dashSortMode) {
+                    case 'alpha': return items.sort((a, b) => (a.data.meal_name || '').localeCompare(b.data.meal_name || ''));
+                    case 'qty':   return items.sort((a, b) => (b.data.servings || 1) - (a.data.servings || 1));
+                    case 'kcal':  return items.sort((a, b) => (b.data.calories || 0) - (a.data.calories || 0));
+                    default:      return items.sort((a, b) => b.timestamp - a.timestamp);
+                }
+            }
+
+            const macroItems       = sortMacros(allMacros.map(m => ({ type: 'macro', data: m, timestamp: m.timestamp })));
+            const nonMacroItems    = [
                 ...todayWorkouts.map(w => ({ type: 'workout', data: w, timestamp: w.timestamp })),
                 ...todayMeasurements.map(m => ({ type: 'measurement', data: m, timestamp: m.timestamp }))
-            ].sort((a, b) => {
+            ].sort((a, b) => b.timestamp - a.timestamp);
+
+            // Combine and sort: planned items first, then macros (user-sorted), then other items by time
+            const activities = [...macroItems, ...nonMacroItems].sort((a, b) => {
                 // Planned items always come first
                 const aPlanned = a.data.status === 'planned';
                 const bPlanned = b.data.status === 'planned';
                 if (aPlanned && !bPlanned) return -1;
                 if (!aPlanned && bPlanned) return 1;
-                // Otherwise sort by timestamp (most recent first)
-                return b.timestamp - a.timestamp;
+                // Macros: preserve user's chosen sort (already sorted); non-macros: by time
+                if (a.type === 'macro' && b.type === 'macro') return 0;
+                if (a.type !== 'macro' && b.type !== 'macro') return b.timestamp - a.timestamp;
+                // Macros vs non-macros: keep macros clustered first
+                return a.type === 'macro' ? -1 : 1;
             });
 
             if (activities.length === 0) {

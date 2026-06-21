@@ -63,6 +63,10 @@
                         <div id="streak-counter" style="display:none;text-align:center;font-size:0.9em;font-weight:600;color:var(--accent-warning);padding:6px 0 2px;"></div>
                     </div>
 <div class="recent-activity">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                            <span style="font-size:0.8em;color:var(--text-secondary);">Today</span>
+                            <button id="btn-dashboard-sort" class="btn-tertiary btn-small" style="font-size:0.75em;padding:2px 8px;" title="Sort food entries">⇅ Time ↓</button>
+                        </div>
                         <div id="recent-activity-list">No activity today</div>
                     </div>
                 </div>
@@ -87,6 +91,9 @@
                     <div id="macro-form-container" class="hidden"></div>
                     <div id="macro-progress-summary" style="margin: 0 0 12px;"></div>
                     <div id="macro-list">
+                        <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:4px;">
+                            <button id="btn-macro-sort" class="btn-tertiary btn-small" style="font-size:0.75em;padding:2px 8px;" title="Sort food entries">⇅ Time ↓</button>
+                        </div>
                         <div id="macro-entries">Loading...</div>
                     </div>
                 </div>
@@ -397,7 +404,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.8.3</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.8.4</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>

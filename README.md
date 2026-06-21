@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.4
+**Current**: v2.8.5
+- **Relocate sort buttons**: dashboard sort button moved into the streak/on-track row (right side of stat card); macro tab sort button moved into the Cheat Day row — no more dedicated sort rows
+
+**v2.8.4**
 - **Fix Hiking/Cycling metrics display**: workout list now formats distance/speed/time for Hiking and Cycling the same way as Outdoor Run (e.g. "3.2 km at 5.1 mph (42:00)") instead of showing a raw float
 - **Fix per-100g day-plan via library**: when entering macros in per-100g mode with a named food, the app now saves to the food library first and re-derives the day-plan entry from there — `servings` is stored in grams (e.g. 200g) so the servings stepper shows actual gram amounts, consistent with adding from the library directly
 - **Sort control for food lists**: small ⇅ button on the dashboard and macro tab cycles through Time ↓ / A–Z / Qty ↓ / Kcal ↓ sort modes; preference is saved per-list in localStorage

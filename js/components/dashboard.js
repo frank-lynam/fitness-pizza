@@ -393,7 +393,6 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                 else todayBadge = `<span style="color:var(--accent-success);font-size:0.8em;margin-left:6px;">✓ on track</span>`;
             }
 
-            streakEl.style.display = (streak > 0 || todayBadge) ? 'block' : 'none';
             streakEl.innerHTML = streak > 0
                 ? `🔥 ${streak} day streak${todayBadge}`
                 : todayBadge ? `Today${todayBadge}` : '';

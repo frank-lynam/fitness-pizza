@@ -144,7 +144,14 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.5
+**Current**: v2.8.6
+- **Link dashboard + macro sort buttons**: both sort buttons now share a single `food_sort_mode` localStorage key; cycling either button updates the other's label immediately — they always stay in sync
+- **Fix serving input + checkbox race**: on the macro tab, typing a new serving amount and immediately clicking the checkbox (without pressing Enter) now commits the new servings value before toggling the completion status — no more reverting to the old value
+- **Reduce food library modal item spacing**: `.food-item` padding/margin reduced to 2px so significantly more foods fit on screen at once
+- **Run audio: per-utterance focus**: background music now plays freely between TTS announcements — audio focus is requested just before speaking and released as soon as the utterance finishes; the silent AudioTrack is still kept running the whole session to prevent first-syllable clipping (APK rebuild required)
+- **TDEE/BMR chart: cumulative average**: the "TDEE rolling avg" line replaced with a cumulative weighted average — the value at each data point now reflects the best estimate using all available data up to that date rather than a 14-window rolling window that could fluctuate with each new measurement
+
+**v2.8.5**
 - **Relocate sort buttons**: dashboard sort button moved into the streak/on-track row (right side of stat card); macro tab sort button moved into the Cheat Day row — no more dedicated sort rows
 
 **v2.8.4**

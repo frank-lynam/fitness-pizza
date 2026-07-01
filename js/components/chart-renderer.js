@@ -953,21 +953,21 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
     const wVar     = estimates.reduce((s, e) => s + e.daysGap * (e.tdee - wMean) ** 2, 0) / totalW;
     const wStdDev  = Math.round(Math.sqrt(wVar));
 
-    // 14-window weighted rolling average over the full estimate list
-    const rollingAvg = estimates.map((_, j) => {
-        const win = estimates.slice(Math.max(0, j - 13), j + 1);
-        const wt  = win.reduce((s, e) => s + e.daysGap, 0);
-        return wt > 0 ? Math.round(win.reduce((s, e) => s + e.tdee * e.daysGap, 0) / wt) : null;
+    // Cumulative weighted average up to each point — "best estimate using all data to date".
+    // Unlike a rolling window, this only moves toward the true value as more data arrives.
+    const cumulativeAvg = estimates.map((_, j) => {
+        const cumul = estimates.slice(0, j + 1);
+        const wt    = cumul.reduce((s, e) => s + e.daysGap, 0);
+        return wt > 0 ? Math.round(cumul.reduce((s, e) => s + e.tdee * e.daysGap, 0) / wt) : null;
     });
 
-    // 14-window weighted rolling BMR avg = TDEE rolling avg − workout rolling avg
-    // Uses the SAME window as the TDEE avg (guarantees BMR ≤ TDEE at every point)
-    const bmrRollingAvg = estimates.map((_, j) => {
-        const win        = estimates.slice(Math.max(0, j - 13), j + 1);
-        const wt         = win.reduce((s, e) => s + e.daysGap, 0);
+    // Cumulative BMR avg = cumulative TDEE avg − cumulative workout avg (same weights)
+    const bmrCumulativeAvg = estimates.map((_, j) => {
+        const cumul      = estimates.slice(0, j + 1);
+        const wt         = cumul.reduce((s, e) => s + e.daysGap, 0);
         if (wt === 0) return null;
-        const avgTdee    = win.reduce((s, e) => s + e.tdee           * e.daysGap, 0) / wt;
-        const avgWorkout = win.reduce((s, e) => s + e.avgWorkoutCals * e.daysGap, 0) / wt;
+        const avgTdee    = cumul.reduce((s, e) => s + e.tdee           * e.daysGap, 0) / wt;
+        const avgWorkout = cumul.reduce((s, e) => s + e.avgWorkoutCals * e.daysGap, 0) / wt;
         const bmr        = Math.round(avgTdee - avgWorkout);
         return (bmr >= 800 && bmr <= 5000) ? bmr : null;
     });
@@ -999,8 +999,8 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
     const cutoffStr = days ? localDateStr(new Date(Date.now() - days * 86400000)) : null;
     const dispIdx     = estimates.map((e, i) => i).filter(i => !cutoffStr || estimates[i].date >= cutoffStr);
     const dispEst     = dispIdx.map(i => estimates[i]);
-    const dispRoll    = dispIdx.map(i => rollingAvg[i]);
-    const dispBmrRoll = dispIdx.map(i => bmrRollingAvg[i]);
+    const dispRoll    = dispIdx.map(i => cumulativeAvg[i]);
+    const dispBmrRoll = dispIdx.map(i => bmrCumulativeAvg[i]);
     const labels      = dispEst.map(e => e.date);
 
     // Build datasets
@@ -1016,7 +1016,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
             tension: 0
         },
         {
-            label: 'TDEE rolling avg (14-window)',
+            label: 'TDEE cumulative avg (all data)',
             data: dispRoll,
             borderColor: colors.primary,
             backgroundColor: 'transparent',
@@ -1026,7 +1026,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
             spanGaps: true
         },
         {
-            label: 'Inferred BMR rolling avg (TDEE − workout cals)',
+            label: 'Inferred BMR cumulative avg (TDEE − workout cals)',
             data: dispBmrRoll,
             borderColor: colors.danger + 'dd',
             backgroundColor: 'transparent',

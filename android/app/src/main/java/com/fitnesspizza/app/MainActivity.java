@@ -63,8 +63,13 @@ public class MainActivity extends BridgeActivity {
                 nativeTts.setSpeechRate(1.0f);
                 nativeTts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
                     @Override public void onStart(String id) {}
-                    @Override public void onDone(String id) {}
-                    @Override public void onError(String id) {}
+                    @Override public void onDone(String id) {
+                        // Release audio focus so background music resumes between announcements
+                        releaseUtteranceFocus();
+                    }
+                    @Override public void onError(String id) {
+                        releaseUtteranceFocus();
+                    }
                 });
             }
         });
@@ -270,8 +275,27 @@ public class MainActivity extends BridgeActivity {
 
     void nativeSpeak(String text) {
         if (nativeTts == null) return;
-        // Audio focus is held for the entire run and the silent AudioTrack keeps the
-        // hardware DAC warm, so we can speak immediately without the 500 ms pre-warm delay.
+        // Request audio focus per utterance so background music can play between announcements.
+        // The silent AudioTrack keeps the hardware DAC warm to avoid first-syllable clipping.
+        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Release any previous focus before requesting new one (handles QUEUE_FLUSH)
+            if (focusRequest != null) {
+                am.abandonAudioFocusRequest(focusRequest);
+                focusRequest = null;
+            }
+            AudioFocusRequest req = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(new AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .build())
+                .build();
+            am.requestAudioFocus(req);
+            focusRequest = req;
+        } else {
+            am.requestAudioFocus(null, AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+        }
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);
         new android.os.Handler(Looper.getMainLooper()).postDelayed(() -> {
@@ -280,6 +304,18 @@ public class MainActivity extends BridgeActivity {
                     "run_" + System.currentTimeMillis());
             }
         }, 50);
+    }
+
+    private void releaseUtteranceFocus() {
+        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (focusRequest != null) {
+                am.abandonAudioFocusRequest(focusRequest);
+                focusRequest = null;
+            }
+        } else {
+            am.abandonAudioFocus(null);
+        }
     }
 
     private static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
@@ -308,24 +344,12 @@ public class MainActivity extends BridgeActivity {
         return result.isEmpty() ? "0 seconds" : result;
     }
 
-    // Acquire audio focus and start a silent AudioTrack for the entire run duration.
-    // Holding focus + keeping the DAC alive via the silent track eliminates the hardware
-    // wake-up latency that clips the first syllable of TTS announcements.
+    // Start a silent AudioTrack for the entire run duration to keep the hardware DAC warm.
+    // This eliminates first-syllable clipping without holding audio focus continuously.
+    // Audio focus is requested per-utterance in nativeSpeak() so background music
+    // can resume freely between announcements.
     void acquireRunAudio() {
         runAudioActive = true;
-        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
-                .setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build())
-                .build();
-            am.requestAudioFocus(focusRequest);
-        } else {
-            am.requestAudioFocus(null, AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
-        }
         try {
             int sampleRate = 8000;
             int bufSize = Math.max(
@@ -358,13 +382,8 @@ public class MainActivity extends BridgeActivity {
             try { silentTrack.stop(); silentTrack.release(); } catch (Exception ignored) {}
             silentTrack = null;
         }
-        AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && focusRequest != null) {
-            am.abandonAudioFocusRequest(focusRequest);
-            focusRequest = null;
-        } else {
-            am.abandonAudioFocus(null);
-        }
+        // Release any audio focus that may still be held from the last utterance
+        releaseUtteranceFocus();
     }
 
     @Override

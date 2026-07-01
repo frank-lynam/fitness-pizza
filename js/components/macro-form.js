@@ -711,13 +711,16 @@ export async function loadTodaysMacros() {
         const sortBtn = document.getElementById('btn-macro-sort');
         const SORT_MODES = ['time', 'alpha', 'qty', 'kcal'];
         const SORT_LABELS = { time: '⇅ Time ↓', alpha: '⇅ A–Z', qty: '⇅ Qty ↓', kcal: '⇅ Kcal ↓' };
-        let macroSortMode = localStorage.getItem('macro_sort_mode') || 'time';
+        let macroSortMode = localStorage.getItem('food_sort_mode') || 'time';
         if (sortBtn) {
             sortBtn.textContent = SORT_LABELS[macroSortMode] || SORT_LABELS.time;
             sortBtn.onclick = () => {
                 const next = SORT_MODES[(SORT_MODES.indexOf(macroSortMode) + 1) % SORT_MODES.length];
-                localStorage.setItem('macro_sort_mode', next);
+                localStorage.setItem('food_sort_mode', next);
                 macroSortMode = next;
+                // Sync the dashboard sort button label if it exists in DOM
+                const dashSortBtn = document.getElementById('btn-dashboard-sort');
+                if (dashSortBtn) dashSortBtn.textContent = SORT_LABELS[next];
                 loadTodaysMacros();
             };
         }
@@ -830,10 +833,31 @@ export async function loadTodaysMacros() {
         const allMacros = [...starred, ...macros];
 
         // Completion checkboxes
+        // Before toggling, commit any pending servings value the user may have typed
+        // without pressing Enter (mobile: input.change may not fire before checkbox.change)
         document.querySelectorAll('.entry-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', async (e) => {
                 const id = parseInt(e.target.dataset.id);
-                await handleToggleCompletion(id, e.target.checked);
+                const checked = e.target.checked;
+                const servingsInput = document.querySelector(`.servings-input[data-id="${id}"]`);
+                if (servingsInput) {
+                    const pending = parseFloat(servingsInput.value);
+                    if (!isNaN(pending) && pending > 0) {
+                        const dbEntry = await db.get('macros', id);
+                        if (dbEntry && Math.abs(pending - (dbEntry.servings || 1)) > 0.001) {
+                            // Commit the servings change directly into DB without re-rendering
+                            const mult = pending / (dbEntry.servings || 1);
+                            dbEntry.servings = pending;
+                            dbEntry.fat      = (dbEntry.fat      || 0) * mult;
+                            dbEntry.protein  = (dbEntry.protein  || 0) * mult;
+                            dbEntry.carbs    = (dbEntry.carbs    || 0) * mult;
+                            if (dbEntry.fiber) dbEntry.fiber *= mult;
+                            dbEntry.calories = calculateMacroCalories(dbEntry.protein, dbEntry.carbs, dbEntry.fat, dbEntry.fiber || 0);
+                            await db.updateMacroEntry(dbEntry);
+                        }
+                    }
+                }
+                await handleToggleCompletion(id, checked);
             });
         });
 

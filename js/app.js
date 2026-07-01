@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.8.5';
+const APP_VERSION = '2.8.6';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -490,13 +490,16 @@ class FitnessTrackerApp {
             const dashSortBtn = document.getElementById('btn-dashboard-sort');
             const DASH_SORT_MODES  = ['time', 'alpha', 'qty', 'kcal'];
             const DASH_SORT_LABELS = { time: '⇅ Time ↓', alpha: '⇅ A–Z', qty: '⇅ Qty ↓', kcal: '⇅ Kcal ↓' };
-            let dashSortMode = localStorage.getItem('dashboard_sort_mode') || 'time';
+            let dashSortMode = localStorage.getItem('food_sort_mode') || 'time';
             if (dashSortBtn) {
                 dashSortBtn.textContent = DASH_SORT_LABELS[dashSortMode] || DASH_SORT_LABELS.time;
                 dashSortBtn.onclick = () => {
                     const next = DASH_SORT_MODES[(DASH_SORT_MODES.indexOf(dashSortMode) + 1) % DASH_SORT_MODES.length];
-                    localStorage.setItem('dashboard_sort_mode', next);
+                    localStorage.setItem('food_sort_mode', next);
                     dashSortMode = next;
+                    // Sync the macro-tab sort button label if it exists in DOM
+                    const macroSortBtn = document.getElementById('btn-macro-sort');
+                    if (macroSortBtn) macroSortBtn.textContent = DASH_SORT_LABELS[next];
                     this.loadRecentActivity();
                 };
             }

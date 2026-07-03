@@ -544,7 +544,42 @@ function launchRunOverlay(recoveredState = null) {
         const distMi = totalDistKm / KM_PER_MI;
         const speedMph = dMin > 0 && distMi > 0 ? distMi / (dMin / 60) : 0;
         const paceMi = totalDistKm > 0 ? (dMin / totalDistKm) * KM_PER_MI : 0;
-        const calories = calcCalories(dMin, weightKg, totalDistKm, finalElevGainM, activityMode);
+        const baseCalories = calcCalories(dMin, weightKg, totalDistKm, finalElevGainM, activityMode);
+
+        // Fetch local temperature from Open-Meteo and apply a corrective factor.
+        // Hot weather: cardiovascular load from thermoregulation adds ~0.5% per °F above 75°F.
+        // Cold weather: shivering / cold thermogenesis adds ~0.6% per °F below 45°F.
+        // Capped at +20%. No network = no adjustment (silent fallback).
+        let tempF = null;
+        let tempFactor = 1.0;
+        if (lastLat !== null && lastLon !== null) {
+            try {
+                const ctrl = new AbortController();
+                const tid = setTimeout(() => ctrl.abort(), 5000);
+                const resp = await fetch(
+                    `https://api.open-meteo.com/v1/forecast?latitude=${lastLat.toFixed(4)}&longitude=${lastLon.toFixed(4)}&current=temperature_2m&temperature_unit=fahrenheit`,
+                    { signal: ctrl.signal }
+                );
+                clearTimeout(tid);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const raw = data?.current?.temperature_2m;
+                    if (typeof raw === 'number') {
+                        tempF = raw;
+                        if (tempF > 75) {
+                            tempFactor = Math.min(1.20, 1 + (tempF - 75) * 0.005);
+                        } else if (tempF < 45) {
+                            tempFactor = Math.min(1.20, 1 + (45 - tempF) * 0.006);
+                        }
+                    }
+                }
+            } catch (_) {}
+        }
+
+        const calories = Math.round(baseCalories * tempFactor);
+        // Sync the on-screen kcal stat to the temperature-corrected final value
+        const runCalEl = document.getElementById('run-calories');
+        if (runCalEl) runCalEl.textContent = calories;
 
         tts(ACTIVITIES[activityMode].finishTts(totalDistKm.toFixed(1), speedMph.toFixed(1)));
 
@@ -565,9 +600,21 @@ function launchRunOverlay(recoveredState = null) {
             } catch (_) {}
         }
 
+        let tempLine = '';
+        if (tempF !== null) {
+            const emoji = tempF >= 95 ? '🔥' : tempF >= 75 ? '☀️' : tempF <= 32 ? '🥶' : tempF <= 45 ? '❄️' : '🌡️';
+            if (tempFactor > 1.005) {
+                const adj = tempF > 75 ? 'heat' : 'cold';
+                tempLine = `<p class="run-temp-note">${emoji} ${Math.round(tempF)}°F — +${Math.round((tempFactor - 1) * 100)}% ${adj} adjustment</p>`;
+            } else {
+                tempLine = `<p class="run-temp-note">${emoji} ${Math.round(tempF)}°F — no adjustment needed</p>`;
+            }
+        }
+
         setControls(`
             <div class="run-summary">
                 ${saved ? '<p class="run-saved-notice">✓ Workout saved</p>' : ''}
+                ${tempLine}
                 <button id="run-done" class="btn-primary run-action-btn">Done</button>
             </div>
         `);

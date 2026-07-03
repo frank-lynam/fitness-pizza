@@ -2215,7 +2215,8 @@ textarea.error {
 .run-action-btn { flex:1; min-width:130px; max-width:220px; padding:16px; font-size:1.05em; font-weight:600; }
 .run-gps-badge { text-align:center; font-size:0.78em; color:var(--text-secondary); padding:0 24px 12px; flex-shrink:0; }
 .run-summary { width:100%; text-align:center; }
-.run-saved-notice { color:var(--accent-success); font-weight:600; margin:0 0 12px; }
+.run-saved-notice { color:var(--accent-success); font-weight:600; margin:0 0 8px; }
+.run-temp-note { color:var(--text-secondary); font-size:0.85em; margin:0 0 12px; }
 .run-summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; max-width:280px; margin:0 auto; font-size:0.95em; text-align:left; }
 .run-summary-grid span { color:var(--text-secondary); }
 .run-summary-grid strong { color:var(--text-primary); }

@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.6
+**Current**: v2.8.7
+- **Temperature-corrected cardio calories**: at run/hike/bike finish, fetches local temperature from Open-Meteo (using GPS coordinates, no key required) and applies a corrective factor — +0.5%/°F above 75°F (heat), +0.6%/°F below 45°F (cold), capped at +20%; shown in the finish summary (e.g. "🔥 102°F — +14% heat adjustment"); silently no-ops if offline
+
+**v2.8.6**
 - **Link dashboard + macro sort buttons**: both sort buttons now share a single `food_sort_mode` localStorage key; cycling either button updates the other's label immediately — they always stay in sync
 - **Fix serving input + checkbox race**: on the macro tab, typing a new serving amount and immediately clicking the checkbox (without pressing Enter) now commits the new servings value before toggling the completion status — no more reverting to the old value
 - **Reduce food library modal item spacing**: `.food-item` padding/margin reduced to 2px so significantly more foods fit on screen at once

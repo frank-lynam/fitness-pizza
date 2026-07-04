@@ -70,6 +70,10 @@ public class MainActivity extends BridgeActivity {
                     @Override public void onError(String id) {
                         releaseUtteranceFocus();
                     }
+                    @Override public void onStop(String id, boolean interrupted) {
+                        // Utterance was cut short (e.g. QUEUE_FLUSH from next announcement)
+                        if (interrupted) releaseUtteranceFocus();
+                    }
                 });
             }
         });
@@ -284,7 +288,7 @@ public class MainActivity extends BridgeActivity {
                 am.abandonAudioFocusRequest(focusRequest);
                 focusRequest = null;
             }
-            AudioFocusRequest req = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+            AudioFocusRequest req = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
                 .setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -294,7 +298,7 @@ public class MainActivity extends BridgeActivity {
             focusRequest = req;
         } else {
             am.requestAudioFocus(null, AudioManager.STREAM_MUSIC,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK);
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
         }
         Bundle params = new Bundle();
         params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f);

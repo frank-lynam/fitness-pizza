@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.8.8';
+const APP_VERSION = '2.8.9';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -81,6 +81,10 @@ class FitnessTrackerApp {
             initMeasurementForm();
             initWorkoutForm();
             initFoodLibrary();
+
+            window.addEventListener('fp:food-library-changed', () => {
+                if (this.currentScreen === 'trends') this.renderProteinValueTable();
+            });
 
             // Set up help & feedback buttons (static HTML, set up once)
             this.setupHelpButtons();

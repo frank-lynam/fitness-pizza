@@ -600,6 +600,7 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
 
         ui.closeModal(modal);
         showFoodLibrary();
+        window.dispatchEvent(new CustomEvent('fp:food-library-changed'));
     } catch (error) {
         console.error('Error saving food:', error);
         ui.showError('Failed to save food: ' + error.message);

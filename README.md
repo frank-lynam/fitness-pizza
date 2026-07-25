@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.8
+**Current**: v2.8.9
+- **Battery: pause run display tick when screen off** — the 1s timer that updates the run tracker display now stops when the screen locks (GPS keeps running via native plugin) and resumes when the screen comes back on; also reduced from 500ms to 1s since the timer only shows M:SS precision
+- **Protein value table auto-updates** — editing cost info in the food library while on the Trends tab now refreshes the table immediately without needing to navigate away and back
+
+**v2.8.8**
 - **Protein value analysis**: add optional cost fields ($ paid, servings bought) to any food library entry; Trends tab shows a sortable table of foods with cost data ranked by protein per dollar, cost per 10g protein, and cost per day to hit your protein goal — invisible until you add cost data, not visible anywhere else in the app
 
 **v2.8.7**

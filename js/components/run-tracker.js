@@ -309,6 +309,14 @@ function launchRunOverlay(recoveredState = null) {
     }
 
     let tickCount = 0;
+    function onRunVisibilityChange() {
+        if (document.hidden) {
+            if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+        } else if (phase === 'running') {
+            startTick();
+        }
+    }
+
     function startTick() {
         stopTick();
         tickInterval = setInterval(() => {
@@ -316,11 +324,13 @@ function launchRunOverlay(recoveredState = null) {
             if (++tickCount % 60 === 0) {
                 saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg, elevGainM, elevLossM);
             }
-        }, 500);
+        }, 1000);
+        document.addEventListener('visibilitychange', onRunVisibilityChange);
     }
 
     function stopTick() {
         if (tickInterval) { clearInterval(tickInterval); tickInterval = null; }
+        document.removeEventListener('visibilitychange', onRunVisibilityChange);
     }
 
     function setPhase(p) {

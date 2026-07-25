@@ -585,12 +585,15 @@ class DatabaseManager {
             fat: data.fat || 0,
             fiber: data.fiber || 0,
             calories: data.calories || 0,
-            serving_size: data.serving_size || null, // For per_serving
-            grams: data.grams || null, // For per_gram
-            batch_servings: data.batch_servings || null, // For per_batch
+            serving_size: data.serving_size || null,
+            grams: data.grams || null,
+            batch_servings: data.batch_servings || null,
             notes: data.notes || '',
             starred: data.starred || false,
             starred_at: data.starred_at || null,
+            cost_dollars: data.cost_dollars || null,
+            cost_servings: data.cost_servings || null,
+            cost_updated_at: data.cost_updated_at || null,
             created_at: data.created_at || Date.now(),
             updated_at: data.updated_at || Date.now()
         };

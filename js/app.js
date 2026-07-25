@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.8.7';
+const APP_VERSION = '2.8.8';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -807,6 +807,7 @@ class FitnessTrackerApp {
         console.log('Loading trends screen...');
         const { initCharts } = await import('./components/chart-renderer.js');
         await initCharts();
+        await this.renderProteinValueTable();
 
         // Show PI controller explanation if running average mode is on
         const panel = document.getElementById('pi-controller-panel');
@@ -1303,6 +1304,100 @@ class FitnessTrackerApp {
                 localStorage.setItem(key, section.classList.contains('collapsed') ? '1' : '0');
             });
         });
+    }
+
+    async renderProteinValueTable() {
+        const section = document.getElementById('protein-value-section');
+        const content = document.getElementById('protein-value-content');
+        if (!section || !content) return;
+
+        const foods = await db.getAllNamedFoods();
+        const costed = foods.filter(f => f.cost_dollars > 0 && f.cost_servings > 0 && f.protein > 0);
+
+        if (costed.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = '';
+        const goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
+
+        const rows = costed.map(food => {
+            const proteinPerServing = food.format_type === 'per_batch'
+                ? food.protein / (food.batch_servings || 1)
+                : food.protein;
+            const totalProtein = proteinPerServing * food.cost_servings;
+            const proteinPerDollar = totalProtein / food.cost_dollars;
+            const costPer10g = 10 / proteinPerDollar;
+            const costPerDay = goalProtein / proteinPerDollar;
+            const updatedStr = food.cost_updated_at
+                ? new Date(food.cost_updated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                : '';
+            return { food, proteinPerDollar, costPer10g, costPerDay, updatedStr };
+        });
+
+        let sortKey = content.dataset.sortKey || 'costPer10g';
+
+        const render = () => {
+            const sorted = [...rows].sort((a, b) => {
+                if (sortKey === 'proteinPerDollar') return b.proteinPerDollar - a.proteinPerDollar;
+                if (sortKey === 'costPerDay') return a.costPerDay - b.costPerDay;
+                return a.costPer10g - b.costPer10g;
+            });
+
+            const sorts = [
+                { key: 'proteinPerDollar', label: 'P / $' },
+                { key: 'costPer10g',       label: '$ / 10g P' },
+                { key: 'costPerDay',       label: '$ / day' },
+            ];
+
+            content.innerHTML = `
+                <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                    ${sorts.map(s => `
+                        <button class="btn-range${sortKey === s.key ? ' active' : ''}" data-sort="${s.key}"
+                            style="font-size:0.85em;padding:4px 10px;">${s.label}</button>
+                    `).join('')}
+                </div>
+                <div style="overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
+                        <thead>
+                            <tr style="color:var(--text-secondary);text-align:right;">
+                                <th style="text-align:left;padding:4px 6px;">Food</th>
+                                <th style="padding:4px 6px;">P / $</th>
+                                <th style="padding:4px 6px;">$ / 10g P</th>
+                                <th style="padding:4px 6px;">$ / day</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sorted.map((r, i) => `
+                                <tr style="border-top:1px solid var(--border);${i === 0 ? 'color:var(--accent);' : ''}">
+                                    <td style="padding:5px 6px;">
+                                        ${r.food.name}
+                                        ${r.updatedStr ? `<br><span style="font-size:0.8em;color:var(--text-secondary);">${r.updatedStr}</span>` : ''}
+                                    </td>
+                                    <td style="text-align:right;padding:5px 6px;">${r.proteinPerDollar.toFixed(1)}g</td>
+                                    <td style="text-align:right;padding:5px 6px;">$${r.costPer10g.toFixed(2)}</td>
+                                    <td style="text-align:right;padding:5px 6px;">$${r.costPerDay.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <p style="font-size:0.78em;color:var(--text-secondary);margin-top:6px;">
+                    Goal: ${goalProtein}g protein/day. Best value highlighted. Add costs via Food Library → Edit.
+                </p>
+            `;
+
+            content.dataset.sortKey = sortKey;
+            content.querySelectorAll('[data-sort]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    sortKey = btn.dataset.sort;
+                    render();
+                });
+            });
+        };
+
+        render();
     }
 
     /**

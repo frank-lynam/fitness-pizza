@@ -427,6 +427,18 @@ function showFoodForm(existingFood = null) {
                        value="">
             </div>
             <small id="food-cal-note" style="color:var(--text-secondary);font-size:0.8em;display:none;margin-left:8px;"></small>
+
+            <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;">
+                <div class="form-group-inline">
+                    <label for="food-cost-dollars">Cost ($)</label>
+                    <input type="number" id="food-cost-dollars" step="0.01" min="0" placeholder="optional" value="${food.cost_dollars || ''}">
+                </div>
+                <div class="form-group-inline">
+                    <label for="food-cost-servings" id="food-cost-servings-label">Servings</label>
+                    <input type="number" id="food-cost-servings" step="0.01" min="0" placeholder="# that buys" value="${food.cost_servings || ''}">
+                </div>
+                <small id="food-cost-hint" style="color:var(--text-secondary);font-size:0.8em;margin-left:8px;"></small>
+            </div>
         </form>
     `, []);
 
@@ -448,13 +460,35 @@ function showFoodForm(existingFood = null) {
     const batchServingsField = modal.querySelector('#batch-servings-field');
     const referenceGramsField = modal.querySelector('#reference-grams-field');
 
+    const updateCostHint = () => {
+        const format = modal.querySelector('#food-format').value;
+        const servingSize = modal.querySelector('#serving-size').value.trim() || 'serving';
+        const hint = modal.querySelector('#food-cost-hint');
+        const label = modal.querySelector('#food-cost-servings-label');
+        if (!hint) return;
+        if (format === 'per_gram') {
+            hint.textContent = '× 100g portions';
+            label.textContent = '× 100g';
+        } else if (format === 'per_batch') {
+            hint.textContent = 'batch servings that buys';
+            label.textContent = 'Servings';
+        } else {
+            hint.textContent = `× "${servingSize}" that buys`;
+            label.textContent = 'Servings';
+        }
+    };
+
     formatSelect.addEventListener('change', (e) => {
         const format = e.target.value;
         servingSizeField.classList.toggle('hidden', format !== 'per_serving');
         batchServingsField.classList.toggle('hidden', format !== 'per_batch');
         referenceGramsField.classList.toggle('hidden', format !== 'per_gram');
         updateCalories();
+        updateCostHint();
     });
+
+    modal.querySelector('#serving-size')?.addEventListener('input', updateCostHint);
+    updateCostHint();
 
     // Auto-fill calories from macros unless user has manually overridden the field
     const updateCalories = () => {
@@ -539,6 +573,20 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
             foodData.batch_servings = parseInt(modal.querySelector('#batch-servings').value || 1);
         }
 
+        const costDollarsRaw = modal.querySelector('#food-cost-dollars').value;
+        const costServingsRaw = modal.querySelector('#food-cost-servings').value;
+        const costDollars = costDollarsRaw !== '' ? parseFloat(costDollarsRaw) : null;
+        const costServings = costServingsRaw !== '' ? parseFloat(costServingsRaw) : null;
+        const prevCostDollars = existingFood?.cost_dollars ?? null;
+        const prevCostServings = existingFood?.cost_servings ?? null;
+        const costChanged = costDollars !== prevCostDollars || costServings !== prevCostServings;
+
+        foodData.cost_dollars = costDollars;
+        foodData.cost_servings = costServings;
+        foodData.cost_updated_at = costChanged && (costDollars !== null || costServings !== null)
+            ? Date.now()
+            : (existingFood?.cost_updated_at ?? null);
+
         if (isEdit && existingFood) {
             foodData.id = existingFood.id;
             foodData.starred = existingFood.starred || false;
@@ -547,7 +595,6 @@ async function handleFoodFormSubmit(modal, isEdit, existingFood) {
             await db.updateNamedFood(foodData);
         } else {
             await db.addNamedFood(foodData);
-            // Set search to find the newly added food
             lastSearchTerm = foodData.name;
         }
 

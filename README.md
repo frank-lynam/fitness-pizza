@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.7
+**Current**: v2.8.8
+- **Protein value analysis**: add optional cost fields ($ paid, servings bought) to any food library entry; Trends tab shows a sortable table of foods with cost data ranked by protein per dollar, cost per 10g protein, and cost per day to hit your protein goal — invisible until you add cost data, not visible anywhere else in the app
+
+**v2.8.7**
 - **Temperature-corrected cardio calories**: at run/hike/bike finish, fetches local temperature from Open-Meteo (using GPS coordinates, no key required) and applies a corrective factor — +0.5%/°F above 75°F (heat), +0.6%/°F below 45°F (cold), capped at +20%; shown in the finish summary (e.g. "🔥 102°F — +14% heat adjustment"); silently no-ops if offline
 
 **v2.8.6**

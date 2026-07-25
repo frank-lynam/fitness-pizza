@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.8.9
+**Current**: v2.9.0
+- **Healthy tips expanded** — 5 new tips added (sleep & hormones, scale variance, protein, fiber/gut microbiome, waist measurement) with links to peer-reviewed studies and Wikipedia; erythritol typo fixed; all tips use consistent aggressively-positive voice
+
+**v2.8.9**
 - **Battery: pause run display tick when screen off** — the 1s timer that updates the run tracker display now stops when the screen locks (GPS keeps running via native plugin) and resumes when the screen comes back on; also reduced from 500ms to 1s since the timer only shows M:SS precision
 - **Protein value table auto-updates** — editing cost info in the food library while on the Trends tab now refreshes the table immediately without needing to navigate away and back
 

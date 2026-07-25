@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.8.9';
+const APP_VERSION = '2.9.0';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1246,7 +1246,32 @@ class FitnessTrackerApp {
             {
                 title: 'No Sugar, No Ultra-Processed Foods',
                 body: `Just stop eating them. Made by a billion dollar corporation, comes in a box with flashy advertising? It's almost certainly designed to addict you, not feed you, not satiate you. Stop eating them, they're made by the same people who got kids addicted to cigarettes, <a href="https://onlinelibrary.wiley.com/doi/10.1111/1468-0009.70066" target="_blank" style="color:var(--accent-primary)">I'm not even joking</a>. 💀
-                <br><br>Learn to cook! It's fun! And yummy! And cheaper, omg, so cheap! I recommend zero sugar meringues, literally just egg whites and powdered erithrytol, whip it until it's stiff, dollop it onto parchment paper, 45 minutes at 225F, let it cool in the oven and then on the counter. So easy! Dust them with zero sugar pudding mix before baking for delicious flavors!`
+                <br><br>Learn to cook! It's fun! And yummy! And cheaper, omg, so cheap! I recommend zero sugar meringues, literally just egg whites and powdered erythritol, whip it until it's stiff, dollop it onto parchment paper, 45 minutes at 225F, let it cool in the oven and then on the counter. So easy! Dust them with zero sugar pudding mix before baking for delicious flavors!`
+            },
+            {
+                title: 'Sleep Your Way Thin (Sort Of)',
+                body: `Okay not literally, but hear me out — getting less than 7 hours of sleep makes your body pump out more <a href="https://en.wikipedia.org/wiki/Ghrelin" target="_blank" style="color:var(--accent-primary)">ghrelin</a> (the "I'm starving" hormone) and less <a href="https://en.wikipedia.org/wiki/Leptin" target="_blank" style="color:var(--accent-primary)">leptin</a> (the "I'm full" hormone). You will be genuinely, biologically hungrier the next day. Not because you need more food. Because your sleep-deprived brain is lying to you!
+                <br><br>I used to pull late nights and wonder why I was eating everything in sight at 11pm. Sleep fixed it. Completely free, zero effort, <a href="https://doi.org/10.7326/0003-4819-141-11-200412070-00008" target="_blank" style="color:var(--accent-primary)">actually studied</a>. Go to bed! 😴`
+            },
+            {
+                title: 'The Scale Is Gaslighting You',
+                body: `Your weight can swing 5–10 lbs in a single day from <a href="https://en.wikipedia.org/wiki/Body_water" target="_blank" style="color:var(--accent-primary)">water</a>, food in transit, hormones, and whether you breathed funny before stepping on it. The NUMBER is noise! The TREND is signal! That's literally why this app has trend charts — because a one-day spike means absolutely nothing.
+                <br><br>Weigh yourself daily, laugh at the number, and trust the 7-day average. One bad morning on the scale is not a reason to spiral. It's a reason to drink some water and move on. 📈`
+            },
+            {
+                title: 'Protein: The Macro That Cheats at Dieting',
+                body: `Protein keeps you full longer than anything else, has a higher <a href="https://en.wikipedia.org/wiki/Specific_dynamic_action" target="_blank" style="color:var(--accent-primary)">thermic effect</a> (it costs more calories just to digest), and builds and maintains the muscle that keeps your metabolism from tanking on a cut. It literally cheats. <a href="https://doi.org/10.3945/ajcn.114.084038" target="_blank" style="color:var(--accent-primary)">The science is extremely loud on this one.</a>
+                <br><br>I eat way more food than I used to and I'm way less fat — because I swapped a chunk of my carbs for protein. Not all carbs, I'm not a monster. But enough. Chicken, skyr, eggs, cottage cheese, protein powder — get obsessed. 🍗`
+            },
+            {
+                title: 'Feed Your Gut Gremlins',
+                body: `Most people eat about 15 grams of fiber a day. The target is 25–35 grams. That gap matters! Fiber slows digestion, flattens blood sugar spikes, and feeds the billions of bacteria in your <a href="https://en.wikipedia.org/wiki/Gut_microbiota" target="_blank" style="color:var(--accent-primary)">gut microbiome</a> that are basically running your immune system, your mood, and your hunger signals behind your back.
+                <br><br><a href="https://doi.org/10.1016/S0140-6736(18)31809-9" target="_blank" style="color:var(--accent-primary)">Feed them well</a> and they shut up and behave. Starve them and you'll feel it. Beans, oats, berries, broccoli — cheap as chips! 🥦`
+            },
+            {
+                title: 'Your Waist Is Telling the Truth',
+                body: `The scale weighs everything — water, muscle, bone, last night's dinner. Your waist measurement cuts through all of that. <a href="https://en.wikipedia.org/wiki/Visceral_fat" target="_blank" style="color:var(--accent-primary)">Visceral fat</a> (the stuff packed around your organs — the actually dangerous kind) shows up at your waist before it shows up anywhere else. <a href="https://doi.org/10.1093/ajcn/79.3.379" target="_blank" style="color:var(--accent-primary)">Waist circumference predicts metabolic risk better than BMI, full stop.</a>
+                <br><br>Track it! Celebrate when it drops! And while you're at it — are you sleeping better? Less winded on stairs? Fitting into old clothes? Those wins are realer than any number on a scale. 📏`
             },
         ];
 

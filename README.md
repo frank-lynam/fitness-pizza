@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.0
+**Current**: v2.9.1
+- **Protein value table polish** — internal scroll (sticky header, max 320px height), fat per 10g protein column added, sort collapsed to a price/fat toggle, sort button less obtrusive
+- **Calorie streak shows % when on track** — "✓ on track (94%)" instead of just "✓ on track"
+
+**v2.9.0**
 - **Healthy tips expanded** — 5 new tips added (sleep & hormones, scale variance, protein, fiber/gut microbiome, waist measurement) with links to peer-reviewed studies and Wikipedia; erythritol typo fixed; all tips use consistent aggressively-positive voice
 
 **v2.8.9**

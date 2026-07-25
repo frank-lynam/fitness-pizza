@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.9.0';
+const APP_VERSION = '2.9.1';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1355,46 +1355,41 @@ class FitnessTrackerApp {
             const proteinPerServing = food.format_type === 'per_batch'
                 ? food.protein / (food.batch_servings || 1)
                 : food.protein;
+            const fatPerServing = food.format_type === 'per_batch'
+                ? (food.fat || 0) / (food.batch_servings || 1)
+                : (food.fat || 0);
             const totalProtein = proteinPerServing * food.cost_servings;
             const proteinPerDollar = totalProtein / food.cost_dollars;
             const costPer10g = 10 / proteinPerDollar;
-            const costPerDay = goalProtein / proteinPerDollar;
+            const fatPer10gProtein = proteinPerServing > 0 ? (fatPerServing / proteinPerServing) * 10 : Infinity;
             const updatedStr = food.cost_updated_at
                 ? new Date(food.cost_updated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                 : '';
-            return { food, proteinPerDollar, costPer10g, costPerDay, updatedStr };
+            return { food, proteinPerDollar, costPer10g, fatPer10gProtein, updatedStr };
         });
 
-        let sortKey = content.dataset.sortKey || 'costPer10g';
+        let sortKey = content.dataset.sortKey || 'price';
 
         const render = () => {
-            const sorted = [...rows].sort((a, b) => {
-                if (sortKey === 'proteinPerDollar') return b.proteinPerDollar - a.proteinPerDollar;
-                if (sortKey === 'costPerDay') return a.costPerDay - b.costPerDay;
-                return a.costPer10g - b.costPer10g;
-            });
-
-            const sorts = [
-                { key: 'proteinPerDollar', label: 'P / $' },
-                { key: 'costPer10g',       label: '$ / 10g P' },
-                { key: 'costPerDay',       label: '$ / day' },
-            ];
+            const sorted = [...rows].sort((a, b) =>
+                sortKey === 'fat' ? a.fatPer10gProtein - b.fatPer10gProtein : a.costPer10g - b.costPer10g
+            );
+            const otherKey = sortKey === 'fat' ? 'price' : 'fat';
+            const otherLabel = sortKey === 'fat' ? 'sort: price' : 'sort: fat';
 
             content.innerHTML = `
-                <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-                    ${sorts.map(s => `
-                        <button class="btn-range${sortKey === s.key ? ' active' : ''}" data-sort="${s.key}"
-                            style="font-size:0.85em;padding:4px 10px;">${s.label}</button>
-                    `).join('')}
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:0.78em;color:var(--text-secondary);">Best value first</span>
+                    <button class="btn-range" data-sort="${otherKey}"
+                        style="font-size:0.78em;padding:2px 8px;">${otherLabel}</button>
                 </div>
-                <div style="overflow-x:auto;">
+                <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
                     <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
-                        <thead>
+                        <thead style="position:sticky;top:0;background:var(--bg-card);">
                             <tr style="color:var(--text-secondary);text-align:right;">
                                 <th style="text-align:left;padding:4px 6px;">Food</th>
-                                <th style="padding:4px 6px;">P / $</th>
                                 <th style="padding:4px 6px;">$ / 10g P</th>
-                                <th style="padding:4px 6px;">$ / day</th>
+                                <th style="padding:4px 6px;">Fat / 10g P</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1404,25 +1399,22 @@ class FitnessTrackerApp {
                                         ${r.food.name}
                                         ${r.updatedStr ? `<br><span style="font-size:0.8em;color:var(--text-secondary);">${r.updatedStr}</span>` : ''}
                                     </td>
-                                    <td style="text-align:right;padding:5px 6px;">${r.proteinPerDollar.toFixed(1)}g</td>
                                     <td style="text-align:right;padding:5px 6px;">$${r.costPer10g.toFixed(2)}</td>
-                                    <td style="text-align:right;padding:5px 6px;">$${r.costPerDay.toFixed(2)}</td>
+                                    <td style="text-align:right;padding:5px 6px;">${r.fatPer10gProtein === Infinity ? '—' : r.fatPer10gProtein.toFixed(1) + 'g'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
                 </div>
-                <p style="font-size:0.78em;color:var(--text-secondary);margin-top:6px;">
-                    Goal: ${goalProtein}g protein/day. Best value highlighted. Add costs via Food Library → Edit.
+                <p style="font-size:0.78em;color:var(--text-secondary);margin-top:4px;">
+                    Best value highlighted. Add costs via Food Library → Edit.
                 </p>
             `;
 
             content.dataset.sortKey = sortKey;
-            content.querySelectorAll('[data-sort]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    sortKey = btn.dataset.sort;
-                    render();
-                });
+            content.querySelector('[data-sort]').addEventListener('click', e => {
+                sortKey = e.currentTarget.dataset.sort;
+                render();
             });
         };
 

@@ -390,7 +390,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
             if (!isTodayCheat && todayEffective > 0 && todayTotal > 0) {
                 if (todayPct < 0.9) todayBadge = `<span style="color:var(--accent-warning);font-size:0.8em;margin-left:6px;">↓ under (${Math.round(todayPct*100)}%)</span>`;
                 else if (todayPct > 1.1) todayBadge = `<span style="color:var(--accent-danger);font-size:0.8em;margin-left:6px;">↑ over (${Math.round(todayPct*100)}%)</span>`;
-                else todayBadge = `<span style="color:var(--accent-success);font-size:0.8em;margin-left:6px;">✓ on track</span>`;
+                else todayBadge = `<span style="color:var(--accent-success);font-size:0.8em;margin-left:6px;">✓ on track (${Math.round(todayPct*100)}%)</span>`;
             }
 
             streakEl.innerHTML = streak > 0

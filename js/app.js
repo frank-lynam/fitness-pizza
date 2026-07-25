@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.9.1';
+const APP_VERSION = '2.9.2';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1361,34 +1361,40 @@ class FitnessTrackerApp {
             const totalProtein = proteinPerServing * food.cost_servings;
             const proteinPerDollar = totalProtein / food.cost_dollars;
             const costPer10g = 10 / proteinPerDollar;
+            const costPerDay = goalProtein / proteinPerDollar;
             const fatPer10gProtein = proteinPerServing > 0 ? (fatPerServing / proteinPerServing) * 10 : Infinity;
             const updatedStr = food.cost_updated_at
                 ? new Date(food.cost_updated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                 : '';
-            return { food, proteinPerDollar, costPer10g, fatPer10gProtein, updatedStr };
+            return { food, proteinPerDollar, costPer10g, costPerDay, fatPer10gProtein, updatedStr };
         });
 
         let sortKey = content.dataset.sortKey || 'price';
 
         const render = () => {
-            const sorted = [...rows].sort((a, b) =>
-                sortKey === 'fat' ? a.fatPer10gProtein - b.fatPer10gProtein : a.costPer10g - b.costPer10g
-            );
-            const otherKey = sortKey === 'fat' ? 'price' : 'fat';
-            const otherLabel = sortKey === 'fat' ? 'sort: price' : 'sort: fat';
+            const sorted = [...rows].sort((a, b) => {
+                if (sortKey === 'fat') {
+                    const fatDiff = a.fatPer10gProtein - b.fatPer10gProtein;
+                    return fatDiff !== 0 ? fatDiff : a.costPer10g - b.costPer10g;
+                }
+                return a.costPer10g - b.costPer10g;
+            });
+            const nextKey = sortKey === 'fat' ? 'price' : 'fat';
 
             content.innerHTML = `
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                     <span style="font-size:0.78em;color:var(--text-secondary);">Best value first</span>
-                    <button class="btn-range" data-sort="${otherKey}"
-                        style="font-size:0.78em;padding:2px 8px;">${otherLabel}</button>
+                    <button class="btn-range active" data-sort="${nextKey}"
+                        style="font-size:0.78em;padding:2px 8px;">${sortKey}</button>
                 </div>
                 <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
                     <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
                         <thead style="position:sticky;top:0;background:var(--bg-card);">
                             <tr style="color:var(--text-secondary);text-align:right;">
                                 <th style="text-align:left;padding:4px 6px;">Food</th>
+                                <th style="padding:4px 6px;">P / $</th>
                                 <th style="padding:4px 6px;">$ / 10g P</th>
+                                <th style="padding:4px 6px;">$ / day</th>
                                 <th style="padding:4px 6px;">Fat / 10g P</th>
                             </tr>
                         </thead>
@@ -1399,7 +1405,9 @@ class FitnessTrackerApp {
                                         ${r.food.name}
                                         ${r.updatedStr ? `<br><span style="font-size:0.8em;color:var(--text-secondary);">${r.updatedStr}</span>` : ''}
                                     </td>
+                                    <td style="text-align:right;padding:5px 6px;">${r.proteinPerDollar.toFixed(1)}g</td>
                                     <td style="text-align:right;padding:5px 6px;">$${r.costPer10g.toFixed(2)}</td>
+                                    <td style="text-align:right;padding:5px 6px;">$${r.costPerDay.toFixed(2)}</td>
                                     <td style="text-align:right;padding:5px 6px;">${r.fatPer10gProtein === Infinity ? '—' : r.fatPer10gProtein.toFixed(1) + 'g'}</td>
                                 </tr>
                             `).join('')}

@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.1
+**Current**: v2.9.2
+- **Protein table fixes** — all four data columns restored (P/$, $/10g P, $/day, Fat/10g P); sort button shows active sort (price/fat toggle); fat sort ties broken by price; button label is just the sort name
+
+**v2.9.1**
 - **Protein value table polish** — internal scroll (sticky header, max 320px height), fat per 10g protein column added, sort collapsed to a price/fat toggle, sort button less obtrusive
 - **Calorie streak shows % when on track** — "✓ on track (94%)" instead of just "✓ on track"
 

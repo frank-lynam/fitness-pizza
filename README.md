@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.2
+**Current**: v2.9.3
+- **Deficit target mode** — new setting under Daily Goals; derives carb target from inferred TDEE minus a configurable daily deficit (cal/day or lbs/wk slider); protein and fat stay fixed, carbs fill the remainder; workout credit locked at 100% in this mode so net deficit stays constant on workout days; deficit rate shown inline in dashboard streak line
+
+**v2.9.2**
 - **Protein table fixes** — all four data columns restored (P/$, $/10g P, $/day, Fat/10g P); sort button shows active sort (price/fat toggle); fat sort ties broken by price; button label is just the sort name
 
 **v2.9.1**

@@ -393,9 +393,20 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                 else todayBadge = `<span style="color:var(--accent-success);font-size:0.8em;margin-left:6px;">✓ on track (${Math.round(todayPct*100)}%)</span>`;
             }
 
+            let deficitBadge = '';
+            const deficitModeOn = (await db.getSetting('deficit_mode')) === 'true';
+            if (deficitModeOn) {
+                const deficitCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
+                if (deficitCal !== 0) {
+                    const lbsWk = (deficitCal / 500).toFixed(1);
+                    const sign = deficitCal > 0 ? '−' : '+';
+                    deficitBadge = `<span style="font-size:0.78em;color:var(--text-secondary);margin-left:5px;">${sign}${Math.abs(parseFloat(lbsWk))} lb/wk</span>`;
+                }
+            }
+
             streakEl.innerHTML = streak > 0
-                ? `🔥 ${streak} day streak${todayBadge}`
-                : todayBadge ? `Today${todayBadge}` : '';
+                ? `🔥 ${streak} day streak${deficitBadge}${todayBadge}`
+                : todayBadge ? `Today${deficitBadge}${todayBadge}` : '';
         }
 
         // Load latest measurement

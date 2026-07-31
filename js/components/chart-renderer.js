@@ -950,6 +950,14 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
     // Weighted mean & std-dev over ALL estimates (weight = daysGap = proxy for reliability)
     const totalW   = estimates.reduce((s, e) => s + e.daysGap, 0);
     const wMean    = Math.round(estimates.reduce((s, e) => s + e.tdee * e.daysGap, 0) / totalW);
+
+    // Cache recent TDEE (last 30 days) for deficit mode; fall back to all-time mean if no recent data
+    const thirtyDaysAgo = localDateStr(new Date(Date.now() - 30 * 86400000));
+    const recentPool = estimates.filter(e => e.date >= thirtyDaysAgo);
+    const pool = recentPool.length > 0 ? recentPool : estimates;
+    const poolW = pool.reduce((s, e) => s + e.daysGap, 0);
+    const recentTDEE = Math.round(pool.reduce((s, e) => s + e.tdee * e.daysGap, 0) / poolW);
+    await db.setSetting('inferred_tdee_cached', String(recentTDEE));
     const wVar     = estimates.reduce((s, e) => s + e.daysGap * (e.tdee - wMean) ** 2, 0) / totalW;
     const wStdDev  = Math.round(Math.sqrt(wVar));
 

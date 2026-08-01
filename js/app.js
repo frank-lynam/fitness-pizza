@@ -21,7 +21,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.9.5';
+const APP_VERSION = '2.9.6';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -51,6 +51,14 @@ class FitnessTrackerApp {
             await db.init();
             console.log('Database initialized successfully');
             await db.seedDefaultFoodsIfEmpty();
+
+            // Refresh TDEE cache once per calendar day (fire-and-forget, doesn't block startup)
+            this.refreshTDEECache();
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && getTodayDate() !== localStorage.getItem('fp_tdee_date')) {
+                    this.refreshTDEECache();
+                }
+            });
 
             // Apply saved theme
             const savedTheme = await db.getSetting('theme') || 'dark';
@@ -294,6 +302,22 @@ class FitnessTrackerApp {
         } catch (error) {
             console.error(`Error loading screen ${screenName}:`, error);
             ui.showError(`Failed to load ${screenName}: ${error.message}`);
+        }
+    }
+
+    async refreshTDEECache() {
+        const deficitMode = (await db.getSetting('deficit_mode')) === 'true';
+        if (!deficitMode) return;
+        const today = getTodayDate();
+        if (localStorage.getItem('fp_tdee_date') === today) return;
+        const [allMacros, allMeasurements, allWorkouts] = await Promise.all([
+            db.getAllMacros(), db.getAllMeasurements(), db.getAllWorkouts()
+        ]);
+        const completed = allMacros.filter(m => m.status === 'completed');
+        const tdee = computeInferredTDEE(completed, allMeasurements, allWorkouts);
+        if (tdee) {
+            await db.setSetting('inferred_tdee_cached', String(tdee));
+            localStorage.setItem('fp_tdee_date', today);
         }
     }
 

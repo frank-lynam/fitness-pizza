@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.5
+**Current**: v2.9.6
+- **TDEE auto-refresh** — recomputes inferred TDEE from data once per calendar day at startup, and again when the app comes back to foreground on a new day; deficit mode carbs baseline is always fresh without any manual action
+
+**v2.9.5**
 - **Deficit mode UX overhaul** — removed "Fill carbs to" (obsoleted by deficit mode); compact two-line deficit UI with lbs/wk number input instead of slider; TDEE now computed on settings open (no Trends tab required); greyed carbs field shows correct derived value; fixed initialization bug that showed wrong calories on settings load
 
 **v2.9.4**

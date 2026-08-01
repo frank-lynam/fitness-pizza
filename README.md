@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.8
+**Current**: v2.9.9
+- **Water weight & waist charts** — body composition chart now overlays raw daily weight as faint scatter dots behind the 7-day rolling average trend line, making water-weight noise visible; new Waist Trend chart with linear regression, rate/week, waist-to-height ratio (✓ when < 0.5), and 7-day avg weight on a second axis so you can spot weight bounces while waist stays flat
+
+**v2.9.8**
 - **Fix update loop** — removed `window.location.reload()` after `CU.set()`; a JS reload doesn't switch the Capacitor bundle so the old version would reload and re-detect the same update forever; added guard to skip re-staging an already-queued bundle; if CU.set() doesn't auto-reload, a toast now says "restart to update"
 
 **v2.9.7**

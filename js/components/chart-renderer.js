@@ -122,6 +122,7 @@ async function renderCharts(days) {
 
         // Render individual charts
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
+        await renderWaistTrend(measurements, days);
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderMacroDelta(filteredMacros, filteredWorkouts, days);
         await renderMacroCorrelation(filteredMacros, filteredMeasurements);
@@ -239,6 +240,7 @@ async function renderBodyComposition(allMeasurements, days) {
 
     const labels = [];
     const weightData = [];
+    const weightRawData = [];   // raw daily weight — dots show water-weight noise
     const leanMassData = [];
     const bmiData = [];
 
@@ -261,6 +263,8 @@ async function renderBodyComposition(allMeasurements, days) {
             const avgWeight = wCount > 0 ? wSum / wCount : null;
             labels.push(ds);
             weightData.push(avgWeight !== null ? Math.round(avgWeight * 10) / 10 : null);
+            weightRawData.push(weightByDate[ds] !== undefined
+                ? Math.round(weightByDate[ds] * 10) / 10 : null);
             leanMassData.push(avgWeight !== null && bfCount > 0
                 ? Math.round(avgWeight * (1 - (bfSum / bfCount) / 100) * 10) / 10
                 : null);
@@ -307,8 +311,21 @@ async function renderBodyComposition(allMeasurements, days) {
 
     // y  — left axis: weight + lean mass (lbs)
     // y1 — right axis: BMI
-    // y2 — right axis (stacked): TDEE (kcal)
+    // y2 — right axis (stacked): body fat %
     const datasets = [
+        {
+            // Raw daily readings — gap to trend line ≈ water weight deviation
+            label: 'Weight (raw)',
+            data: weightRawData,
+            yAxisID: 'y',
+            borderColor: 'transparent',
+            backgroundColor: colors.textSecondary + '55',
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            showLine: false,
+            order: 2,
+            spanGaps: false
+        },
         {
             label: 'Weight (lbs, 7d avg)',
             data: weightData,
@@ -316,7 +333,8 @@ async function renderBodyComposition(allMeasurements, days) {
             borderColor: colors.secondary,
             backgroundColor: colors.secondary + '20',
             tension: 0,
-            pointRadius: 2,
+            pointRadius: 0,
+            order: 1,
             spanGaps: false
         }
     ];
@@ -413,6 +431,15 @@ async function renderBodyComposition(allMeasurements, days) {
                             if (v === null || v === undefined) return null;
                             if (ctx.dataset.yAxisID === 'y1') return `${ctx.dataset.label}: ${v.toFixed(1)}`;
                             if (ctx.dataset.yAxisID === 'y2') return `${ctx.dataset.label}: ${v.toFixed(1)}%`;
+                            if (ctx.dataset.label === 'Weight (raw)') {
+                                const trend = weightData[ctx.dataIndex];
+                                if (trend !== null && trend !== undefined) {
+                                    const dev = v - trend;
+                                    const sign = dev >= 0 ? '+' : '';
+                                    return `Raw: ${v.toFixed(1)} lbs  (${sign}${dev.toFixed(1)} vs trend)`;
+                                }
+                                return `Raw: ${v.toFixed(1)} lbs`;
+                            }
                             return `${ctx.dataset.label}: ${v.toFixed(1)} lbs`;
                         }
                     }
@@ -447,6 +474,185 @@ async function renderBodyComposition(allMeasurements, days) {
                     },
                     grid: { drawOnChartArea: false },
                     title: { display: true, text: 'Body Fat %', color: colors.primary }
+                }
+            }
+        }
+    });
+}
+
+async function renderWaistTrend(allMeasurements, days) {
+    const ctx     = document.getElementById('waist-trend-chart');
+    const section = document.getElementById('waist-trend-section');
+    if (!ctx) return;
+    if (charts.waistTrend) charts.waistTrend.destroy();
+
+    const waistReadings = allMeasurements
+        .filter(m => m.type === 'waist')
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .map(m => ({ date: m.date, value: m.unit === 'cm' ? m.value / 2.54 : m.value }));
+
+    if (waistReadings.length === 0) {
+        if (section) section.style.display = 'none';
+        return;
+    }
+
+    // Filter to display range
+    const today = new Date();
+    const todayStr = localDateStr(today);
+    const minDateStr = days
+        ? localDateStr(new Date(today.getTime() - (days - 1) * 86400000))
+        : waistReadings[0].date;
+
+    const filtered = waistReadings.filter(r => r.date >= minDateStr);
+    if (filtered.length === 0) { if (section) section.style.display = 'none'; return; }
+    if (section) section.style.display = '';
+
+    const colors = getThemeColors();
+
+    // Linear regression over displayed waist readings
+    const t0 = new Date(filtered[0].date + 'T12:00:00').getTime();
+    const xs = filtered.map(r => (new Date(r.date + 'T12:00:00').getTime() - t0) / 86400000);
+    const ys = filtered.map(r => r.value);
+    const n  = xs.length;
+    const mx = xs.reduce((s, x) => s + x, 0) / n;
+    const my = ys.reduce((s, y) => s + y, 0) / n;
+    const denom = xs.reduce((s, x) => s + (x - mx) ** 2, 0);
+    const slope = denom > 0 ? xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / denom : 0;
+    const intercept = my - slope * mx;
+
+    // Dense label array spanning first→last waist measurement
+    const firstDate = filtered[0].date;
+    const lastDate  = filtered[filtered.length - 1].date;
+    const waistByDate = {};
+    filtered.forEach(r => { waistByDate[r.date] = r.value; });
+
+    const trendLabels = [], waistDots = [], trendLine = [];
+    const cur = new Date(firstDate + 'T12:00:00');
+    const end = new Date(lastDate  + 'T12:00:00');
+    while (cur <= end) {
+        const d = localDateStr(cur);
+        const x = (cur.getTime() - new Date(firstDate + 'T12:00:00').getTime()) / 86400000;
+        trendLabels.push(d);
+        waistDots.push(waistByDate[d] ?? null);
+        trendLine.push(Math.round((slope * x + intercept) * 100) / 100);
+        cur.setDate(cur.getDate() + 1);
+    }
+
+    // 7-day rolling avg weight on the same time axis, for visual correlation
+    const weightByDate = {};
+    allMeasurements.filter(m => m.type === 'weight').forEach(m => {
+        weightByDate[m.date] = m.unit === 'kg' ? m.value * 2.20462 : m.value;
+    });
+    const weightTrend = trendLabels.map((d, i) => {
+        const dt = new Date(d + 'T12:00:00');
+        let sum = 0, cnt = 0;
+        for (let back = 0; back < 7; back++) {
+            const dd = new Date(dt.getTime() - back * 86400000);
+            const ds = localDateStr(dd);
+            if (weightByDate[ds] !== undefined) { sum += weightByDate[ds]; cnt++; }
+        }
+        return cnt > 0 ? Math.round(sum / cnt * 10) / 10 : null;
+    });
+    const hasWeight = weightTrend.some(v => v !== null);
+
+    // Stats line
+    const statsEl = section?.querySelector('.waist-stats');
+    if (statsEl) {
+        const latest   = filtered[filtered.length - 1].value;
+        const earliest = filtered[0].value;
+        const totalChg = filtered.length >= 2 ? latest - earliest : null;
+        const rateWk   = xs.length >= 2 ? slope * 7 : null;
+        const heightIn  = parseFloat(await db.getSetting('user_height_in') || 0);
+        const whr       = heightIn > 0 ? (latest / heightIn).toFixed(2) : null;
+        const whrNote   = whr ? `  ·  W:H ${whr}${parseFloat(whr) < 0.5 ? ' ✓' : ''}` : '';
+        const chgNote   = totalChg !== null
+            ? `  ·  ${totalChg >= 0 ? '+' : ''}${totalChg.toFixed(1)}" total`
+            : '';
+        const rateNote  = rateWk !== null && Math.abs(rateWk) > 0.005
+            ? `  ·  ${rateWk < 0 ? '↓' : '↑'}${Math.abs(rateWk).toFixed(2)}"/wk`
+            : '';
+        statsEl.textContent = `${latest.toFixed(1)}" now${chgNote}${rateNote}${whrNote}`;
+    }
+
+    const datasets = [
+        {
+            label: 'Waist (in)',
+            data: waistDots,
+            yAxisID: 'y',
+            borderColor: 'transparent',
+            backgroundColor: colors.primary,
+            pointRadius: 5,
+            pointHoverRadius: 7,
+            showLine: false,
+            order: 2
+        },
+        {
+            label: 'Waist trend',
+            data: trendLine,
+            yAxisID: 'y',
+            borderColor: colors.primary,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [5, 3],
+            tension: 0,
+            pointRadius: 0,
+            order: 1
+        }
+    ];
+
+    if (hasWeight) {
+        datasets.push({
+            label: 'Weight (lbs, 7d avg)',
+            data: weightTrend,
+            yAxisID: 'y1',
+            borderColor: colors.secondary,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            tension: 0,
+            pointRadius: 0,
+            spanGaps: true,
+            order: 3
+        });
+    }
+
+    charts.waistTrend = new Chart(ctx, {
+        type: 'line',
+        data: { labels: trendLabels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1.25,
+            plugins: {
+                legend: { labels: { color: colors.text } },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const v = ctx.parsed.y;
+                            if (v === null || v === undefined) return null;
+                            return ctx.dataset.yAxisID === 'y1'
+                                ? `${ctx.dataset.label}: ${v.toFixed(1)} lbs`
+                                : `${ctx.dataset.label}: ${v.toFixed(1)}"`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: colors.textSecondary, maxTicksLimit: 10 },
+                    grid:  { color: colors.border + '40' }
+                },
+                y: {
+                    position: 'left',
+                    ticks: { color: colors.textSecondary, callback: v => `${v}"` },
+                    grid:  { color: colors.border + '40' },
+                    title: { display: true, text: 'inches', color: colors.textSecondary }
+                },
+                y1: {
+                    position: 'right',
+                    display: hasWeight,
+                    ticks: { color: colors.secondary },
+                    grid:  { drawOnChartArea: false },
+                    title: { display: true, text: 'lbs', color: colors.secondary }
                 }
             }
         }

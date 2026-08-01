@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.11
+**Current**: v2.9.12
+- **TDEE regression** — replace cumulative average with 60-day linear regression over window midpoints, evaluated at today; fixes divergence between early-year low estimates and recent higher activity; deficit mode and BMR estimate both update accordingly; chart now shows the regression line + slope kcal/wk; stdev shown as residuals around regression not around all-time mean
+
+**v2.9.11**
 - **Chart cleanup + updater fix** — removed Lean Mass from weight chart; fix updater to use `CU.next()` instead of `CU.set()` so it no longer triggers a spurious webview reload that showed the old version; bundle now loads silently on next full app restart with a toast confirming the version
 
 **v2.9.10**

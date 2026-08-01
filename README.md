@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.7
+**Current**: v2.9.8
+- **Fix update loop** — removed `window.location.reload()` after `CU.set()`; a JS reload doesn't switch the Capacitor bundle so the old version would reload and re-detect the same update forever; added guard to skip re-staging an already-queued bundle; if CU.set() doesn't auto-reload, a toast now says "restart to update"
+
+**v2.9.7**
 - **Protein table polish** — title inline with smaller sort button; removed "best value first" label and $ / day column; added Cal / 10g P sortable column (cycles price → cal → fat); tighter row spacing; date shown inline not on second line
 
 **v2.9.6**

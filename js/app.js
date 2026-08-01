@@ -21,7 +21,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.9.7';
+const APP_VERSION = '2.9.8';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1068,6 +1068,15 @@ class FitnessTrackerApp {
                 return;
             }
 
+            // If we've already staged this version, don't re-download.
+            // Without this guard, removing window.location.reload() below would cause
+            // the startup check to re-detect and re-stage the same bundle on every run.
+            const stagedVersion = localStorage.getItem('fp_update_applied');
+            if (stagedVersion && !this._semverGt(latest.version, stagedVersion)) {
+                console.log(`[updater] already staged v${stagedVersion}, skipping`);
+                return;
+            }
+
             // Bundle requires a newer native binary
             if (this._semverGt(latest.minNativeVersion, nativeVersion)) {
                 this.showApkUpdateDialog(latest.minNativeVersion);
@@ -1086,11 +1095,21 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // Apply immediately: set the bundle, mark what we applied, then reload
+            // Mark the staged version BEFORE CU.set() so the "just updated" toast
+            // fires correctly even if CU.set() triggers an immediate native reload.
             localStorage.setItem('fp_update_applied', latest.version);
             await CU.set({ id: newBundle.id });
-            // CU.set() may reload on its own; this ensures it happens regardless
-            window.location.reload();
+            // Do NOT call window.location.reload() here. A JS-level reload does not
+            // switch the Capacitor bundle — CU.set() just marks the bundle for the
+            // native layer. The JS reload would re-launch from the OLD bundle, causing
+            // the startup update check to fire again and loop indefinitely.
+            // CU.set() triggers the native webview reload itself on some plugin versions.
+            // If it doesn't (app still running after 1.5s), prompt the user to restart.
+            setTimeout(() => {
+                if (localStorage.getItem('fp_update_applied') === latest.version) {
+                    ui.showToast(`v${latest.version} ready — restart the app to update`);
+                }
+            }, 1500);
 
         } catch (e) {
             console.warn('[updater] Update check failed:', e.message);

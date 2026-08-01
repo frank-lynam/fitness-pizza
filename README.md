@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.10
+**Current**: v2.9.11
+- **Chart cleanup + updater fix** — removed Lean Mass from weight chart; fix updater to use `CU.next()` instead of `CU.set()` so it no longer triggers a spurious webview reload that showed the old version; bundle now loads silently on next full app restart with a toast confirming the version
+
+**v2.9.10**
 - **Macro Over/Under fix + chart cleanup** — removed "Macros vs Next-Day Weight Change" chart; fixed Macro Over/Under to use deficit-mode-derived carbs baseline (TDEE − deficit − protein − fat) instead of stale `goal_carbs` setting, and locks workout credit at 100% in deficit mode to match daily goal calculation
 
 **v2.9.9**

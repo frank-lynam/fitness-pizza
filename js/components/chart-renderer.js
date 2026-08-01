@@ -238,7 +238,6 @@ async function renderBodyComposition(allMeasurements, days) {
     const labels = [];
     const weightData = [];
     const weightRawData = [];   // raw daily weight — dots show water-weight noise
-    const leanMassData = [];
     const bmiData = [];
 
     const cur = new Date(minDateStr + 'T12:00:00');
@@ -262,9 +261,6 @@ async function renderBodyComposition(allMeasurements, days) {
             weightData.push(avgWeight !== null ? Math.round(avgWeight * 10) / 10 : null);
             weightRawData.push(weightByDate[ds] !== undefined
                 ? Math.round(weightByDate[ds] * 10) / 10 : null);
-            leanMassData.push(avgWeight !== null && bfCount > 0
-                ? Math.round(avgWeight * (1 - (bfSum / bfCount) / 100) * 10) / 10
-                : null);
             if (canComputeBodyStats && avgWeight !== null) {
                 bmiData.push(Math.round((703 * avgWeight / (heightIn * heightIn)) * 10) / 10);
             } else {
@@ -335,19 +331,6 @@ async function renderBodyComposition(allMeasurements, days) {
             spanGaps: false
         }
     ];
-
-    if (leanMassData.some(v => v !== null)) {
-        datasets.push({
-            label: 'Lean Mass (lbs, 7d avg)',
-            data: leanMassData,
-            yAxisID: 'y',
-            borderColor: colors.success,
-            backgroundColor: colors.success + '20',
-            tension: 0,
-            pointRadius: 2,
-            spanGaps: false
-        });
-    }
 
     if (canComputeBodyStats && bmiData.some(v => v !== null)) {
         datasets.push({

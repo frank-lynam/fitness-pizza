@@ -6,7 +6,7 @@
 import { db } from '../db.js';
 import { applyWorkoutCredit } from '../utils/calorie-calc.js';
 import { KCAL_PER_LB_FAT } from '../constants.js';
-import { buildTDEEEstimates, _toX, _linreg } from '../utils/tdee-calc.js';
+import { buildTDEEEstimates, _toX, _linreg, MS_PER_DAY } from '../utils/tdee-calc.js';
 
 let charts = {};
 let _annotationCache = null;
@@ -814,10 +814,10 @@ async function renderMacroDelta(macros, workouts, days) {
     // Deficit mode: derive carbs the same way calculateEffectiveGoals() does
     const deficitMode = (await db.getSetting('deficit_mode')) === 'true';
     if (deficitMode) {
-        const inferredTDEE = parseFloat(await db.getSetting('inferred_tdee_cached') || 0);
-        const deficitCal   = parseFloat(await db.getSetting('deficit_cal_per_day')  || 0);
-        if (inferredTDEE > 0) {
-            const derivedCarbs = (inferredTDEE - deficitCal - baseGoalProtein * 4 - baseGoalFat * 9) / 4;
+        const inferredMaintenance = parseFloat(await db.getSetting('inferred_maintenance_cached') || 0);
+        const deficitCal          = parseFloat(await db.getSetting('deficit_cal_per_day')        || 0);
+        if (inferredMaintenance > 0) {
+            const derivedCarbs = (inferredMaintenance - deficitCal - baseGoalProtein * 4 - baseGoalFat * 9) / 4;
             baseGoalCarbs = Math.max(0, derivedCarbs);
         }
     }
@@ -944,19 +944,10 @@ async function renderMacroDelta(macros, workouts, days) {
 }
 
 /**
- * Render empirically inferred TDEE from energy balance.
- *
- * For each pair of consecutive unique-date weight readings separated by
- * MIN_DAYS–MAX_DAYS, computes:
- *   TDEE = (scaled_calorie_intake − ΔW_lbs × 3500) / days
- * where scaled_intake adjusts for unlogged days proportionally.
- *
- * Uses ALL historical macro/weight data regardless of the date-range selector
- * so older data improves the estimate. Display is clipped to the selected range.
- *
- * @param {Array}       allCompletedMacros - All completed macro entries (unfiltered)
- * @param {Array}       allMeasurements    - All measurement entries (unfiltered)
- * @param {number|null} days               - Display window (null = all time)
+ * Render estimated rest-day maintenance from energy balance windows.
+ * Each window subtracts logged workout cals so the result is a rest-day
+ * baseline; today's workout credit is added back in calculateEffectiveGoals.
+ * A 60-day linear regression on window end-dates is used as the trend line.
  */
 async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkouts, days) {
     const ctx     = document.getElementById('inferred-tdee-chart');
@@ -983,59 +974,57 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
     };
 
     if (weights.length < 2) {
-        noDataMsg('Log weight on at least 2 different days (≥14 days apart) with food logged in between to infer TDEE.');
+        noDataMsg('Log weight on at least 2 different days (≥14 days apart) with food logged in between to estimate maintenance.');
         return;
     }
 
     const estimates = buildTDEEEstimates(allCompletedMacros, allMeasurements, allWorkouts);
 
     if (estimates.length === 0) {
-        noDataMsg(`No estimate yet — need weight on 2+ days ≥14 days apart with ≥40% of days with food logged.`);
+        noDataMsg('No estimate yet — need weight on 2+ days ≥14 days apart with ≥40% of days with food logged.');
         return;
     }
 
-    // 60-day linear regression on window end-dates → current TDEE estimate.
-    // Falls back to all estimates if fewer than 2 fall in the 60d window.
-    const MS_PER_DAY = 86400000;
+    // 60-day linear regression on window end-dates → rest-day maintenance at today.
     const sixtyDaysAgoStr = localDateStr(new Date(Date.now() - 60 * MS_PER_DAY));
-    const regPool = estimates.filter(e => e.date >= sixtyDaysAgoStr);
-    const regPoints = (regPool.length >= 2 ? regPool : estimates).map(e => [_toX(e.date), e.tdee]);
-    const reg = _linreg(regPoints);
-    const todayX = _toX(localDateStr(new Date()));
-    const regressionTDEE = reg ? Math.round(reg.slope * todayX + reg.intercept) : estimates[estimates.length - 1].tdee;
+    const regPool   = estimates.filter(e => e.date >= sixtyDaysAgoStr);
+    const regSource = regPool.length >= 2 ? regPool : estimates;
+    const regPoints = regSource.map(e => [_toX(e.date), e.tdee]);
+    const reg       = _linreg(regPoints);
+    const todayX    = _toX(localDateStr(new Date()));
+    const regressionMaintenance = reg
+        ? Math.round(reg.slope * todayX + reg.intercept)
+        : estimates[estimates.length - 1].tdee;
     const slopePerWeek = reg ? Math.round(reg.slope * 7) : 0;
 
-    // BMR regression — same 60d pool, exclude windows without valid BMR
-    const bmrRegPoints = (regPool.length >= 2 ? regPool : estimates)
-        .filter(e => e.bmr !== null).map(e => [_toX(e.date), e.bmr]);
-    const bmrReg = _linreg(bmrRegPoints);
-    const regressionBMR = bmrReg ? (() => {
-        const v = Math.round(bmrReg.slope * todayX + bmrReg.intercept);
-        return (v >= 800 && v <= 5000) ? v : null;
-    })() : null;
+    // Weighted avg workout calories from same pool (for display and total-maintenance figure)
+    const poolWt        = regSource.reduce((s, e) => s + e.daysGap, 0);
+    const avgWorkout    = poolWt > 0
+        ? Math.round(regSource.reduce((s, e) => s + e.avgWorkoutCals * e.daysGap, 0) / poolWt)
+        : 0;
+    const totalMaintenance = regressionMaintenance + avgWorkout;
 
-    // Cache the regression TDEE for deficit mode
-    await db.setSetting('inferred_tdee_cached', String(regressionTDEE));
+    // Cache rest-day maintenance baseline for deficit mode (workout credit added daily)
+    await db.setSetting('inferred_maintenance_cached', String(regressionMaintenance));
 
-    // Stdev of window estimates around regression line (residuals) for ± display
+    // Stdev of residuals around regression line
     const residuals = regPoints.map(p => p[1] - (reg.slope * p[0] + reg.intercept));
     const regStdDev = Math.round(Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length));
 
-    // Load formula BMR and optionally TDEE (Mifflin-St Jeor) using most recent weight
-    let formulaBMR = null, formulaTDEE = null;
+    // Formula TDEE (Mifflin-St Jeor × activity factor) from settings, for comparison
+    let formulaTDEE = null;
     const heightIn       = parseFloat(await db.getSetting('user_height_in') || 0);
     const age            = parseFloat(await db.getSetting('user_age') || 0);
     const sex            = await db.getSetting('user_sex') || 'male';
     const activityFactor = parseFloat(await db.getSetting('tdee_activity_factor') || 0);
-    if (heightIn > 0 && age > 0) {
+    if (heightIn > 0 && age > 0 && activityFactor > 0) {
         const recentLbs = weights[weights.length - 1].lbs;
         const weightKg  = recentLbs * 0.453592;
         const heightCm  = heightIn * 2.54;
         const bmr = sex === 'female'
             ? (10 * weightKg) + (6.25 * heightCm) - (5 * age) - 161
             : (10 * weightKg) + (6.25 * heightCm) - (5 * age) + 5;
-        formulaBMR  = Math.round(bmr);
-        if (activityFactor > 0) formulaTDEE = Math.round(bmr * activityFactor);
+        formulaTDEE = Math.round(bmr * activityFactor);
     }
 
     // Clip display to selected date range
@@ -1044,16 +1033,12 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
     const labels    = dispEst.map(e => e.date);
 
     // Regression line evaluated at each display date
-    const regressionLine    = labels.map(d => Math.round(reg.slope * _toX(d) + reg.intercept));
-    const bmrRegressionLine = bmrReg ? labels.map(d => {
-        const v = Math.round(bmrReg.slope * _toX(d) + bmrReg.intercept);
-        return (v >= 800 && v <= 5000) ? v : null;
-    }) : null;
+    const regressionLine = labels.map(d => Math.round(reg.slope * _toX(d) + reg.intercept));
 
     // Build datasets
     const datasets = [
         {
-            label: 'TDEE estimate per window',
+            label: 'Maintenance estimate per window',
             data: dispEst.map(e => e.tdee),
             borderColor: colors.primary + 'cc',
             backgroundColor: colors.primary + '44',
@@ -1063,7 +1048,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
             tension: 0
         },
         {
-            label: `TDEE (60d regression, ${regressionTDEE.toLocaleString()} kcal today)`,
+            label: `Estimated Maintenance (60d regression, ${regressionMaintenance.toLocaleString()} kcal rest-day)`,
             data: regressionLine,
             borderColor: colors.primary,
             backgroundColor: 'transparent',
@@ -1074,32 +1059,6 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         }
     ];
 
-    if (bmrRegressionLine && bmrRegressionLine.some(v => v !== null)) {
-        datasets.push({
-            label: `Inferred BMR (60d regression${regressionBMR ? ', ' + regressionBMR.toLocaleString() + ' kcal' : ''})`,
-            data: bmrRegressionLine,
-            borderColor: colors.danger + 'dd',
-            backgroundColor: 'transparent',
-            pointRadius: 0,
-            tension: 0,
-            borderWidth: 2,
-            borderDash: [5, 3],
-            spanGaps: false
-        });
-    }
-
-    if (formulaBMR !== null && labels.length > 0) {
-        datasets.push({
-            label: `Formula BMR (${formulaBMR.toLocaleString()} kcal)`,
-            data: Array(labels.length).fill(formulaBMR),
-            borderColor: colors.danger + 'bb',
-            backgroundColor: 'transparent',
-            pointRadius: 0,
-            borderDash: [3, 5],
-            borderWidth: 1.5,
-            tension: 0
-        });
-    }
     if (formulaTDEE !== null && labels.length > 0) {
         datasets.push({
             label: `Formula TDEE (${formulaTDEE.toLocaleString()} kcal)`,
@@ -1128,13 +1087,12 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
                             if (item.datasetIndex === 0) {
                                 const e = dispEst[item.dataIndex];
                                 const lines = [
-                                    `TDEE: ${item.raw.toLocaleString()} kcal/day`,
+                                    `Rest-day maintenance: ${item.raw.toLocaleString()} kcal/day`,
                                     `Window: ${e.daysGap}d  (${e.pctLogged}% days logged)`,
                                     `Avg intake: ${e.avgIntake.toLocaleString()} kcal/day`,
                                     `Weight Δ: ${e.deltaW >= 0 ? '+' : ''}${e.deltaW.toFixed(2)} lbs`
                                 ];
-                                if (e.avgWorkoutCals > 0) lines.push(`Avg workout: ${e.avgWorkoutCals.toLocaleString()} kcal/day`);
-                                if (e.bmr !== null) lines.push(`Inferred BMR: ${e.bmr.toLocaleString()} kcal/day`);
+                                if (e.avgWorkoutCals > 0) lines.push(`Avg workout: ${e.avgWorkoutCals.toLocaleString()} kcal/day · Total: ${(item.raw + e.avgWorkoutCals).toLocaleString()} kcal/day`);
                                 return lines;
                             }
                             if (item.raw === null) return null;
@@ -1170,14 +1128,12 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         const slopeStr = slopePerWeek === 0 ? 'stable'
             : `${slopePerWeek > 0 ? '+' : ''}${slopePerWeek} kcal/wk trend`;
 
-        const formulaRef = formulaTDEE ?? formulaBMR;
-        const formulaRefLabel = formulaTDEE !== null ? 'Formula TDEE' : (formulaBMR !== null ? 'Formula BMR' : null);
-        const formulaCmp = formulaRef !== null
+        const formulaCmp = formulaTDEE !== null
             ? (() => {
-                const diff = formulaRef - regressionTDEE;
+                const diff = formulaTDEE - totalMaintenance;
                 const sign = diff >= 0 ? '+' : '−';
                 const col  = Math.abs(diff) < 100 ? colors.success : colors.warning;
-                return `<span style="color:${col};font-size:12px;">&ensp;·&ensp;${formulaRefLabel} ${sign}${Math.abs(diff).toLocaleString()} kcal vs data</span>`;
+                return `<span style="color:${col};font-size:12px;">&ensp;·&ensp;Formula TDEE ${sign}${Math.abs(diff).toLocaleString()} kcal vs data</span>`;
               })()
             : '';
 
@@ -1185,29 +1141,23 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
             ? 'weight stable'
             : `${avgRate >= 0 ? '+' : ''}${avgRate.toFixed(2)} lbs/wk`;
 
-        const bmrRow = regressionBMR !== null ? `
+        const workoutRow = avgWorkout > 0 ? `
                 <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;margin-top:4px;">
-                    <span style="color:var(--text-secondary);font-size:13px;">Inferred BMR:</span>
-                    <strong style="font-size:16px;">${regressionBMR.toLocaleString()} kcal/day</strong>
-                    <span style="color:var(--text-secondary);font-size:12px;">(TDEE − logged workout cals)</span>
-                    ${formulaBMR !== null ? (() => {
-                        const diff = formulaBMR - regressionBMR;
-                        const sign = diff >= 0 ? '+' : '−';
-                        const col  = Math.abs(diff) < 100 ? colors.success : colors.warning;
-                        return `<span style="color:${col};font-size:12px;">· Formula BMR ${sign}${Math.abs(diff).toLocaleString()} kcal</span>`;
-                    })() : ''}
+                    <span style="color:var(--text-secondary);font-size:13px;">+ Avg workout (60d):</span>
+                    <strong style="font-size:15px;">${avgWorkout.toLocaleString()} kcal/day</strong>
+                    <span style="color:var(--text-secondary);font-size:12px;">= ${totalMaintenance.toLocaleString()} kcal total maintenance</span>
                 </div>` : '';
 
         statsEl.innerHTML = `
             <div style="background:var(--bg-tertiary);border-radius:var(--radius-md);padding:10px 14px;margin-top:8px;">
                 <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px;">
-                    <span style="color:var(--text-secondary);font-size:13px;">Inferred TDEE:</span>
-                    <strong style="font-size:16px;">${regressionTDEE.toLocaleString()} kcal/day</strong>
+                    <span style="color:var(--text-secondary);font-size:13px;">Est. Maintenance (rest-day):</span>
+                    <strong style="font-size:16px;">${regressionMaintenance.toLocaleString()} kcal/day</strong>
                     <span style="color:var(--text-secondary);font-size:13px;">± ${regStdDev.toLocaleString()}</span>
                     <span style="color:var(--text-secondary);font-size:12px;">(${slopeStr})</span>
                     ${formulaCmp}
                 </div>
-                ${bmrRow}
+                ${workoutRow}
                 <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;line-height:1.6;">
                     ${estimates.length} windows · ${avgGap}d avg window · ${avgLog}% days logged · ${rateStr} · ${span}
                 </div>

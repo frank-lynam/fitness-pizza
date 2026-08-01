@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.12';
+const APP_VERSION = '2.9.13';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -314,7 +314,7 @@ class FitnessTrackerApp {
         const completed = allMacros.filter(m => m.status === 'completed');
         const tdee = computeInferredTDEE(completed, allMeasurements, allWorkouts);
         if (tdee) {
-            await db.setSetting('inferred_tdee_cached', String(tdee));
+            await db.setSetting('inferred_maintenance_cached', String(tdee));
             localStorage.setItem('fp_tdee_date', today);
         }
     }
@@ -353,10 +353,11 @@ class FitnessTrackerApp {
         // Deficit mode: derive carbs from TDEE minus deficit, lock workout credit at 100%
         const deficitMode = (await db.getSetting('deficit_mode')) === 'true';
         if (deficitMode) {
-            const inferredTDEE = parseFloat(await db.getSetting('inferred_tdee_cached') || 0);
-            const deficitCal   = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
-            if (inferredTDEE > 0) {
-                const targetCal = inferredTDEE - deficitCal;
+            const restDayMaintenance = parseFloat(await db.getSetting('inferred_maintenance_cached') || 0);
+            const deficitCal         = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
+            if (restDayMaintenance > 0) {
+                // rest-day baseline + workout credit (added by applyWorkoutCredit below) = daily target
+                const targetCal = restDayMaintenance - deficitCal;
                 const derivedCarbs = (targetCal - baseProtein * 4 - baseFat * 9) / 4;
                 baseCarbs = Math.max(0, derivedCarbs);
             }
@@ -1772,7 +1773,7 @@ class FitnessTrackerApp {
 
         const savedDeficitMode = (await db.getSetting('deficit_mode')) === 'true';
         const savedDeficitCal  = parseFloat(await db.getSetting('deficit_cal_per_day') || '250');
-        let currentTDEE        = parseFloat(await db.getSetting('inferred_tdee_cached') || '0');
+        let currentTDEE        = parseFloat(await db.getSetting('inferred_maintenance_cached') || '0');
 
         const updateDeficitDisplays = () => {
             const lbs = parseFloat(deficitLbsInput?.value || 0.5);
@@ -1795,7 +1796,7 @@ class FitnessTrackerApp {
             if (deficitCreditLock) deficitCreditLock.style.display = on ? '' : 'none';
             if (wcFractionSlider) { wcFractionSlider.disabled = on; wcFractionSlider.style.opacity = on ? '0.4' : ''; }
             if (on && wcFractionSlider) { wcFractionSlider.value = 1; if (wcFractionValueEl) wcFractionValueEl.textContent = '100%'; }
-            if (deficitTDEEDisplay) deficitTDEEDisplay.textContent = currentTDEE > 0 ? `TDEE ~${currentTDEE}` : 'TDEE: —';
+            if (deficitTDEEDisplay) deficitTDEEDisplay.textContent = currentTDEE > 0 ? `Maint. ~${currentTDEE}` : 'Maintenance: —';
             updateDeficitDisplays();
         };
 
@@ -1808,8 +1809,8 @@ class FitnessTrackerApp {
             const tdee = computeInferredTDEE(completed, allMeasurements, allWorkouts);
             if (tdee && tdee !== currentTDEE) {
                 currentTDEE = tdee;
-                await db.setSetting('inferred_tdee_cached', String(tdee));
-                if (deficitTDEEDisplay) deficitTDEEDisplay.textContent = `TDEE ~${tdee}`;
+                await db.setSetting('inferred_maintenance_cached', String(tdee));
+                if (deficitTDEEDisplay) deficitTDEEDisplay.textContent = `Maint. ~${tdee}`;
                 updateDeficitDisplays();
             }
         };

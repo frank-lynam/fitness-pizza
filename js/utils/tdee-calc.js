@@ -5,10 +5,10 @@ function _localDate(d) {
     return `${y}-${m}-${dd}`;
 }
 
-const MIN_DAYS  = 14;
-const MAX_DAYS  = 90;
-const EPOCH_MS  = new Date('2020-01-01T12:00:00').getTime();
-const MS_PER_DAY = 86400000;
+const MIN_DAYS   = 14;
+const MAX_DAYS   = 90;
+const EPOCH_MS   = new Date('2020-01-01T12:00:00').getTime();
+export const MS_PER_DAY = 86400000;
 
 export function _toX(dateStr) {
     return (new Date(dateStr + 'T12:00:00').getTime() - EPOCH_MS) / MS_PER_DAY;
@@ -25,6 +25,10 @@ export function _linreg(points) {
     return { slope, intercept: my - slope * mx };
 }
 
+// Build per-window energy-balance estimates.
+// Each estimate's `tdee` field is the REST-DAY MAINTENANCE baseline:
+// logged workout calories are subtracted from the intake side so they are
+// not double-counted when the caller adds today's actual workout back in.
 export function buildTDEEEstimates(allCompletedMacros, allMeasurements, allWorkouts) {
     const caloriesByDate = {};
     (allCompletedMacros||[]).forEach(m => {
@@ -71,29 +75,30 @@ export function buildTDEEEstimates(allCompletedMacros, allMeasurements, allWorko
         }
 
         if (daysWithData < Math.max(1, Math.ceil(daysGap * 0.4))) continue;
+
         const scaledIntake = totalIntake * daysGap / daysWithData;
         const deltaW = endW.lbs - startW.lbs;
-        const tdee = (scaledIntake - deltaW * KCAL_PER_LB_FAT) / daysGap;
-        if (tdee < 800 || tdee > 6000) continue;
+        // Subtract logged workout cals from intake to get rest-day maintenance.
+        // Workout cals affect weight via deltaW — subtracting here separates
+        // "what the body needs at rest" from "what exercise adds on top."
+        const baseline = (scaledIntake - totalWorkoutCals - deltaW * KCAL_PER_LB_FAT) / daysGap;
+        if (baseline < 800 || baseline > 6000) continue;
 
-        const avgWorkoutPerDay = totalWorkoutCals / daysGap;
-        const bmrEst = tdee - avgWorkoutPerDay;
         estimates.push({
             date: endW.date,
-            tdee: Math.round(tdee),
-            bmr: (bmrEst >= 800 && bmrEst <= 5000) ? Math.round(bmrEst) : null,
+            tdee: Math.round(baseline),          // rest-day maintenance baseline
+            avgWorkoutCals: Math.round(totalWorkoutCals / daysGap),
             daysGap,
             daysWithData,
             pctLogged: Math.round(daysWithData / daysGap * 100),
             deltaW: Math.round(deltaW * 100) / 100,
             avgIntake: Math.round(scaledIntake / daysGap),
-            avgWorkoutCals: Math.round(avgWorkoutPerDay)
         });
     }
     return estimates;
 }
 
-// Fit 60-day linear regression to window estimates, evaluate at today.
+// 60-day linear regression on window end-dates → rest-day maintenance at today.
 // Falls back to all estimates if fewer than 2 fall in the 60-day window.
 export function computeInferredTDEE(allCompletedMacros, allMeasurements, allWorkouts) {
     const estimates = buildTDEEEstimates(allCompletedMacros, allMeasurements, allWorkouts);

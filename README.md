@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.12
+**Current**: v2.9.13
+- **Rest-day maintenance baseline** — subtract logged workout calories from energy-balance windows so the cached value is rest-day maintenance (not total TDEE); workout credit in deficit mode then adds today's actual burn back, so rest days and heavy workout days get the right targets independently; remove "Inferred BMR" (it was TDEE minus logged workouts, not actual BMR); rename "Estimated TDEE" → "Estimated Maintenance" throughout; stats now show rest-day baseline + avg workout + total maintenance
+
+**v2.9.12**
 - **TDEE regression** — replace cumulative average with 60-day linear regression over window midpoints, evaluated at today; fixes divergence between early-year low estimates and recent higher activity; deficit mode and BMR estimate both update accordingly; chart now shows the regression line + slope kcal/wk; stdev shown as residuals around regression not around all-time mean
 
 **v2.9.11**

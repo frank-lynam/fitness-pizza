@@ -234,7 +234,7 @@
                             </label>
                         </div>
                         <div id="deficit-mode-section" style="display:none; margin-top: 6px; padding: 8px 10px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap;">
+                            <div id="deficit-simple-row" style="display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap;">
                                 <input type="number" id="deficit-lbs-input" step="0.1" min="-2" max="3" value="0.5" style="width: 64px; font-size: 13px;">
                                 <span style="color: var(--text-secondary);">lbs/wk loss</span>
                                 <span id="deficit-tdee-display" style="color: var(--text-secondary); margin-left: 4px;"></span>
@@ -242,6 +242,37 @@
                             <div style="font-size: 13px; margin-top: 4px; color: var(--text-secondary);">
                                 → <span id="deficit-target-display" style="font-weight: 600; color: var(--text-primary);">—</span> cal target
                                 &ensp;carbs: <span id="deficit-carbs-display" style="font-weight: 600; color: var(--text-primary);">—</span>
+                            </div>
+                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
+                                <label class="checkbox-label" style="font-size: 13px;">
+                                    <input type="checkbox" id="cycle-mode">
+                                    <span>Auto bulk/cut cycle</span>
+                                </label>
+                                <div id="cycle-section" style="display:none; margin-top: 8px;">
+                                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                                        <span id="cycle-phase-label" style="font-size:13px; font-weight:600;"></span>
+                                        <button id="cycle-phase-switch" style="font-size:11px; padding:2px 10px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-secondary); cursor:pointer;"></button>
+                                    </div>
+                                    <div id="cycle-progress" style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;"></div>
+                                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:12px;">
+                                        <div>
+                                            <div style="color:var(--text-secondary); margin-bottom:2px;">Cut floor (lbs)</div>
+                                            <input type="number" id="cycle-cut-floor" step="0.5" min="50" max="500" style="width:72px; font-size:13px;">
+                                        </div>
+                                        <div>
+                                            <div style="color:var(--text-secondary); margin-bottom:2px;">Bulk ceiling (lbs)</div>
+                                            <input type="number" id="cycle-bulk-ceiling" step="0.5" min="50" max="500" style="width:72px; font-size:13px;">
+                                        </div>
+                                        <div>
+                                            <div style="color:var(--text-secondary); margin-bottom:2px;">Cut rate (lb/wk)</div>
+                                            <input type="number" id="cycle-cut-rate" step="0.1" min="0.1" max="3" value="0.5" style="width:72px; font-size:13px;">
+                                        </div>
+                                        <div>
+                                            <div style="color:var(--text-secondary); margin-bottom:2px;">Bulk rate (lb/wk)</div>
+                                            <input type="number" id="cycle-bulk-rate" step="0.1" min="0.1" max="3" value="0.5" style="width:72px; font-size:13px;">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="form-group" style="margin-top: 12px;">
@@ -418,7 +449,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.9.13</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.9.14</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>

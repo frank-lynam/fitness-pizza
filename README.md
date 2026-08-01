@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.13
+**Current**: v2.9.14
+- **Auto bulk/cut cycle** — define a weight band (cut floor + bulk ceiling) and per-phase rates; app auto-switches between Bulk and Cut when the 7-day rolling average crosses a threshold for 3 consecutive days (hysteresis); manual phase override button in settings; dashboard badge shows current phase and lb/wk rate; workout credit stays at 100% in all phases
+
+**v2.9.13**
 - **Rest-day maintenance baseline** — subtract logged workout calories from energy-balance windows so the cached value is rest-day maintenance (not total TDEE); workout credit in deficit mode then adds today's actual burn back, so rest days and heavy workout days get the right targets independently; remove "Inferred BMR" (it was TDEE minus logged workouts, not actual BMR); rename "Estimated TDEE" → "Estimated Maintenance" throughout; stats now show rest-day baseline + avg workout + total maintenance
 
 **v2.9.12**

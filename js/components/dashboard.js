@@ -394,13 +394,26 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
             }
 
             let deficitBadge = '';
-            const deficitModeOn = (await db.getSetting('deficit_mode')) === 'true';
+            const cycleEnabled  = (await db.getSetting('cycle_enabled'))  === 'true';
+            const deficitModeOn = cycleEnabled || (await db.getSetting('deficit_mode')) === 'true';
             if (deficitModeOn) {
-                const deficitCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
-                if (deficitCal !== 0) {
-                    const lbsWk = (deficitCal / 500).toFixed(1);
-                    const sign = deficitCal > 0 ? '−' : '+';
-                    deficitBadge = `<span style="font-size:0.78em;color:var(--text-secondary);margin-left:5px;">${sign}${Math.abs(parseFloat(lbsWk))} lb/wk</span>`;
+                if (cycleEnabled) {
+                    const phase  = await db.getSetting('cycle_phase') || 'cut';
+                    const isBulk = phase === 'bulk';
+                    const rateCal = isBulk
+                        ? parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250)
+                        : parseFloat(await db.getSetting('cycle_cut_deficit_cal')  || 250);
+                    const lbsWk = (rateCal / 500).toFixed(1);
+                    const color = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
+                    const label = isBulk ? `Bulking +${lbsWk}/wk` : `Cutting −${lbsWk}/wk`;
+                    deficitBadge = `<span style="font-size:0.78em;color:${color};margin-left:5px;">${label}</span>`;
+                } else {
+                    const deficitCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
+                    if (deficitCal !== 0) {
+                        const lbsWk = (deficitCal / 500).toFixed(1);
+                        const sign = deficitCal > 0 ? '−' : '+';
+                        deficitBadge = `<span style="font-size:0.78em;color:var(--text-secondary);margin-left:5px;">${sign}${Math.abs(parseFloat(lbsWk))} lb/wk</span>`;
+                    }
                 }
             }
 

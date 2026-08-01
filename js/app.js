@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.13';
+const APP_VERSION = '2.9.14';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -305,7 +305,8 @@ class FitnessTrackerApp {
 
     async refreshTDEECache() {
         const deficitMode = (await db.getSetting('deficit_mode')) === 'true';
-        if (!deficitMode) return;
+        const cycleEnabled = (await db.getSetting('cycle_enabled')) === 'true';
+        if (!deficitMode && !cycleEnabled) return;
         const today = getTodayDate();
         if (localStorage.getItem('fp_tdee_date') === today) return;
         const [allMacros, allMeasurements, allWorkouts] = await Promise.all([
@@ -316,6 +317,48 @@ class FitnessTrackerApp {
         if (tdee) {
             await db.setSetting('inferred_maintenance_cached', String(tdee));
             localStorage.setItem('fp_tdee_date', today);
+        }
+        if (cycleEnabled) await this.evaluateCyclePhase();
+    }
+
+    async evaluateCyclePhase() {
+        const floor   = parseFloat(await db.getSetting('cycle_cut_floor')    || 0);
+        const ceiling = parseFloat(await db.getSetting('cycle_bulk_ceiling') || 0);
+        if (!floor || !ceiling || floor >= ceiling) return;
+
+        const currentPhase = await db.getSetting('cycle_phase') || 'cut';
+        const allMeasurements = await db.getAllMeasurements();
+        const weightByDate = {};
+        allMeasurements
+            .filter(m => m.type === 'weight')
+            .forEach(r => { weightByDate[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+
+        // Compute 7-day rolling average for each of the last 3 days (hysteresis)
+        const rollingAvgs = [];
+        const now = new Date();
+        for (let offset = 0; offset < 3; offset++) {
+            const d = new Date(now);
+            d.setDate(d.getDate() - offset);
+            let sum = 0, count = 0;
+            for (let back = 0; back < 7; back++) {
+                const dd = new Date(d);
+                dd.setDate(dd.getDate() - back);
+                const ds = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+                if (weightByDate[ds] !== undefined) { sum += weightByDate[ds]; count++; }
+            }
+            if (count > 0) rollingAvgs.push(sum / count);
+        }
+        if (rollingAvgs.length < 2) return;
+
+        let newPhase = currentPhase;
+        if (currentPhase === 'bulk' && rollingAvgs.every(a => a >= ceiling)) newPhase = 'cut';
+        else if (currentPhase === 'cut' && rollingAvgs.every(a => a <= floor)) newPhase = 'bulk';
+
+        if (newPhase !== currentPhase) {
+            await db.setSetting('cycle_phase', newPhase);
+            await db.setSetting('cycle_phase_start', getTodayDate());
+            ui.showToast(`Switched to ${newPhase === 'bulk' ? 'Bulk' : 'Cut'} phase`);
+            if (this.currentScreen === 'dashboard') await this.loadDashboard();
         }
     }
 
@@ -350,14 +393,26 @@ class FitnessTrackerApp {
         const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
         let baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
 
-        // Deficit mode: derive carbs from TDEE minus deficit, lock workout credit at 100%
-        const deficitMode = (await db.getSetting('deficit_mode')) === 'true';
+        // Deficit/surplus mode: derive carbs from maintenance ± offset, lock workout credit at 100%
+        const cycleEnabled = (await db.getSetting('cycle_enabled')) === 'true';
+        const deficitMode  = cycleEnabled || (await db.getSetting('deficit_mode')) === 'true';
         if (deficitMode) {
             const restDayMaintenance = parseFloat(await db.getSetting('inferred_maintenance_cached') || 0);
-            const deficitCal         = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
             if (restDayMaintenance > 0) {
+                let offsetCal;
+                if (cycleEnabled) {
+                    const phase = await db.getSetting('cycle_phase') || 'cut';
+                    if (phase === 'bulk') {
+                        const surplusLbs = parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250);
+                        offsetCal = -surplusLbs; // negative = add to maintenance
+                    } else {
+                        offsetCal = parseFloat(await db.getSetting('cycle_cut_deficit_cal') || 250);
+                    }
+                } else {
+                    offsetCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
+                }
                 // rest-day baseline + workout credit (added by applyWorkoutCredit below) = daily target
-                const targetCal = restDayMaintenance - deficitCal;
+                const targetCal = restDayMaintenance - offsetCal;
                 const derivedCarbs = (targetCal - baseProtein * 4 - baseFat * 9) / 4;
                 baseCarbs = Math.max(0, derivedCarbs);
             }
@@ -1776,17 +1831,26 @@ class FitnessTrackerApp {
         let currentTDEE        = parseFloat(await db.getSetting('inferred_maintenance_cached') || '0');
 
         const updateDeficitDisplays = () => {
-            const lbs = parseFloat(deficitLbsInput?.value || 0.5);
-            const calVal = Math.round(lbs * 500);
-            if (currentTDEE > 0) {
-                const target = currentTDEE - calVal;
-                const prot   = parseFloat(proteinInput?.value || 150);
-                const fat    = parseFloat(fatInput?.value || 70);
-                const carbs  = Math.max(0, (target - prot * 4 - fat * 9) / 4);
-                if (deficitTargetDisplay) deficitTargetDisplay.textContent = `${Math.round(target)}`;
-                if (deficitCarbsDisplay)  deficitCarbsDisplay.textContent  = `${Math.round(carbs)}g`;
-                if (carbsInput && carbsInput.disabled) carbsInput.value = Math.round(carbs);
+            if (currentTDEE <= 0) return;
+            let offsetCal;
+            const cycleOn = document.getElementById('cycle-mode')?.checked;
+            if (cycleOn) {
+                const phaseEl = document.getElementById('cycle-phase-label');
+                const isBulk = phaseEl?.textContent === 'Bulking';
+                const rateEl = isBulk ? document.getElementById('cycle-bulk-rate') : document.getElementById('cycle-cut-rate');
+                const lbs = parseFloat(rateEl?.value || 0.5);
+                offsetCal = isBulk ? -Math.round(lbs * 500) : Math.round(lbs * 500);
+            } else {
+                const lbs = parseFloat(deficitLbsInput?.value || 0.5);
+                offsetCal = Math.round(lbs * 500);
             }
+            const target = currentTDEE - offsetCal;
+            const prot   = parseFloat(proteinInput?.value || 150);
+            const fat    = parseFloat(fatInput?.value || 70);
+            const carbs  = Math.max(0, (target - prot * 4 - fat * 9) / 4);
+            if (deficitTargetDisplay) deficitTargetDisplay.textContent = `${Math.round(target)}`;
+            if (deficitCarbsDisplay)  deficitCarbsDisplay.textContent  = `${Math.round(carbs)}g`;
+            if (carbsInput && carbsInput.disabled) carbsInput.value = Math.round(carbs);
         };
 
         const applyDeficitMode = (on) => {
@@ -1841,6 +1905,138 @@ class FitnessTrackerApp {
         // Recompute derived carbs when protein/fat change in deficit mode
         if (proteinInput) proteinInput.addEventListener('input', () => { if (deficitToggle?.checked) updateDeficitDisplays(); });
         if (fatInput)     fatInput.addEventListener('input',     () => { if (deficitToggle?.checked) updateDeficitDisplays(); });
+
+        // Bulk/cut cycle mode
+        const cycleToggle        = document.getElementById('cycle-mode');
+        const cycleSection       = document.getElementById('cycle-section');
+        const cyclePhaseLabel    = document.getElementById('cycle-phase-label');
+        const cyclePhaseSwitch   = document.getElementById('cycle-phase-switch');
+        const cycleProgress      = document.getElementById('cycle-progress');
+        const cycleCutFloor      = document.getElementById('cycle-cut-floor');
+        const cycleBulkCeiling   = document.getElementById('cycle-bulk-ceiling');
+        const cycleCutRate       = document.getElementById('cycle-cut-rate');
+        const cycleBulkRate      = document.getElementById('cycle-bulk-rate');
+        const deficitSimpleRow   = document.getElementById('deficit-simple-row');
+
+        const savedCycleEnabled     = (await db.getSetting('cycle_enabled')) === 'true';
+        const savedCyclePhase       = await db.getSetting('cycle_phase') || 'cut';
+        const savedCycleCutFloor    = await db.getSetting('cycle_cut_floor')    || '';
+        const savedCycleBulkCeiling = await db.getSetting('cycle_bulk_ceiling') || '';
+        const savedCycleCutDefCal   = parseFloat(await db.getSetting('cycle_cut_deficit_cal') || 250);
+        const savedCycleBulkSurCal  = parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250);
+
+        if (cycleCutFloor)    cycleCutFloor.value    = savedCycleCutFloor;
+        if (cycleBulkCeiling) cycleBulkCeiling.value = savedCycleBulkCeiling;
+        if (cycleCutRate)     cycleCutRate.value      = (savedCycleCutDefCal / 500).toFixed(1);
+        if (cycleBulkRate)    cycleBulkRate.value     = (savedCycleBulkSurCal / 500).toFixed(1);
+
+        const updateCyclePhaseUI = async (phase) => {
+            const isBulk = phase === 'bulk';
+            if (cyclePhaseLabel) {
+                cyclePhaseLabel.textContent = isBulk ? 'Bulking' : 'Cutting';
+                cyclePhaseLabel.style.color = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
+            }
+            if (cyclePhaseSwitch) cyclePhaseSwitch.textContent = isBulk ? 'Switch to Cut' : 'Switch to Bulk';
+
+            // Progress toward next threshold
+            if (cycleProgress) {
+                const floor   = parseFloat(cycleCutFloor?.value   || 0);
+                const ceiling = parseFloat(cycleBulkCeiling?.value || 0);
+                if (floor && ceiling) {
+                    const allMeas = await db.getAllMeasurements();
+                    const wbd = {};
+                    allMeas.filter(m => m.type === 'weight')
+                        .forEach(r => { wbd[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+                    const now2 = new Date();
+                    let sum = 0, count = 0;
+                    for (let back = 0; back < 7; back++) {
+                        const dd = new Date(now2);
+                        dd.setDate(dd.getDate() - back);
+                        const ds = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+                        if (wbd[ds] !== undefined) { sum += wbd[ds]; count++; }
+                    }
+                    if (count > 0) {
+                        const avg = sum / count;
+                        if (isBulk) {
+                            const toGo = ceiling - avg;
+                            cycleProgress.textContent = toGo > 0
+                                ? `7-day avg ${avg.toFixed(1)} lbs — ${toGo.toFixed(1)} lbs to ceiling`
+                                : `7-day avg ${avg.toFixed(1)} lbs — at or above ceiling`;
+                        } else {
+                            const toGo = avg - floor;
+                            cycleProgress.textContent = toGo > 0
+                                ? `7-day avg ${avg.toFixed(1)} lbs — ${toGo.toFixed(1)} lbs to floor`
+                                : `7-day avg ${avg.toFixed(1)} lbs — at or below floor`;
+                        }
+                    } else {
+                        cycleProgress.textContent = 'No weight data';
+                    }
+                } else {
+                    cycleProgress.textContent = 'Set floor and ceiling to track progress';
+                }
+            }
+            updateDeficitDisplays();
+        };
+
+        const applyCycleMode = (on) => {
+            if (cycleSection) cycleSection.style.display = on ? '' : 'none';
+            if (deficitSimpleRow) deficitSimpleRow.style.opacity = on ? '0.4' : '';
+            if (deficitLbsInput) deficitLbsInput.disabled = on;
+        };
+
+        if (cycleToggle) {
+            cycleToggle.checked = savedCycleEnabled;
+            applyCycleMode(savedCycleEnabled);
+            if (savedCycleEnabled) updateCyclePhaseUI(savedCyclePhase);
+            cycleToggle.addEventListener('change', async () => {
+                const on = cycleToggle.checked;
+                await db.setSetting('cycle_enabled', String(on));
+                applyCycleMode(on);
+                if (on) {
+                    const phase = await db.getSetting('cycle_phase') || 'cut';
+                    await updateCyclePhaseUI(phase);
+                } else {
+                    updateDeficitDisplays();
+                }
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+            });
+        }
+
+        if (cyclePhaseSwitch) {
+            cyclePhaseSwitch.addEventListener('click', async () => {
+                const current = await db.getSetting('cycle_phase') || 'cut';
+                const next = current === 'bulk' ? 'cut' : 'bulk';
+                await db.setSetting('cycle_phase', next);
+                await db.setSetting('cycle_phase_start', getTodayDate());
+                await updateCyclePhaseUI(next);
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+                ui.showToast(`Switched to ${next === 'bulk' ? 'Bulk' : 'Cut'} phase`);
+            });
+        }
+
+        const saveCycleThresholds = async () => {
+            if (cycleCutFloor)    await db.setSetting('cycle_cut_floor',    cycleCutFloor.value);
+            if (cycleBulkCeiling) await db.setSetting('cycle_bulk_ceiling', cycleBulkCeiling.value);
+            const phase = await db.getSetting('cycle_phase') || 'cut';
+            await updateCyclePhaseUI(phase);
+        };
+        if (cycleCutFloor)    cycleCutFloor.addEventListener('change',    saveCycleThresholds);
+        if (cycleBulkCeiling) cycleBulkCeiling.addEventListener('change', saveCycleThresholds);
+
+        const saveCycleRates = async () => {
+            if (cycleCutRate) {
+                const cal = Math.round(parseFloat(cycleCutRate.value || 0.5) * 500);
+                await db.setSetting('cycle_cut_deficit_cal', String(cal));
+            }
+            if (cycleBulkRate) {
+                const cal = Math.round(parseFloat(cycleBulkRate.value || 0.5) * 500);
+                await db.setSetting('cycle_bulk_surplus_cal', String(cal));
+            }
+            updateDeficitDisplays();
+            if (this.currentScreen === 'dashboard') await this.loadDashboard();
+        };
+        if (cycleCutRate)  cycleCutRate.addEventListener('change',  saveCycleRates);
+        if (cycleBulkRate) cycleBulkRate.addEventListener('change', saveCycleRates);
 
         // Tracking mode selector (macros vs calories-only)
         const trackingModeSelect = document.getElementById('tracking-mode');

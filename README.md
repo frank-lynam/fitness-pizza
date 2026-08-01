@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.9
+**Current**: v2.9.10
+- **Macro Over/Under fix + chart cleanup** — removed "Macros vs Next-Day Weight Change" chart; fixed Macro Over/Under to use deficit-mode-derived carbs baseline (TDEE − deficit − protein − fat) instead of stale `goal_carbs` setting, and locks workout credit at 100% in deficit mode to match daily goal calculation
+
+**v2.9.9**
 - **Water weight & waist charts** — body composition chart now overlays raw daily weight as faint scatter dots behind the 7-day rolling average trend line, making water-weight noise visible; new Waist Trend chart with linear regression, rate/week, waist-to-height ratio (✓ when < 0.5), and 7-day avg weight on a second axis so you can spot weight bounces while waist stays flat
 
 **v2.9.8**

@@ -118,14 +118,11 @@ async function renderCharts(days) {
         // Filter to only include data from cutoff date to today (not from cutoff forward indefinitely)
         const filteredMacros = macros.filter(m => m.timestamp >= cutoff && m.timestamp <= now && m.status === 'completed');
         const filteredWorkouts = workouts.filter(w => w.timestamp >= cutoff && w.timestamp <= now);
-        const filteredMeasurements = measurements.filter(m => m.timestamp >= cutoff && m.timestamp <= now);
-
         // Render individual charts
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderWaistTrend(measurements, days);
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderMacroDelta(filteredMacros, filteredWorkouts, days);
-        await renderMacroCorrelation(filteredMacros, filteredMeasurements);
         // All-time data for TDEE inference (more history = better estimates)
         await renderInferredTDEE(macros.filter(m => m.status === 'completed'), measurements, workouts, days);
 
@@ -828,10 +825,22 @@ async function renderMacroDelta(macros, workouts, days) {
 
     const baseGoalFat     = parseFloat(await db.getSetting('goal_fat')     || 70);
     const baseGoalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-    const baseGoalCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
+    let   baseGoalCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
+
+    // Deficit mode: derive carbs the same way calculateEffectiveGoals() does
+    const deficitMode = (await db.getSetting('deficit_mode')) === 'true';
+    if (deficitMode) {
+        const inferredTDEE = parseFloat(await db.getSetting('inferred_tdee_cached') || 0);
+        const deficitCal   = parseFloat(await db.getSetting('deficit_cal_per_day')  || 0);
+        if (inferredTDEE > 0) {
+            const derivedCarbs = (inferredTDEE - deficitCal - baseGoalProtein * 4 - baseGoalFat * 9) / 4;
+            baseGoalCarbs = Math.max(0, derivedCarbs);
+        }
+    }
 
     // Read workout credit settings (must match calculateEffectiveGoals)
-    const workoutCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
+    // Deficit mode locks credit at 100% so net deficit stays constant on workout days
+    const workoutCreditFraction = deficitMode ? 1.0 : parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
     const workoutCreditMacros = {
         fat:     parseFloat(await db.getSetting('workout_credit_fat_weight')     || '34'),
         protein: parseFloat(await db.getSetting('workout_credit_protein_weight') || '33'),
@@ -945,84 +954,6 @@ async function renderMacroDelta(macros, workouts, days) {
                     },
                     grid: { color: colors.border + '40' }
                 }
-            }
-        }
-    });
-}
-
-/**
- * Render protein vs next-day weight change scatter chart.
- * For each day with a completed protein total, look up weight on that day
- * AND the next day. If both exist, emit point { x: dailyProtein, y: weightDelta }.
- * @param {Array} macros - Filtered completed macro entries
- * @param {Array} measurements - Filtered measurement entries
- */
-async function renderMacroCorrelation(macros, measurements) {
-    const ctx = document.getElementById('macro-correlation-chart');
-    if (!ctx) return;
-    if (charts.macroCorrelation) charts.macroCorrelation.destroy();
-
-    // Aggregate daily totals for each macro
-    const byDate = {};
-    macros.forEach(m => {
-        if (!byDate[m.date]) byDate[m.date] = { protein: 0, carbs: 0, fat: 0, calories: 0 };
-        byDate[m.date].protein  += m.protein  || 0;
-        byDate[m.date].carbs    += m.carbs    || 0;
-        byDate[m.date].fat      += m.fat      || 0;
-        byDate[m.date].calories += m.calories || ((m.protein || 0) * 4 + (m.carbs || 0) * 4 + (m.fat || 0) * 9);
-    });
-
-    const weightByDate = {};
-    measurements.filter(m => m.type === 'weight').forEach(m => {
-        weightByDate[m.date] = m.unit === 'kg' ? m.value * 2.20462 : m.value;
-    });
-
-    const ptProtein = [], ptCarbs = [], ptFat = [], ptCalories = [];
-    for (const date of Object.keys(byDate)) {
-        const nextDay = localDateStr(new Date(new Date(date + 'T12:00:00').getTime() + 86400000));
-        if (weightByDate[date] !== undefined && weightByDate[nextDay] !== undefined) {
-            const dy = Math.round((weightByDate[nextDay] - weightByDate[date]) * 100) / 100;
-            ptProtein.push( { x: Math.round(byDate[date].protein  * 10) / 10, y: dy });
-            ptCarbs.push(   { x: Math.round(byDate[date].carbs    * 10) / 10, y: dy });
-            ptFat.push(     { x: Math.round(byDate[date].fat      * 10) / 10, y: dy });
-            ptCalories.push({ x: Math.round(byDate[date].calories      )    , y: dy });
-        }
-    }
-
-    const colors = getThemeColors();
-    if (ptProtein.length < 3) {
-        charts.macroCorrelation = new Chart(ctx, {
-            type: 'scatter', data: { datasets: [] },
-            options: {
-                responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
-                plugins: {
-                    legend: { labels: { color: colors.text } },
-                    title: { display: true, text: 'Need more data (log weight on consecutive days)', color: colors.textSecondary }
-                }
-            }
-        });
-        return;
-    }
-
-    charts.macroCorrelation = new Chart(ctx, {
-        type: 'scatter',
-        data: {
-            datasets: [
-                { label: 'Protein (g)', data: ptProtein,  xAxisID: 'x',  backgroundColor: colors.primary + 'aa',   pointRadius: 4 },
-                { label: 'Carbs (g)',   data: ptCarbs,    xAxisID: 'x',  backgroundColor: colors.success + 'aa',   pointRadius: 4 },
-                { label: 'Fat (g)',     data: ptFat,      xAxisID: 'x',  backgroundColor: colors.warning + 'aa',   pointRadius: 4 },
-                { label: 'Calories',   data: ptCalories, xAxisID: 'x2', backgroundColor: colors.secondary + 'aa', pointRadius: 4 }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: true, aspectRatio: 1.5,
-            plugins: { legend: { labels: { color: colors.text } } },
-            scales: {
-                x:  { position: 'bottom', title: { display: true, text: 'Macros (g)', color: colors.textSecondary }, ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
-                x2: { position: 'top',    title: { display: true, text: 'Calories (kcal)', color: colors.secondary }, ticks: { color: colors.secondary }, grid: { drawOnChartArea: false } },
-                y:  { title: { display: true, text: 'Next-Day Weight Δ (lbs)', color: colors.textSecondary },
-                      ticks: { color: colors.textSecondary, callback: v => (v >= 0 ? '+' : '') + v.toFixed(2) + ' lbs' },
-                      grid: { color: colors.border + '40' } }
             }
         }
     });

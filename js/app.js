@@ -9,6 +9,7 @@ import { getTodayDate } from './utils/date-utils.js';
 import { calculateMacroCalories, applyWorkoutCredit } from './utils/calorie-calc.js';
 import { computeGoalAdjustments } from './utils/pi-controller.js';
 import { GOAL_HISTORY_DAYS } from './constants.js';
+import { computeInferredTDEE } from './utils/tdee-calc.js';
 import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
@@ -20,7 +21,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.9.4';
+const APP_VERSION = '2.9.5';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1726,41 +1727,29 @@ class FitnessTrackerApp {
         const deficitToggle        = document.getElementById('deficit-mode');
         const deficitSection       = document.getElementById('deficit-mode-section');
         const deficitTDEEDisplay   = document.getElementById('deficit-tdee-display');
-        const deficitSlider        = document.getElementById('deficit-slider');
-        const deficitSliderValue   = document.getElementById('deficit-slider-value');
-        const deficitUnitCal       = document.getElementById('deficit-unit-cal');
-        const deficitUnitLbs       = document.getElementById('deficit-unit-lbs');
+        const deficitLbsInput      = document.getElementById('deficit-lbs-input');
         const deficitTargetDisplay = document.getElementById('deficit-target-display');
         const deficitCarbsDisplay  = document.getElementById('deficit-carbs-display');
         const deficitCreditLock    = document.getElementById('deficit-credit-lock');
         const wcFractionSlider     = document.getElementById('workout-credit-fraction');
         const wcFractionValueEl    = document.getElementById('workout-credit-fraction-value');
         const carbsRow             = document.getElementById('goal-carbs-row');
-        const tdeeHelper           = document.getElementById('tdee-compute-helper');
 
-        let deficitUnit = 'cal';
         const savedDeficitMode = (await db.getSetting('deficit_mode')) === 'true';
-        const savedDeficitCal  = parseFloat(await db.getSetting('deficit_cal_per_day') || '500');
-        const savedTDEE        = parseFloat(await db.getSetting('inferred_tdee_cached') || '0');
+        const savedDeficitCal  = parseFloat(await db.getSetting('deficit_cal_per_day') || '250');
+        let currentTDEE        = parseFloat(await db.getSetting('inferred_tdee_cached') || '0');
 
         const updateDeficitDisplays = () => {
-            const cal = parseFloat(deficitSlider?.value || 500);
-            const calVal = deficitUnit === 'lbs' ? Math.round(cal * 500) : cal;
-            if (deficitSlider && deficitUnit === 'lbs') {
-                const lbsVal = (calVal / 500).toFixed(1);
-                const sign = calVal > 0 ? '−' : '+';
-                if (deficitSliderValue) deficitSliderValue.textContent = `${sign}${Math.abs(parseFloat(lbsVal))} lbs/wk`;
-            } else {
-                const sign = calVal > 0 ? '−' : '+';
-                if (deficitSliderValue) deficitSliderValue.textContent = `${sign}${Math.abs(calVal)} cal`;
-            }
-            if (savedTDEE > 0) {
-                const target = savedTDEE - (deficitUnit === 'lbs' ? Math.round(parseFloat(deficitSlider?.value || 1) * 500) : parseFloat(deficitSlider?.value || 500));
-                const prot = parseFloat(proteinInput?.value || 150);
-                const fat  = parseFloat(fatInput?.value || 70);
-                const carbs = Math.max(0, (target - prot * 4 - fat * 9) / 4);
-                if (deficitTargetDisplay) deficitTargetDisplay.textContent = `${Math.round(target)} cal`;
+            const lbs = parseFloat(deficitLbsInput?.value || 0.5);
+            const calVal = Math.round(lbs * 500);
+            if (currentTDEE > 0) {
+                const target = currentTDEE - calVal;
+                const prot   = parseFloat(proteinInput?.value || 150);
+                const fat    = parseFloat(fatInput?.value || 70);
+                const carbs  = Math.max(0, (target - prot * 4 - fat * 9) / 4);
+                if (deficitTargetDisplay) deficitTargetDisplay.textContent = `${Math.round(target)}`;
                 if (deficitCarbsDisplay)  deficitCarbsDisplay.textContent  = `${Math.round(carbs)}g`;
+                if (carbsInput && carbsInput.disabled) carbsInput.value = Math.round(carbs);
             }
         };
 
@@ -1768,60 +1757,50 @@ class FitnessTrackerApp {
             if (deficitSection) deficitSection.style.display = on ? '' : 'none';
             if (carbsRow) { carbsRow.style.opacity = on ? '0.4' : ''; }
             if (carbsInput) carbsInput.disabled = on;
-            if (tdeeHelper) tdeeHelper.style.display = 'none'; // always hidden when deficit section present
             if (deficitCreditLock) deficitCreditLock.style.display = on ? '' : 'none';
             if (wcFractionSlider) { wcFractionSlider.disabled = on; wcFractionSlider.style.opacity = on ? '0.4' : ''; }
             if (on && wcFractionSlider) { wcFractionSlider.value = 1; if (wcFractionValueEl) wcFractionValueEl.textContent = '100%'; }
-            if (deficitTDEEDisplay) deficitTDEEDisplay.textContent = savedTDEE > 0 ? `~${savedTDEE} kcal` : 'Open Trends tab to compute';
+            if (deficitTDEEDisplay) deficitTDEEDisplay.textContent = currentTDEE > 0 ? `TDEE ~${currentTDEE}` : 'TDEE: —';
             updateDeficitDisplays();
+        };
+
+        // Refresh TDEE from data without requiring Trends tab
+        const refreshTDEE = async () => {
+            const [allMacros, allMeasurements, allWorkouts] = await Promise.all([
+                db.getAllMacros(), db.getAllMeasurements(), db.getAllWorkouts()
+            ]);
+            const completed = allMacros.filter(m => m.status === 'completed');
+            const tdee = computeInferredTDEE(completed, allMeasurements, allWorkouts);
+            if (tdee && tdee !== currentTDEE) {
+                currentTDEE = tdee;
+                await db.setSetting('inferred_tdee_cached', String(tdee));
+                if (deficitTDEEDisplay) deficitTDEEDisplay.textContent = `TDEE ~${tdee}`;
+                updateDeficitDisplays();
+            }
         };
 
         if (deficitToggle) {
             deficitToggle.checked = savedDeficitMode;
+            if (deficitLbsInput) deficitLbsInput.value = (savedDeficitCal / 500).toFixed(1);
             applyDeficitMode(savedDeficitMode);
+            if (savedDeficitMode) refreshTDEE();
             deficitToggle.addEventListener('change', async () => {
                 const on = deficitToggle.checked;
                 await db.setSetting('deficit_mode', String(on));
                 applyDeficitMode(on);
+                if (on) refreshTDEE();
                 if (this.currentScreen === 'dashboard') await this.loadDashboard();
             });
         }
 
-        if (deficitSlider) {
-            if (deficitUnit === 'lbs') {
-                deficitSlider.min = -2; deficitSlider.max = 3; deficitSlider.step = 0.1;
-                deficitSlider.value = (savedDeficitCal / 500).toFixed(1);
-            } else {
-                deficitSlider.value = savedDeficitCal;
-            }
-            updateDeficitDisplays();
-            deficitSlider.addEventListener('input', updateDeficitDisplays);
-            deficitSlider.addEventListener('change', async () => {
-                const calVal = deficitUnit === 'lbs' ? Math.round(parseFloat(deficitSlider.value) * 500) : parseFloat(deficitSlider.value);
+        if (deficitLbsInput) {
+            deficitLbsInput.addEventListener('input', updateDeficitDisplays);
+            deficitLbsInput.addEventListener('change', async () => {
+                const calVal = Math.round(parseFloat(deficitLbsInput.value) * 500);
                 await db.setSetting('deficit_cal_per_day', String(calVal));
                 if (this.currentScreen === 'dashboard') await this.loadDashboard();
             });
         }
-
-        if (deficitUnitCal) deficitUnitCal.addEventListener('click', () => {
-            if (deficitUnit === 'cal') return;
-            const curLbs = parseFloat(deficitSlider.value);
-            deficitUnit = 'cal';
-            deficitSlider.min = -1000; deficitSlider.max = 1500; deficitSlider.step = 50;
-            deficitSlider.value = Math.round(curLbs * 500);
-            deficitUnitCal.classList.add('active'); deficitUnitLbs.classList.remove('active');
-            updateDeficitDisplays();
-        });
-
-        if (deficitUnitLbs) deficitUnitLbs.addEventListener('click', () => {
-            if (deficitUnit === 'lbs') return;
-            const curCal = parseFloat(deficitSlider.value);
-            deficitUnit = 'lbs';
-            deficitSlider.min = -2; deficitSlider.max = 3; deficitSlider.step = 0.1;
-            deficitSlider.value = (curCal / 500).toFixed(1);
-            deficitUnitLbs.classList.add('active'); deficitUnitCal.classList.remove('active');
-            updateDeficitDisplays();
-        });
 
         // Recompute derived carbs when protein/fat change in deficit mode
         if (proteinInput) proteinInput.addEventListener('input', () => { if (deficitToggle?.checked) updateDeficitDisplays(); });
@@ -1981,10 +1960,6 @@ class FitnessTrackerApp {
         const tdeeSummary = document.getElementById('tdee-summary');
         const tdeeBmrValueEl = document.getElementById('tdee-bmr-value');
         const tdeeTdeeValueEl = document.getElementById('tdee-value');
-        const tdeeComputeHelper = document.getElementById('tdee-compute-helper');
-        const goalTargetKcalInput = document.getElementById('goal-target-kcal');
-        const btnComputeCarbs = document.getElementById('btn-compute-carbs');
-        const computeCarbsError = document.getElementById('compute-carbs-error');
 
         const savedSex = await db.getSetting('user_sex') || 'male';
         const savedAge = await db.getSetting('user_age') || '';
@@ -2000,11 +1975,10 @@ class FitnessTrackerApp {
             if (tdeeActivityLabelEl) tdeeActivityLabelEl.textContent = activityFactorLabel(savedActivityFactor);
         }
 
-        const updateTDEE = async (updateTarget = false) => {
+        const updateTDEE = async () => {
             const sex = userSexSelect ? userSexSelect.value : savedSex;
             const age = parseFloat(userAgeInput ? userAgeInput.value : savedAge);
             const heightIn = parseFloat(userHeightInput ? userHeightInput.value : savedHeight);
-            // 7-day rolling average weight from measurements (same source as the chart)
             const allMeasurements = await db.getAllMeasurements();
             const weightReadings = allMeasurements
                 .filter(m => m.type === 'weight')
@@ -2021,7 +1995,6 @@ class FitnessTrackerApp {
             const canCompute = age > 0 && heightIn > 0 && weightLbs > 0;
             if (!canCompute) {
                 if (tdeeSummary) tdeeSummary.style.display = 'none';
-                if (tdeeComputeHelper) tdeeComputeHelper.style.display = 'none';
                 return;
             }
 
@@ -2035,14 +2008,6 @@ class FitnessTrackerApp {
             if (tdeeSummary) tdeeSummary.style.display = 'block';
             if (tdeeBmrValueEl) tdeeBmrValueEl.textContent = `${Math.round(bmr)} kcal/day`;
             if (tdeeTdeeValueEl) tdeeTdeeValueEl.textContent = `${tdee} kcal/day`;
-
-            if (tdeeComputeHelper) {
-                tdeeComputeHelper.style.display = 'block';
-                // Set target to TDEE on first show, or whenever the slider moves
-                if (goalTargetKcalInput && (!goalTargetKcalInput.value || updateTarget)) {
-                    goalTargetKcalInput.value = tdee;
-                }
-            }
         };
 
         const saveBodyStats = async () => {
@@ -2062,30 +2027,7 @@ class FitnessTrackerApp {
                 if (tdeeActivityValueEl) tdeeActivityValueEl.textContent = factor.toFixed(2);
                 if (tdeeActivityLabelEl) tdeeActivityLabelEl.textContent = activityFactorLabel(factor);
                 await db.setSetting('tdee_activity_factor', factor);
-                await updateTDEE(true);
-            });
-        }
-
-        if (btnComputeCarbs && goalTargetKcalInput) {
-            btnComputeCarbs.addEventListener('click', () => {
-                const targetKcal = parseFloat(goalTargetKcalInput.value);
-                const protein = parseFloat(proteinInput ? proteinInput.value : 0) || 0;
-                const fat = parseFloat(fatInput ? fatInput.value : 0) || 0;
-                if (!targetKcal) return;
-                const carbs = Math.round((targetKcal - (protein * 4) - (fat * 9)) / 4);
-                if (computeCarbsError) computeCarbsError.style.display = 'none';
-                if (carbs < 0) {
-                    if (computeCarbsError) {
-                        computeCarbsError.textContent = 'Protein + fat exceed target — lower protein/fat or raise the target.';
-                        computeCarbsError.style.display = 'block';
-                    }
-                    return;
-                }
-                if (carbsInput) {
-                    carbsInput.value = carbs;
-                    carbsInput.dispatchEvent(new Event('input'));  // update calorie display
-                    carbsInput.dispatchEvent(new Event('change')); // trigger autoSaveGoals
-                }
+                await updateTDEE();
             });
         }
 

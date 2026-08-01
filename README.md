@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.4
+**Current**: v2.9.5
+- **Deficit mode UX overhaul** — removed "Fill carbs to" (obsoleted by deficit mode); compact two-line deficit UI with lbs/wk number input instead of slider; TDEE now computed on settings open (no Trends tab required); greyed carbs field shows correct derived value; fixed initialization bug that showed wrong calories on settings load
+
+**v2.9.4**
 - **Analysis export** — Settings → Data Management → "📊 Export for Analysis": downloads a clean JSON with `daily` (one row per day: calories consumed/burned/net, all macros, weight, waist, goals, deficit vs goal), `intake` (every completed food entry), `workouts`, and `measurements` — ready for pandas/R/Excel with no preprocessing
 
 **v2.9.3**

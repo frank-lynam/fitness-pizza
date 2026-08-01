@@ -233,40 +233,16 @@
                                 <span>Deficit target</span>
                             </label>
                         </div>
-                        <div id="deficit-mode-section" style="display:none; margin-top: 8px; padding: 10px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                            <div class="form-group-inline" style="margin-bottom: 6px;">
-                                <label style="font-size: 13px; color: var(--text-secondary);">Inferred TDEE</label>
-                                <span id="deficit-tdee-display" style="font-size: 13px; font-weight: 600;">—</span>
+                        <div id="deficit-mode-section" style="display:none; margin-top: 6px; padding: 8px 10px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
+                            <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap;">
+                                <input type="number" id="deficit-lbs-input" step="0.1" min="-2" max="3" value="0.5" style="width: 64px; font-size: 13px;">
+                                <span style="color: var(--text-secondary);">lbs/wk loss</span>
+                                <span id="deficit-tdee-display" style="color: var(--text-secondary); margin-left: 4px;"></span>
                             </div>
-                            <div style="margin-bottom: 8px;">
-                                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                    <label style="font-size: 13px; color: var(--text-secondary); min-width: 60px;">Deficit</label>
-                                    <input type="range" id="deficit-slider" min="-1000" max="1500" step="50" value="500" style="flex: 1;">
-                                    <span id="deficit-slider-value" style="min-width: 72px; text-align: right; font-size: 13px; font-weight: 600;">−500 cal</span>
-                                </div>
-                                <div style="display: flex; gap: 6px; padding-left: 68px;">
-                                    <button id="deficit-unit-cal" class="btn-range active" style="font-size: 11px; padding: 2px 8px;">cal/day</button>
-                                    <button id="deficit-unit-lbs" class="btn-range" style="font-size: 11px; padding: 2px 8px;">lbs/wk</button>
-                                </div>
+                            <div style="font-size: 13px; margin-top: 4px; color: var(--text-secondary);">
+                                → <span id="deficit-target-display" style="font-weight: 600; color: var(--text-primary);">—</span> cal target
+                                &ensp;carbs: <span id="deficit-carbs-display" style="font-weight: 600; color: var(--text-primary);">—</span>
                             </div>
-                            <div class="form-group-inline" style="margin-bottom: 4px;">
-                                <label style="font-size: 13px; color: var(--text-secondary);">Daily target</label>
-                                <span id="deficit-target-display" style="font-size: 13px; font-weight: 600;">—</span>
-                            </div>
-                            <div class="form-group-inline" style="margin-bottom: 0;">
-                                <label style="font-size: 13px; color: var(--text-secondary);">→ Carbs</label>
-                                <span id="deficit-carbs-display" style="font-size: 13px; color: var(--text-secondary);">—</span>
-                            </div>
-                            <p style="font-size: 11px; color: var(--text-secondary); margin: 6px 0 0;">Protein and fat stay fixed; carbs fill the remainder. Open Trends to refresh TDEE estimate.</p>
-                        </div>
-                        <div id="tdee-compute-helper" style="display: none; margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 8px;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <label style="font-size: 13px; color: var(--text-secondary); white-space: nowrap; flex: none;">Fill carbs to</label>
-                                <input type="number" id="goal-target-kcal" step="10" style="width: 80px; font-size: 13px;">
-                                <span style="font-size: 13px; color: var(--text-secondary);">kcal</span>
-                                <button id="btn-compute-carbs" class="btn-secondary" style="flex: 1; font-size: 13px; padding: 6px 8px;">Apply</button>
-                            </div>
-                            <p id="compute-carbs-error" class="help-text" style="margin: 4px 0 0; color: var(--accent-danger); display: none;"></p>
                         </div>
                         <div class="form-group" style="margin-top: 12px;">
                             <label class="checkbox-label">
@@ -442,7 +418,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.9.4</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.9.5</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>

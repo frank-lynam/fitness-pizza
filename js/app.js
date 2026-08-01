@@ -21,7 +21,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.9.6';
+const APP_VERSION = '2.9.7';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1387,66 +1387,69 @@ class FitnessTrackerApp {
         }
 
         section.style.display = '';
-        const goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
 
         const rows = costed.map(food => {
-            const proteinPerServing = food.format_type === 'per_batch'
-                ? food.protein / (food.batch_servings || 1)
-                : food.protein;
-            const fatPerServing = food.format_type === 'per_batch'
-                ? (food.fat || 0) / (food.batch_servings || 1)
-                : (food.fat || 0);
-            const totalProtein = proteinPerServing * food.cost_servings;
-            const proteinPerDollar = totalProtein / food.cost_dollars;
-            const costPer10g = 10 / proteinPerDollar;
-            const costPerDay = goalProtein / proteinPerDollar;
-            const fatPer10gProtein = proteinPerServing > 0 ? (fatPerServing / proteinPerServing) * 10 : Infinity;
+            const scale = food.format_type === 'per_batch' ? 1 / (food.batch_servings || 1) : 1;
+            const proteinPerServing = food.protein * scale;
+            const fatPerServing     = (food.fat   || 0) * scale;
+            const carbsPerServing   = (food.carbs || 0) * scale;
+            const totalProtein      = proteinPerServing * food.cost_servings;
+            const proteinPerDollar  = totalProtein / food.cost_dollars;
+            const costPer10g        = 10 / proteinPerDollar;
+            const fatPer10gProtein  = proteinPerServing > 0 ? (fatPerServing / proteinPerServing) * 10 : Infinity;
+            const calPerServing     = proteinPerServing * 4 + fatPerServing * 9 + carbsPerServing * 4;
+            const calPer10gProtein  = proteinPerServing > 0 ? (calPerServing / proteinPerServing) * 10 : Infinity;
             const updatedStr = food.cost_updated_at
                 ? new Date(food.cost_updated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                 : '';
-            return { food, proteinPerDollar, costPer10g, costPerDay, fatPer10gProtein, updatedStr };
+            return { food, proteinPerDollar, costPer10g, fatPer10gProtein, calPer10gProtein, updatedStr };
         });
 
+        const SORT_KEYS = ['price', 'cal', 'fat'];
         let sortKey = content.dataset.sortKey || 'price';
 
         const render = () => {
             const sorted = [...rows].sort((a, b) => {
                 if (sortKey === 'fat') {
-                    const fatDiff = a.fatPer10gProtein - b.fatPer10gProtein;
-                    return fatDiff !== 0 ? fatDiff : a.costPer10g - b.costPer10g;
+                    const d = a.fatPer10gProtein - b.fatPer10gProtein;
+                    return d !== 0 ? d : a.costPer10g - b.costPer10g;
+                }
+                if (sortKey === 'cal') {
+                    const d = a.calPer10gProtein - b.calPer10gProtein;
+                    return d !== 0 ? d : a.costPer10g - b.costPer10g;
                 }
                 return a.costPer10g - b.costPer10g;
             });
-            const nextKey = sortKey === 'fat' ? 'price' : 'fat';
+            const nextKey = SORT_KEYS[(SORT_KEYS.indexOf(sortKey) + 1) % SORT_KEYS.length];
 
             content.innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <span style="font-size:0.78em;color:var(--text-secondary);">Best value first</span>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                    <span style="font-size:1em;font-weight:600;flex:1;">Protein Value</span>
                     <button class="btn-range active" data-sort="${nextKey}"
-                        style="font-size:0.78em;padding:2px 8px;">${sortKey}</button>
+                        style="font-size:0.72em;padding:1px 7px;">↕ ${sortKey}</button>
                 </div>
                 <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
-                    <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
+                    <table style="width:100%;border-collapse:collapse;font-size:0.85em;">
                         <thead style="position:sticky;top:0;background:var(--bg-card);">
                             <tr style="color:var(--text-secondary);text-align:right;">
-                                <th style="text-align:left;padding:4px 6px;">Food</th>
-                                <th style="padding:4px 6px;">P / $</th>
-                                <th style="padding:4px 6px;">$ / 10g P</th>
-                                <th style="padding:4px 6px;">$ / day</th>
-                                <th style="padding:4px 6px;">Fat / 10g P</th>
+                                <th style="text-align:left;padding:3px 6px;">Food</th>
+                                <th style="padding:3px 6px;">P / $</th>
+                                <th style="padding:3px 6px;">$ / 10g P</th>
+                                <th style="padding:3px 6px;">Cal / 10g P</th>
+                                <th style="padding:3px 6px;">Fat / 10g P</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${sorted.map((r, i) => `
-                                <tr style="border-top:1px solid var(--border);${i === 0 ? 'color:var(--accent);' : ''}">
-                                    <td style="padding:5px 6px;">
+                                <tr style="border-top:1px solid var(--border);${i === 0 ? 'color:var(--accent-primary);' : ''}">
+                                    <td style="padding:3px 6px;">
                                         ${r.food.name}
-                                        ${r.updatedStr ? `<br><span style="font-size:0.8em;color:var(--text-secondary);">${r.updatedStr}</span>` : ''}
+                                        ${r.updatedStr ? `<span style="font-size:0.78em;color:var(--text-secondary);margin-left:4px;">${r.updatedStr}</span>` : ''}
                                     </td>
-                                    <td style="text-align:right;padding:5px 6px;">${r.proteinPerDollar.toFixed(1)}g</td>
-                                    <td style="text-align:right;padding:5px 6px;">$${r.costPer10g.toFixed(2)}</td>
-                                    <td style="text-align:right;padding:5px 6px;">$${r.costPerDay.toFixed(2)}</td>
-                                    <td style="text-align:right;padding:5px 6px;">${r.fatPer10gProtein === Infinity ? '—' : r.fatPer10gProtein.toFixed(1) + 'g'}</td>
+                                    <td style="text-align:right;padding:3px 6px;">${r.proteinPerDollar.toFixed(1)}g</td>
+                                    <td style="text-align:right;padding:3px 6px;">$${r.costPer10g.toFixed(2)}</td>
+                                    <td style="text-align:right;padding:3px 6px;">${r.calPer10gProtein === Infinity ? '—' : Math.round(r.calPer10gProtein)}</td>
+                                    <td style="text-align:right;padding:3px 6px;">${r.fatPer10gProtein === Infinity ? '—' : r.fatPer10gProtein.toFixed(1) + 'g'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>

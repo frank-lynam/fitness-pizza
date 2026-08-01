@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.6
+**Current**: v2.9.7
+- **Protein table polish** — title inline with smaller sort button; removed "best value first" label and $ / day column; added Cal / 10g P sortable column (cycles price → cal → fat); tighter row spacing; date shown inline not on second line
+
+**v2.9.6**
 - **TDEE auto-refresh** — recomputes inferred TDEE from data once per calendar day at startup, and again when the app comes back to foreground on a new day; deficit mode carbs baseline is always fresh without any manual action
 
 **v2.9.5**

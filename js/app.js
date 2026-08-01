@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 // Authoritative running version — baked in at build time so we never rely
 // on CU.current().bundle.version, which unreliably returns 'builtin' after
 // CU.set() reloads the webview.
-const APP_VERSION = '2.9.3';
+const APP_VERSION = '2.9.4';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1442,6 +1442,135 @@ class FitnessTrackerApp {
         render();
     }
 
+    async exportAnalysis() {
+        const [allMacros, allWorkouts, allMeasurements] = await Promise.all([
+            db.getAllMacros(), db.getAllWorkouts(), db.getAllMeasurements()
+        ]);
+        const weightUnit    = await db.getSetting('weight_unit') || 'lbs';
+        const goalHistory   = JSON.parse(await db.getSetting('pi_goal_history') || '{}');
+        const cheatDays     = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+        const baseGoalCal   = parseFloat(await db.getSetting('goal_calories') || 2000);
+        const baseGoalP     = parseFloat(await db.getSetting('goal_protein') || 150);
+        const baseGoalF     = parseFloat(await db.getSetting('goal_fat') || 70);
+        const baseGoalC     = parseFloat(await db.getSetting('goal_carbs') || 200);
+
+        const toTime = ts => { if (!ts) return null; const d = new Date(ts); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; };
+        const r1     = v => Math.round((v || 0) * 10) / 10;
+
+        const completedMacros   = allMacros.filter(m => m.status === 'completed' || !m.status);
+        const completedWorkouts = allWorkouts.filter(w => w.status === 'completed' || !w.status);
+
+        // Collect all dates with any data
+        const allDates = new Set([
+            ...completedMacros.map(m => m.date),
+            ...completedWorkouts.map(w => w.date),
+            ...allMeasurements.map(m => m.date)
+        ]);
+        const sortedDates = [...allDates].sort();
+
+        // Group intake and workouts by date
+        const intakeByDate   = {};
+        const workoutsByDate = {};
+        const measureByDate  = {}; // { date: { weight: val, waist: val, ... } }
+
+        for (const m of completedMacros) {
+            (intakeByDate[m.date] ||= []).push(m);
+        }
+        for (const w of completedWorkouts) {
+            (workoutsByDate[w.date] ||= []).push(w);
+        }
+        for (const m of allMeasurements.sort((a, b) => a.timestamp - b.timestamp)) {
+            if (!measureByDate[m.date]) measureByDate[m.date] = {};
+            measureByDate[m.date][m.type] = { value: m.value, unit: m.unit };
+        }
+
+        // Daily summary
+        const daily = sortedDates.map(date => {
+            const food     = intakeByDate[date]   || [];
+            const workouts = workoutsByDate[date] || [];
+            const cal_in   = food.reduce((s, m) => s + (parseFloat(m.calories) || 0), 0);
+            const prot     = food.reduce((s, m) => s + (parseFloat(m.protein)  || 0), 0);
+            const fat      = food.reduce((s, m) => s + (parseFloat(m.fat)      || 0), 0);
+            const carbs    = food.reduce((s, m) => s + (parseFloat(m.carbs)    || 0), 0);
+            const fiber    = food.reduce((s, m) => s + (parseFloat(m.fiber)    || 0), 0);
+            const cal_burn = workouts.reduce((s, w) => s + (parseFloat(w.estimated_calories_burned) || 0), 0);
+            const hist = goalHistory[date];
+            const goal_cal  = hist ? Math.round(hist.fat*9 + hist.protein*4 + hist.carbs*4) : baseGoalCal;
+            const goal_p    = hist ? r1(hist.protein) : baseGoalP;
+            const goal_f    = hist ? r1(hist.fat)     : baseGoalF;
+            const goal_c    = hist ? r1(hist.carbs)   : baseGoalC;
+            const m         = measureByDate[date] || {};
+            return {
+                date,
+                calories_consumed: Math.round(cal_in),
+                protein_g:  r1(prot),
+                fat_g:      r1(fat),
+                carbs_g:    r1(carbs),
+                fiber_g:    r1(fiber),
+                calories_burned: Math.round(cal_burn),
+                net_calories:    Math.round(cal_in - cal_burn),
+                goal_calories:   goal_cal,
+                goal_protein_g:  goal_p,
+                goal_fat_g:      goal_f,
+                goal_carbs_g:    goal_c,
+                calorie_vs_goal: Math.round(cal_in - cal_burn - goal_cal),
+                weight_lbs:  m.weight?.unit === 'kg'  ? r1(m.weight.value * 2.20462) : (m.weight?.value  ?? null),
+                waist_in:    m.waist?.unit  === 'cm'  ? r1(m.waist.value  / 2.54)    : (m.waist?.value   ?? null),
+                bodyfat_pct: m.bodyfat?.value ?? null,
+                cheat_day:   cheatDays[date] === true
+            };
+        });
+
+        // Flat intake records
+        const intake = completedMacros
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+            .map(m => ({
+                date:      m.date,
+                time:      toTime(m.timestamp),
+                name:      m.name || '',
+                calories:  Math.round(parseFloat(m.calories) || 0),
+                protein_g: r1(parseFloat(m.protein) || 0),
+                fat_g:     r1(parseFloat(m.fat)     || 0),
+                carbs_g:   r1(parseFloat(m.carbs)   || 0),
+                fiber_g:   r1(parseFloat(m.fiber)   || 0),
+                source:    m.source || 'manual'
+            }));
+
+        // Flat workout records
+        const workouts = completedWorkouts
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+            .map(w => ({
+                date:          w.date,
+                time:          toTime(w.timestamp),
+                exercise:      w.exercise_name || '',
+                type:          w.exercise_type || '',
+                duration_min:  w.duration_minutes || null,
+                calories_burned: Math.round(w.estimated_calories_burned || 0),
+                distance_km:   w.distance_km ?? null
+            }));
+
+        // Flat measurement records
+        const measurements = allMeasurements
+            .sort((a, b) => a.timestamp - b.timestamp)
+            .map(m => ({ date: m.date, time: toTime(m.timestamp), type: m.type, value: m.value, unit: m.unit }));
+
+        return {
+            meta: {
+                exported_at:  new Date().toISOString(),
+                app_version:  APP_VERSION,
+                weight_unit:  weightUnit,
+                first_date:   sortedDates[0]                    || null,
+                last_date:    sortedDates[sortedDates.length-1] || null,
+                total_days:   sortedDates.length,
+                note: 'goal_* columns use stored PI-adjusted goals where available (last 14 days), base settings otherwise'
+            },
+            daily,
+            intake,
+            workouts,
+            measurements
+        };
+    }
+
     /**
      * Load settings screen
      */
@@ -2052,6 +2181,47 @@ class FitnessTrackerApp {
                         console.error('Export error:', error);
                         ui.showError('Failed to export data: ' + error.message);
                     }
+                }
+            };
+        }
+
+        // Analysis export button
+        const analysisExportBtn = document.getElementById('btn-export-analysis');
+        if (analysisExportBtn) {
+            analysisExportBtn.onclick = async () => {
+                ui.showLoading('Building analysis export…');
+                try {
+                    const data = await this.exportAnalysis();
+                    const dataStr = JSON.stringify(data, null, 2);
+                    const date = new Date().toISOString().slice(0, 10);
+                    const filename = `fitness-analysis-${date}.json`;
+                    const buf = new TextEncoder().encode(dataStr).buffer;
+
+                    if (window.Capacitor?.isNativePlatform?.()) {
+                        const FS = window.Capacitor.Plugins.Filesystem;
+                        const SharePlugin = window.Capacitor.Plugins.Share;
+                        const bytes = new Uint8Array(buf);
+                        let binary = '';
+                        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+                        const base64 = btoa(binary);
+                        await FS.writeFile({ path: filename, data: base64, directory: 'CACHE' });
+                        const { uri } = await FS.getUri({ path: filename, directory: 'CACHE' });
+                        ui.hideLoading();
+                        await SharePlugin.share({ title: filename, files: [uri], dialogTitle: 'Share analysis data' });
+                    } else {
+                        const blob = new Blob([buf], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = filename;
+                        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        ui.hideLoading();
+                        ui.showToast(`✓ Exported ${data.daily.length} days of data`);
+                    }
+                } catch (error) {
+                    ui.hideLoading();
+                    console.error('Analysis export error:', error);
+                    ui.showError('Failed to export: ' + error.message);
                 }
             };
         }

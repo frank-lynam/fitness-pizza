@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.14';
+const APP_VERSION = '2.9.15';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -511,7 +511,7 @@ class FitnessTrackerApp {
             // Trim to last 14 days to bound storage size
             const cutoff = new Date(today + 'T12:00:00');
             cutoff.setDate(cutoff.getDate() - GOAL_HISTORY_DAYS);
-            const cutoffStr = cutoff.toISOString().slice(0, 10);
+            const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth()+1).padStart(2,'0')}-${String(cutoff.getDate()).padStart(2,'0')}`;
             Object.keys(goalHistory).forEach(k => { if (k < cutoffStr) delete goalHistory[k]; });
             const serialised = JSON.stringify(goalHistory);
             if (this._piGoalHistoryWrittenFor !== serialised) {
@@ -1490,7 +1490,7 @@ class FitnessTrackerApp {
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
                     <span style="font-size:1em;font-weight:600;flex:1;">Protein Value</span>
                     <button class="btn-range active" data-sort="${nextKey}"
-                        style="font-size:0.72em;padding:1px 7px;">↕ ${sortKey}</button>
+                        style="font-size:0.88em;padding:1px 16px;">↕ ${sortKey}</button>
                 </div>
                 <div style="overflow-x:auto;max-height:320px;overflow-y:auto;">
                     <table style="width:100%;border-collapse:collapse;font-size:0.85em;">

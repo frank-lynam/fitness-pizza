@@ -1,4 +1,4 @@
-export const GOAL_HISTORY_DAYS = 14;
+export const GOAL_HISTORY_DAYS = 365;
 export const GPS_WEAK_SIGNAL_TIMEOUT_MS = 30_000;
 export const GPS_MAX_POINT_JUMP_KM = 0.5;
 export const MIN_RUN_FINISH_DIST_KM = 0.05;

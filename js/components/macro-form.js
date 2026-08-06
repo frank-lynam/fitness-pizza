@@ -13,6 +13,9 @@ import { MACRO_INTENSITY_LOW_G, MACRO_INTENSITY_HIGH_G } from '../constants.js';
 // One-shot timeout (fires at next midnight) for date-change detection
 let _cheatDayTimeoutId = null;
 
+// Debounce timer for re-sorting after rapid +/- edits
+let _sortRenderTimer = null;
+
 // Cached effective daily goals (set by app.js before calling loadTodaysMacros)
 let _dailyGoals = null;
 
@@ -808,9 +811,9 @@ export async function loadTodaysMacros() {
                     <div class="entry-item-content">
                         ${macro.serving_label ? `<div style="font-size:0.82em;color:var(--text-secondary);margin-bottom:2px;">${macro.serving_label}</div>` : ''}
                         <div class="entry-macros">
-                            ${macro.entry_mode === 'calories'
+                            <span class="entry-macros-nums" data-id="${macro.id}">${macro.entry_mode === 'calories'
                                 ? `${macro.calories.toFixed(0)} cal`
-                                : `F: ${macro.fat.toFixed(1)}g | C: ${macro.carbs.toFixed(1)}g | P: ${macro.protein.toFixed(1)}g | ${macro.calories.toFixed(0)} cal`}
+                                : `F: ${macro.fat.toFixed(1)}g | C: ${macro.carbs.toFixed(1)}g | P: ${macro.protein.toFixed(1)}g | ${macro.calories.toFixed(0)} cal`}</span>
                             <span class="servings-stepper">
                                 <button class="servings-btn-minus" data-id="${macro.id}">−</button>
                                 <input type="number" class="servings-input" data-id="${macro.id}" value="${(macro.servings || 1).toFixed(2)}" step="0.01" min="0.01">
@@ -908,7 +911,7 @@ export async function loadTodaysMacros() {
                 if (input) {
                     const currentServings = parseFloat(input.value) || 1;
                     const newServings = currentServings + 1.0;
-                    await handleSetServings(id, newServings);
+                    await handleSetServings(id, newServings, { deferSort: true });
                 }
             });
         });
@@ -922,7 +925,7 @@ export async function loadTodaysMacros() {
                 if (input) {
                     const currentServings = parseFloat(input.value) || 1;
                     const newServings = Math.max(0.1, currentServings - 1.0);
-                    await handleSetServings(id, newServings);
+                    await handleSetServings(id, newServings, { deferSort: true });
                 }
             });
         });
@@ -1063,37 +1066,44 @@ async function handleDeleteMacro(id) {
  * @param {number} id - Entry ID
  * @param {number} newServings - New servings value
  */
-async function handleSetServings(id, newServings) {
+async function handleSetServings(id, newServings, { deferSort = false } = {}) {
     try {
         const entry = await db.get('macros', id);
         if (!entry) return;
 
         const currentServings = entry.servings || 1;
-
         if (newServings === currentServings) return;
 
-        // Calculate the multiplier
         const multiplier = newServings / currentServings;
-
-        // Update all macro values proportionally
         entry.servings = newServings;
         entry.fat = entry.fat * multiplier;
         entry.protein = entry.protein * multiplier;
         entry.carbs = entry.carbs * multiplier;
         if (entry.fiber) entry.fiber = entry.fiber * multiplier;
 
-        // Recalculate calories
         const { calculateMacroCalories } = await import('../utils/calorie-calc.js');
         entry.calories = calculateMacroCalories(entry.protein, entry.carbs, entry.fat, entry.fiber || 0);
-
         await db.updateMacroEntry(entry);
-        await loadTodaysMacros();
 
-        // Update dashboard if visible
-        if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
-            await window.fitnessApp.loadDashboard();
+        if (deferSort) {
+            // Update this row in-place so numbers change without re-sorting
+            const input = document.querySelector(`.servings-input[data-id="${id}"]`);
+            if (input) input.value = newServings.toFixed(2);
+            const numsEl = document.querySelector(`.entry-macros-nums[data-id="${id}"]`);
+            if (numsEl) {
+                numsEl.textContent = entry.entry_mode === 'calories'
+                    ? `${entry.calories.toFixed(0)} cal`
+                    : `F: ${entry.fat.toFixed(1)}g | C: ${entry.carbs.toFixed(1)}g | P: ${entry.protein.toFixed(1)}g | ${entry.calories.toFixed(0)} cal`;
+            }
+            // Debounce full re-render (re-sorts after 1.5s of inactivity)
+            clearTimeout(_sortRenderTimer);
+            _sortRenderTimer = setTimeout(() => loadTodaysMacros(), 1500);
+        } else {
+            await loadTodaysMacros();
+            if (window.fitnessApp && window.fitnessApp.currentScreen === 'dashboard') {
+                await window.fitnessApp.loadDashboard();
+            }
         }
-
     } catch (error) {
         console.error('Error setting servings:', error);
         ui.showError('Failed to adjust servings');

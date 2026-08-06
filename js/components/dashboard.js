@@ -340,6 +340,9 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
             `;
         }
 
+        // Measurements — loaded once, used for streak badge and latest measurement display
+        const measurements = await db.getAllMeasurements();
+
         // Streak counter
         const streakEl = document.getElementById('streak-counter');
         if (streakEl) {
@@ -371,7 +374,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
             const d = new Date(today + 'T12:00:00');
             d.setDate(d.getDate() - 1);
             for (let i = 0; i < 365; i++) {
-                const ds = d.toISOString().slice(0, 10);
+                const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                 if (cheatDayDates[ds]) { d.setDate(d.getDate() - 1); continue; }
                 const cal = calByDate[ds];
                 if (cal == null) break;
@@ -404,9 +407,44 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                         ? parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250)
                         : parseFloat(await db.getSetting('cycle_cut_deficit_cal')  || 250);
                     const lbsWk = (rateCal / 500).toFixed(1);
+                    const delta  = rateCal / 500; // lbs/week
                     const color = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
                     const label = isBulk ? `Bulking +${lbsWk}/wk` : `Cutting −${lbsWk}/wk`;
-                    deficitBadge = `<span style="font-size:0.78em;color:${color};margin-left:5px;">${label}</span>`;
+
+                    // Inline SVG progress bar: current 7-day avg between cut floor and bulk ceiling
+                    const floor   = parseFloat(await db.getSetting('cycle_cut_floor')    || 0);
+                    const ceiling = parseFloat(await db.getSetting('cycle_bulk_ceiling') || 0);
+                    let progressBar = '';
+                    if (floor > 0 && ceiling > 0 && ceiling > floor) {
+                        const weightByDate = {};
+                        measurements.filter(m => m.type === 'weight')
+                            .forEach(r => { weightByDate[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+                        let wSum = 0, wCount = 0;
+                        const now7 = new Date();
+                        for (let back = 0; back < 7; back++) {
+                            const dd = new Date(now7); dd.setDate(dd.getDate() - back);
+                            const ds2 = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+                            if (weightByDate[ds2] !== undefined) { wSum += weightByDate[ds2]; wCount++; }
+                        }
+                        if (wCount > 0) {
+                            const avg   = wSum / wCount;
+                            const range = ceiling - floor;
+                            const W     = 44; // bar width px
+                            const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+                            const fillW = clamp((avg - floor) / range * W, 0, W);
+                            let spL, spW;
+                            if (isBulk) {
+                                spL = fillW;
+                                spW = clamp(delta / range * W, 0, W - fillW);
+                            } else {
+                                const rawSpL = clamp((avg - delta - floor) / range * W, 0, fillW);
+                                spW = fillW - rawSpL;
+                                spL = rawSpL;
+                            }
+                            progressBar = `<svg width="${W}" height="5" style="vertical-align:middle;margin-left:5px;border-radius:2px;" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${W}" height="5" fill="var(--bg-tertiary)" rx="2"/><rect x="0" y="0" width="${fillW.toFixed(1)}" height="5" fill="var(--accent-primary)" rx="2"/><rect x="${spL.toFixed(1)}" y="0" width="${Math.max(1,spW).toFixed(1)}" height="5" fill="rgba(34,211,238,0.85)" rx="0"/></svg>`;
+                        }
+                    }
+                    deficitBadge = `<span style="font-size:0.78em;color:${color};margin-left:5px;">${label}${progressBar}</span>`;
                 } else {
                     const deficitCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
                     if (deficitCal !== 0) {
@@ -422,9 +460,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                 : todayBadge ? `Today${deficitBadge}${todayBadge}` : '';
         }
 
-        // Load latest measurement
-        const measurements = await db.getAllMeasurements();
-        const latestMeasurement = measurements.sort((a, b) => b.timestamp - a.timestamp)[0];
+        // Load latest measurement (measurements already fetched above)
+        const latestMeasurement = [...measurements].sort((a, b) => b.timestamp - a.timestamp)[0];
 
         const latestMeasurementEl = document.getElementById('latest-measurement');
         if (latestMeasurementEl) {

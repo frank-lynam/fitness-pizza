@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.14
+**Current**: v2.9.15
+- **Streak + UX fixes** — streak counter now goes forever (was capped at 14 by pi_goal_history window; `GOAL_HISTORY_DAYS` raised to 365, UTC date bug in streak loop fixed); bulk/cut dashboard badge gains an inline SVG progress bar showing 7-day avg position between cut floor and ceiling (calorie blue fill, cyan spacer for the weekly delta target); protein value sort button enlarged; macro +/− buttons now defer re-sorting 1.5s to keep entries stable while clicking rapidly
+
+**v2.9.14**
 - **Auto bulk/cut cycle** — define a weight band (cut floor + bulk ceiling) and per-phase rates; app auto-switches between Bulk and Cut when the 7-day rolling average crosses a threshold for 3 consecutive days (hysteresis); manual phase override button in settings; dashboard badge shows current phase and lb/wk rate; workout credit stays at 100% in all phases
 
 **v2.9.13**

@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.15
+**Current**: v2.9.16
+- **Run tracker polish** — bulk/cut dashboard progress bar taller (5→7px) with soft border; pacing announcements now distance-based at every 100m (was 30s interval), reporting pace for the previous 100m segment, skipping 500m boundaries when regular updates are on (those report whole-run pace); weather API now fetches hourly temps covering the full run duration and averages them for a better temperature adjustment
+
+**v2.9.15**
 - **Streak + UX fixes** — streak counter now goes forever (was capped at 14 by pi_goal_history window; `GOAL_HISTORY_DAYS` raised to 365, UTC date bug in streak loop fixed); bulk/cut dashboard badge gains an inline SVG progress bar showing 7-day avg position between cut floor and ceiling (calorie blue fill, cyan spacer for the weekly delta target); protein value sort button enlarged; macro +/− buttons now defer re-sorting 1.5s to keep entries stable while clicking rapidly
 
 **v2.9.14**

@@ -128,7 +128,7 @@ export function initRunTracker() {
     btn.addEventListener('click', () => launchRunOverlay());
 }
 
-function saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg, elevGainM, elevLossM) {
+function saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, hundredMsAnnounced, weightKg, elevGainM, elevLossM) {
     if (phase !== 'running' && phase !== 'paused') return;
     try {
         localStorage.setItem('active_run', JSON.stringify({
@@ -137,6 +137,7 @@ function saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnn
             totalElapsedMs: getElapsedMs(),
             segmentStart,
             halfKmsAnnounced,
+            hundredMsAnnounced,
             weightKg,
             elevGainM,
             elevLossM,
@@ -216,10 +217,10 @@ function launchRunOverlay(recoveredState = null) {
     let elevLossM = 0;
     let lastAlt = null;
 
-    // Pacing mode: snapshot totalDistKm at the start of each 30 s window
-    let pacingWindowDistKm = 0;
-    let pacingWindowTime = 0;
-    let pacingTimer = null;
+    // 100m distance-based pacing
+    let hundredMsAnnounced = 0;
+    let lastPaceSegmentTime = 0;
+    let runStartTime = 0;
 
     // Mode settings — persist across runs
     let pacingMode = localStorage.getItem('run_pacing_mode') === 'true';
@@ -283,30 +284,13 @@ function launchRunOverlay(recoveredState = null) {
         if (title) title.textContent = `${act.emoji} ${act.label} Tracker`;
     }
 
-    // Announces current 30 s windowed speed when pacing mode is enabled.
-    // Snapshots totalDistKm at window start; computes delta on each fire.
+    // Pacing is now distance-based (100m intervals) in the GPS callback.
+    // startPacingTimer resets the segment clock; Android handles this natively.
     function startPacingTimer() {
-        stopPacingTimer();
-        // On Android the native GPS listener handles pacing announcements even
-        // when the screen is locked — JS setInterval freezes in that state.
-        if (!pacingMode || window.AndroidBridge) return;
-        pacingWindowDistKm = totalDistKm;
-        pacingWindowTime = Date.now();
-        pacingTimer = setInterval(() => {
-            if (phase !== 'running') return;
-            const now = Date.now();
-            const dtHours = (now - pacingWindowTime) / 3600000;
-            const dMi = (totalDistKm - pacingWindowDistKm) / KM_PER_MI;
-            const speedMph = dtHours > 0 ? dMi / dtHours : 0;
-            pacingWindowDistKm = totalDistKm;
-            pacingWindowTime = now;
-            if (speedMph > 0.5) tts(`${speedMph.toFixed(1)} miles per hour.`);
-        }, 30000);
+        if (pacingMode && !window.AndroidBridge) lastPaceSegmentTime = Date.now();
     }
 
-    function stopPacingTimer() {
-        if (pacingTimer) { clearInterval(pacingTimer); pacingTimer = null; }
-    }
+    function stopPacingTimer() {}
 
     let tickCount = 0;
     function onRunVisibilityChange() {
@@ -322,7 +306,7 @@ function launchRunOverlay(recoveredState = null) {
         tickInterval = setInterval(() => {
             refreshDisplay();
             if (++tickCount % 60 === 0) {
-                saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg, elevGainM, elevLossM);
+                saveRunState(phase, totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, hundredMsAnnounced, weightKg, elevGainM, elevLossM);
             }
         }, 1000);
         document.addEventListener('visibilitychange', onRunVisibilityChange);
@@ -348,7 +332,7 @@ function launchRunOverlay(recoveredState = null) {
             totalElapsedMs += Date.now() - segmentStart;
             segmentStart = null;
             setPhase('paused');
-            saveRunState('paused', totalDistKm, () => totalElapsedMs, null, halfKmsAnnounced, weightKg, elevGainM, elevLossM);
+            saveRunState('paused', totalDistKm, () => totalElapsedMs, null, halfKmsAnnounced, hundredMsAnnounced, weightKg, elevGainM, elevLossM);
             window.AndroidBridge?.pauseNativeRun();
             stopPacingTimer();
             tts(ACTIVITIES[activityMode].pauseTts);
@@ -362,7 +346,7 @@ function launchRunOverlay(recoveredState = null) {
         document.getElementById('run-resume')?.addEventListener('click', () => {
             segmentStart = Date.now();
             setPhase('running');
-            saveRunState('running', totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg, elevGainM, elevLossM);
+            saveRunState('running', totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, hundredMsAnnounced, weightKg, elevGainM, elevLossM);
             window.AndroidBridge?.resumeNativeRun();
             window.AndroidBridge?.setPacingMode(pacingMode);
             startPacingTimer();
@@ -379,9 +363,10 @@ function launchRunOverlay(recoveredState = null) {
 
     function beginRun() {
         if (phase !== 'ready') return;
+        runStartTime = Date.now();
         segmentStart = Date.now();
         setPhase('running');
-        saveRunState('running', totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, weightKg, elevGainM, elevLossM);
+        saveRunState('running', totalDistKm, getElapsedMs, segmentStart, halfKmsAnnounced, hundredMsAnnounced, weightKg, elevGainM, elevLossM);
         startTick();
         window.AndroidBridge?.startNativeRun(weightKg);
         window.AndroidBridge?.setSilentMode(silentMode);
@@ -500,6 +485,23 @@ function launchRunOverlay(recoveredState = null) {
                                     tts(`${distStr} kilometer${halfKms === 2 ? '' : 's'}. ${spokenDuration(elapsedSec)}. ${speedMph.toFixed(1)} miles per hour.`);
                                 }
                             }
+                            // 100m distance-based pacing (non-native, pacing mode on)
+                            // Skips 500m boundaries when !silentMode to avoid colliding with the block above.
+                            if (!window.AndroidBridge && pacingMode) {
+                                const currentHundreds = Math.floor(totalDistKm * 10);
+                                if (currentHundreds > hundredMsAnnounced) {
+                                    const is500mCollision = (currentHundreds % 5 === 0) && !silentMode;
+                                    if (!is500mCollision && lastPaceSegmentTime > 0) {
+                                        const hundredsCrossed = currentHundreds - hundredMsAnnounced;
+                                        const segDistMi = hundredsCrossed * 0.1 / KM_PER_MI;
+                                        const segTimHr = (Date.now() - lastPaceSegmentTime) / 3600000;
+                                        const segPaceMph = segTimHr > 0 ? segDistMi / segTimHr : 0;
+                                        if (segPaceMph > 0.5) tts(`${segPaceMph.toFixed(1)} miles per hour.`);
+                                    }
+                                    lastPaceSegmentTime = Date.now();
+                                    hundredMsAnnounced = currentHundreds;
+                                }
+                            }
                         }
                     }
 
@@ -564,18 +566,20 @@ function launchRunOverlay(recoveredState = null) {
         let tempFactor = 1.0;
         if (lastLat !== null && lastLon !== null) {
             try {
+                // Fetch hourly temps covering the full run duration for a better average
+                const pastHours = Math.min(6, Math.max(2, Math.ceil((Date.now() - runStartTime) / 3600000) + 1));
                 const ctrl = new AbortController();
                 const tid = setTimeout(() => ctrl.abort(), 5000);
                 const resp = await fetch(
-                    `https://api.open-meteo.com/v1/forecast?latitude=${lastLat.toFixed(4)}&longitude=${lastLon.toFixed(4)}&current=temperature_2m&temperature_unit=fahrenheit`,
+                    `https://api.open-meteo.com/v1/forecast?latitude=${lastLat.toFixed(4)}&longitude=${lastLon.toFixed(4)}&hourly=temperature_2m&temperature_unit=fahrenheit&past_hours=${pastHours}&forecast_hours=0&timezone=auto`,
                     { signal: ctrl.signal }
                 );
                 clearTimeout(tid);
                 if (resp.ok) {
                     const data = await resp.json();
-                    const raw = data?.current?.temperature_2m;
-                    if (typeof raw === 'number') {
-                        tempF = raw;
+                    const rawTemps = (data?.hourly?.temperature_2m || []).filter(t => typeof t === 'number');
+                    if (rawTemps.length > 0) {
+                        tempF = rawTemps.reduce((a, b) => a + b, 0) / rawTemps.length;
                         if (tempF > 75) {
                             tempFactor = Math.min(1.20, 1 + (tempF - 75) * 0.005);
                         } else if (tempF < 45) {
@@ -682,11 +686,13 @@ function launchRunOverlay(recoveredState = null) {
     });
 
     if (recoveredState) {
-        totalDistKm      = recoveredState.totalDistKm;
-        halfKmsAnnounced = recoveredState.halfKmsAnnounced;
-        weightKg         = recoveredState.weightKg || weightKg;
-        elevGainM        = recoveredState.elevGainM || 0;
-        elevLossM        = recoveredState.elevLossM || 0;
+        totalDistKm        = recoveredState.totalDistKm;
+        halfKmsAnnounced   = recoveredState.halfKmsAnnounced;
+        hundredMsAnnounced = recoveredState.hundredMsAnnounced || 0;
+        runStartTime       = Date.now() - (recoveredState.totalElapsedMs || 0);
+        weightKg           = recoveredState.weightKg || weightKg;
+        elevGainM          = recoveredState.elevGainM || 0;
+        elevLossM          = recoveredState.elevLossM || 0;
 
         if (recoveredState.phase === 'running') {
             totalElapsedMs = recoveredState.totalElapsedMs + (Date.now() - recoveredState.savedAt);

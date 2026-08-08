@@ -441,7 +441,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                                 spW = fillW - rawSpL;
                                 spL = rawSpL;
                             }
-                            progressBar = `<svg width="${W}" height="5" style="vertical-align:middle;margin-left:5px;border-radius:2px;" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${W}" height="5" fill="var(--bg-tertiary)" rx="2"/><rect x="0" y="0" width="${fillW.toFixed(1)}" height="5" fill="var(--accent-primary)" rx="2"/><rect x="${spL.toFixed(1)}" y="0" width="${Math.max(1,spW).toFixed(1)}" height="5" fill="rgba(34,211,238,0.85)" rx="0"/></svg>`;
+                            const H = 7;
+                            progressBar = `<svg width="${W}" height="${H}" style="vertical-align:middle;margin-left:5px;border-radius:2px;" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${W}" height="${H}" fill="var(--bg-tertiary)" rx="2"/><rect x="0" y="0" width="${fillW.toFixed(1)}" height="${H}" fill="var(--accent-primary)" rx="2"/><rect x="${spL.toFixed(1)}" y="0" width="${Math.max(1,spW).toFixed(1)}" height="${H}" fill="rgba(34,211,238,0.85)" rx="0"/><rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" fill="none" stroke="rgba(128,128,128,0.3)" stroke-width="1" rx="1.5"/></svg>`;
                         }
                     }
                     deficitBadge = `<span style="font-size:0.78em;color:${color};margin-left:5px;">${label}${progressBar}</span>`;

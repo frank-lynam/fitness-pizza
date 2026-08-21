@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.17';
+const APP_VERSION = '2.9.18';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1078,6 +1078,9 @@ class FitnessTrackerApp {
         if (appliedVer === APP_VERSION) {
             localStorage.removeItem('fp_update_applied');
             setTimeout(() => ui.showToast(`✨ Updated to v${APP_VERSION}`), 1500);
+        } else if (appliedVer) {
+            // Staged bundle didn't load — clear so the next check can re-download it
+            localStorage.removeItem('fp_update_applied');
         }
 
         // Check shortly after startup

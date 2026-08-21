@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.26
+**Current**: v2.9.27
+- **Settings UI redesign** — replaced verbose deficit/cycle section with compact 3-row layout: two mutually exclusive checkboxes (Target weight / Bulk/Cut) + phase toggle button, two weight inputs, and the max-rate slider; no empty space
+
+**v2.9.26**
 - **Up-to-date toast** — "Check for Updates" with no new version now shows "✓ vX.X.X is up to date (latest live: vX.X.X)" instead of silence
 
 **v2.9.25**

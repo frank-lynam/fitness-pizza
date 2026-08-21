@@ -227,71 +227,34 @@
                             <label>Calories:</label>
                             <span id="computed-calories" style="color: var(--text-primary); font-weight: 600;">2000</span>
                         </div>
-                        <div class="form-group" style="margin-top: 10px; margin-bottom: 0;">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="deficit-mode">
-                                <span>Deficit target</span>
-                            </label>
-                        </div>
-                        <div id="deficit-mode-section" style="display:none; margin-top: 6px; padding: 8px 10px; background: var(--bg-tertiary); border-radius: var(--radius-md);">
-                            <div id="deficit-simple-row" style="display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap;">
-                                <input type="number" id="deficit-lbs-input" step="0.1" min="-2" max="3" value="0.5" style="width: 64px; font-size: 13px;">
-                                <span style="color: var(--text-secondary);">lbs/wk loss</span>
-                                <span id="deficit-tdee-display" style="color: var(--text-secondary); margin-left: 4px;"></span>
-                            </div>
-                            <div style="font-size: 13px; margin-top: 4px; color: var(--text-secondary);">
-                                → <span id="deficit-target-display" style="font-weight: 600; color: var(--text-primary);">—</span> cal target
-                                &ensp;carbs: <span id="deficit-carbs-display" style="font-weight: 600; color: var(--text-primary);">—</span>
-                            </div>
-                            <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">
-                                <label class="checkbox-label" style="font-size: 13px;">
-                                    <input type="checkbox" id="cycle-mode">
-                                    <span>Auto bulk/cut cycle</span>
+                        <div style="margin-top:10px; padding:8px 10px; background:var(--bg-tertiary); border-radius:var(--radius-md);">
+                            <!-- Row 1: mode checkboxes + phase toggle -->
+                            <div style="display:flex; align-items:center; gap:10px; font-size:13px;">
+                                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+                                    <input type="checkbox" id="mode-target-cb"> <span>Target weight</span>
                                 </label>
-                                <div id="cycle-section" style="display:none; margin-top: 8px;">
-                                    <!-- Mode selector -->
-                                    <div style="display:flex; gap:16px; margin-bottom:8px; font-size:12px;">
-                                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-                                            <input type="radio" name="cycle-mode-radio" id="cycle-mode-cycle" value="cycle">
-                                            <span>Bulk/Cut cycle</span>
-                                        </label>
-                                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
-                                            <input type="radio" name="cycle-mode-radio" id="cycle-mode-target" value="target">
-                                            <span>Target weight</span>
-                                        </label>
-                                    </div>
-                                    <!-- Phase indicator (cycle mode) -->
-                                    <div id="cycle-phase-row" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                                        <span id="cycle-phase-label" style="font-size:13px; font-weight:600;"></span>
-                                        <button id="cycle-phase-switch" style="font-size:11px; padding:2px 10px; border-radius:4px; border:1px solid var(--border-color); background:var(--bg-primary); color:var(--text-secondary); cursor:pointer;"></button>
-                                    </div>
-                                    <div id="cycle-progress" style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;"></div>
-                                    <!-- Target weight input (target mode) -->
-                                    <div id="cycle-target-weight-row" style="display:none; margin-bottom:8px; font-size:12px; align-items:center; gap:6px;">
-                                        <span style="color:var(--text-secondary);">Target weight</span>
-                                        <input type="number" id="cycle-target-weight" step="0.5" min="50" max="500" style="width:72px; font-size:13px; margin-left:6px;">
-                                        <span style="color:var(--text-secondary); margin-left:4px;">lbs</span>
-                                    </div>
-                                    <!-- Floor / ceiling (cycle mode) -->
-                                    <div id="cycle-floor-ceiling-row" style="display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:12px; margin-bottom:8px;">
-                                        <div>
-                                            <div style="color:var(--text-secondary); margin-bottom:2px;">Cut floor (lbs)</div>
-                                            <input type="number" id="cycle-cut-floor" step="0.5" min="50" max="500" style="width:72px; font-size:13px;">
-                                        </div>
-                                        <div>
-                                            <div style="color:var(--text-secondary); margin-bottom:2px;">Bulk ceiling (lbs)</div>
-                                            <input type="number" id="cycle-bulk-ceiling" step="0.5" min="50" max="500" style="width:72px; font-size:13px;">
-                                        </div>
-                                    </div>
-                                    <!-- Max rate slider (both modes) -->
-                                    <div style="font-size:12px;">
-                                        <div style="color:var(--text-secondary); margin-bottom:2px;">Max rate (lb/wk)</div>
-                                        <div style="display:flex; align-items:center; gap:8px;">
-                                            <input type="range" id="cycle-max-rate" min="0" max="3" step="0.25" value="0.5" style="flex:1; cursor:pointer;">
-                                            <span id="cycle-max-rate-value" style="font-size:13px; min-width:32px; text-align:right;">0.5</span>
-                                        </div>
-                                    </div>
+                                <label style="display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+                                    <input type="checkbox" id="mode-cycle-cb"> <span>Bulk/Cut</span>
+                                </label>
+                                <button id="cycle-phase-switch" style="margin-left:auto;font-size:12px;padding:2px 10px;border-radius:4px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-secondary);cursor:pointer;display:none;">Cut</button>
+                            </div>
+                            <!-- Row 2: weight inputs (shown when a mode is active) -->
+                            <div id="cycle-inputs-row" style="display:none; gap:8px; margin-top:6px;">
+                                <div style="flex:1;">
+                                    <div id="left-input-label" style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Cut floor (lbs)</div>
+                                    <input type="number" id="cycle-cut-floor" step="0.5" min="50" max="500" style="width:100%;font-size:13px;box-sizing:border-box;">
                                 </div>
+                                <div id="right-input-wrap" style="flex:1;">
+                                    <div style="font-size:11px;color:var(--text-secondary);margin-bottom:2px;">Bulk ceiling (lbs)</div>
+                                    <input type="number" id="cycle-bulk-ceiling" step="0.5" min="50" max="500" style="width:100%;font-size:13px;box-sizing:border-box;">
+                                </div>
+                            </div>
+                            <!-- Row 3: max rate slider (shown when a mode is active) -->
+                            <div id="cycle-rate-row" style="display:none; align-items:center; gap:8px; margin-top:6px; font-size:12px;">
+                                <span style="color:var(--text-secondary);white-space:nowrap;">Max rate</span>
+                                <input type="range" id="cycle-max-rate" min="0" max="3" step="0.25" value="0.5" style="flex:1;cursor:pointer;">
+                                <span id="cycle-max-rate-value" style="font-size:13px;min-width:28px;text-align:right;">0.5</span>
+                                <span style="color:var(--text-secondary);">lb/wk</span>
                             </div>
                         </div>
                         <div class="form-group" style="margin-top: 12px;">
@@ -468,7 +431,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.9.26</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.9.27</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>

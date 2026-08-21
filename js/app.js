@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.21';
+const APP_VERSION = '2.9.23';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1073,14 +1073,15 @@ class FitnessTrackerApp {
         // Required: tell the plugin this bundle loaded successfully
         CU.notifyAppReady();
 
-        // Show a toast when a queued bundle successfully loads
+        // Show a toast when a bundle successfully loads
         const appliedVer = localStorage.getItem('fp_update_applied');
         if (appliedVer === APP_VERSION) {
             localStorage.removeItem('fp_update_applied');
+            localStorage.removeItem('fp_update_set_at');
             setTimeout(() => ui.showToast(`✨ Updated to v${APP_VERSION}`), 1500);
         }
-        // Don't clear stale flags — the "already staged" guard in checkLiveUpdate
-        // uses them to block re-downloads when the bundle hasn't cold-started yet.
+        // Don't clear stale flags on version mismatch — the "already staged" guard
+        // and the set() cooldown together prevent re-download loops.
 
         // Check shortly after startup
         setTimeout(() => this.checkLiveUpdate(CU), 5000);
@@ -1109,6 +1110,14 @@ class FitnessTrackerApp {
         const MANIFEST = 'https://fitness-pizza.com/updates/latest.json';
         localStorage.setItem('fp_update_last_check', String(Date.now()));
         try {
+            // Skip if a set() was attempted within the last 30s — prevents the
+            // immediate re-check after a hot reload from triggering another download.
+            const setAt = parseInt(localStorage.getItem('fp_update_set_at') || '0');
+            if (Date.now() - setAt < 30000) {
+                console.log('[updater] set() cooldown active, skipping');
+                return;
+            }
+
             const [current, latest] = await Promise.all([
                 CU.current(),
                 this._fetchJson(`${MANIFEST}?t=${Date.now()}`),
@@ -1125,8 +1134,6 @@ class FitnessTrackerApp {
             }
 
             // If we've already staged this version, don't re-download.
-            // Without this guard, removing window.location.reload() below would cause
-            // the startup check to re-detect and re-stage the same bundle on every run.
             const stagedVersion = localStorage.getItem('fp_update_applied');
             if (stagedVersion && !this._semverGt(latest.version, stagedVersion)) {
                 console.log(`[updater] already staged v${stagedVersion}, skipping`);
@@ -1152,12 +1159,13 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // Queue bundle for the next cold start. CU.set() was tried but caused
-            // an update loop — Capacitor keeps serving the built-in APK bundle on reload,
-            // so the version check immediately re-triggers. next() is reliable; the bundle
-            // applies naturally when Android cold-starts the app (no user action needed).
+            // Record the set() attempt time before calling set() — the cooldown guard
+            // above will suppress the 5-second startup re-check after the hot reload.
+            // Also call next() so a cold start picks up the bundle if set() somehow fails.
             localStorage.setItem('fp_update_applied', latest.version);
+            localStorage.setItem('fp_update_set_at', String(Date.now()));
             await CU.next({ id: newBundle.id });
+            await CU.set({ id: newBundle.id });
 
         } catch (e) {
             console.warn('[updater] Update check failed:', e.message);
@@ -1608,7 +1616,7 @@ class FitnessTrackerApp {
                 goal_protein_g:  goal_p,
                 goal_fat_g:      goal_f,
                 goal_carbs_g:    goal_c,
-                calorie_vs_goal: Math.round(cal_in - cal_burn - goal_cal),
+                calorie_vs_goal: Math.round(cal_in - goal_cal),
                 weight_lbs:  m.weight?.unit === 'kg'  ? r1(m.weight.value * 2.20462) : (m.weight?.value  ?? null),
                 waist_in:    m.waist?.unit  === 'cm'  ? r1(m.waist.value  / 2.54)    : (m.waist?.value   ?? null),
                 bodyfat_pct: m.bodyfat?.value ?? null,

@@ -144,12 +144,14 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.21
-- **Updater loop fix** — revert CU.set() (caused infinite reload loop — Capacitor always reloaded the APK built-in bundle, version mismatch kept re-triggering download); back to CU.next() which applies silently on next cold start; stale-flag guard left intact to block re-downloads while waiting
-- **Food library slider** — full-width slider (was ~80px); minimum 1g confirmed for per-100g items
+**Current**: v2.9.23
+- **Export fix** — `calorie_vs_goal` in JSON export was double-subtracting workout calories (goal already includes 100% workout credit in cycle/deficit mode); now correctly `cal_in − goal_cal`
+
+**v2.9.22**
+- **Updater: hot update with loop prevention** — set() re-enabled for instant updates; 30s cooldown (fp_update_set_at) blocks the 5s startup re-check that was causing the repeat-install loop; next() called in parallel as cold-start fallback; stale-flag guard preserved to block re-downloads if set() loads wrong bundle
 
 **v2.9.17/18**
-- Dashboard + food library UX features (bundles blocked by updater bugs, superseded by v2.9.21)
+- Dashboard + food library UX features (bundles blocked by updater bugs, superseded by v2.9.23)
 
 **v2.9.16**
 - **Run tracker polish** — bulk/cut dashboard progress bar taller (5→7px) with soft border; pacing announcements now distance-based at every 100m (was 30s interval), reporting pace for the previous 100m segment, skipping 500m boundaries when regular updates are on (those report whole-run pace); weather API now fetches hourly temps covering the full run duration and averages them for a better temperature adjustment

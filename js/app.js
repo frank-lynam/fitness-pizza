@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.20';
+const APP_VERSION = '2.9.21';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1073,15 +1073,14 @@ class FitnessTrackerApp {
         // Required: tell the plugin this bundle loaded successfully
         CU.notifyAppReady();
 
-        // Show a "just updated" toast if we reloaded to apply a bundle
+        // Show a toast when a queued bundle successfully loads
         const appliedVer = localStorage.getItem('fp_update_applied');
         if (appliedVer === APP_VERSION) {
             localStorage.removeItem('fp_update_applied');
             setTimeout(() => ui.showToast(`✨ Updated to v${APP_VERSION}`), 1500);
-        } else if (appliedVer) {
-            // Staged bundle didn't load — clear so the next check can re-download it
-            localStorage.removeItem('fp_update_applied');
         }
+        // Don't clear stale flags — the "already staged" guard in checkLiveUpdate
+        // uses them to block re-downloads when the bundle hasn't cold-started yet.
 
         // Check shortly after startup
         setTimeout(() => this.checkLiveUpdate(CU), 5000);
@@ -1153,11 +1152,12 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // set() switches the bundle and triggers an immediate WebView reload.
-            // The service worker is unregistered in native context so there is no stale
-            // SW cache to serve the old version — new bundle loads cleanly on first try.
+            // Queue bundle for the next cold start. CU.set() was tried but caused
+            // an update loop — Capacitor keeps serving the built-in APK bundle on reload,
+            // so the version check immediately re-triggers. next() is reliable; the bundle
+            // applies naturally when Android cold-starts the app (no user action needed).
             localStorage.setItem('fp_update_applied', latest.version);
-            await CU.set({ id: newBundle.id });
+            await CU.next({ id: newBundle.id });
 
         } catch (e) {
             console.warn('[updater] Update check failed:', e.message);

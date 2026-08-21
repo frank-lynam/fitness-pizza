@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.24';
+const APP_VERSION = '2.9.25';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -325,6 +325,9 @@ class FitnessTrackerApp {
     }
 
     async evaluateCyclePhase() {
+        // Target weight mode manages direction dynamically — no phase switching needed
+        if ((await db.getSetting('cycle_mode') || 'cycle') === 'target') return;
+
         const floor   = parseFloat(await db.getSetting('cycle_cut_floor')    || 0);
         const ceiling = parseFloat(await db.getSetting('cycle_bulk_ceiling') || 0);
         if (!floor || !ceiling || floor >= ceiling) return;
@@ -403,8 +406,28 @@ class FitnessTrackerApp {
         await db.setSetting('cycle_wtcorr_eval_date', today);
         if (currN < 3 || prevN < 3) return; // not enough data for a reliable signal
 
-        const actualRate = (currSum / currN) - (prevSum / prevN); // lbs over this ~1-week gap
-        const targetRate = phase === 'bulk' ? 0.5 : -0.75;
+        const maxRateLbs = parseFloat(
+            await db.getSetting('cycle_max_rate_lbs') ||
+            String(parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250) / 500)
+        );
+        const cycleMode = await db.getSetting('cycle_mode') || 'cycle';
+
+        let targetRate;
+        if (cycleMode === 'target') {
+            const targetWeight = parseFloat(await db.getSetting('cycle_target_weight') || '0');
+            if (targetWeight <= 0) return; // no target set
+            const avg = currSum / currN;
+            const dist = targetWeight - avg;
+            if (Math.abs(dist) < 0.5) {
+                targetRate = 0; // maintenance band — correct toward zero
+            } else {
+                targetRate = dist > 0 ? maxRateLbs : -maxRateLbs;
+            }
+        } else {
+            targetRate = phase === 'bulk' ? maxRateLbs : -maxRateLbs;
+        }
+
+        const actualRate = (currSum / currN) - (prevSum / prevN); // lbs over ~1-week gap
         const rateError  = targetRate - actualRate;
 
         const currentCorr = parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0');
@@ -458,12 +481,48 @@ class FitnessTrackerApp {
             if (restDayMaintenance > 0) {
                 let offsetCal;
                 if (cycleEnabled) {
-                    const phase = await db.getSetting('cycle_phase') || 'cut';
-                    if (phase === 'bulk') {
-                        const surplusLbs = parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250);
-                        offsetCal = -surplusLbs; // negative = add to maintenance
+                    // Max rate in cal: read new unified setting, fall back to old per-phase settings
+                    const maxRateLbs = parseFloat(
+                        await db.getSetting('cycle_max_rate_lbs') ||
+                        String(parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250) / 500)
+                    );
+                    const maxRateCal = Math.round(maxRateLbs * 500);
+
+                    const cycleMode = await db.getSetting('cycle_mode') || 'cycle';
+                    if (cycleMode === 'target') {
+                        const targetWeight = parseFloat(await db.getSetting('cycle_target_weight') || '0');
+                        if (targetWeight > 0) {
+                            // Compute 7-day avg weight to determine direction
+                            const allMeas = await db.getAllMeasurements();
+                            const wbd = {};
+                            allMeas.filter(m => m.type === 'weight')
+                                .forEach(r => { wbd[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+                            const now = new Date();
+                            const _ds = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                            let wSum = 0, wN = 0;
+                            for (let back = 0; back < 7; back++) {
+                                const d = new Date(now); d.setDate(d.getDate() - back);
+                                const w = wbd[_ds(d)];
+                                if (w !== undefined) { wSum += w; wN++; }
+                            }
+                            if (wN > 0) {
+                                const avg = wSum / wN;
+                                const dist = targetWeight - avg; // positive = need to gain
+                                if (Math.abs(dist) < 0.5) {
+                                    offsetCal = 0; // within maintenance band
+                                } else {
+                                    offsetCal = dist > 0 ? -maxRateCal : maxRateCal; // bulk or cut
+                                }
+                            } else {
+                                offsetCal = 0; // no weight data → maintenance
+                            }
+                        } else {
+                            offsetCal = 0; // no target set → maintenance
+                        }
                     } else {
-                        offsetCal = parseFloat(await db.getSetting('cycle_cut_deficit_cal') || 250);
+                        // Standard bulk/cut cycle
+                        const phase = await db.getSetting('cycle_phase') || 'cut';
+                        offsetCal = phase === 'bulk' ? -maxRateCal : maxRateCal;
                     }
                 } else {
                     offsetCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
@@ -1908,11 +1967,15 @@ class FitnessTrackerApp {
             let offsetCal;
             const cycleOn = document.getElementById('cycle-mode')?.checked;
             if (cycleOn) {
-                const phaseEl = document.getElementById('cycle-phase-label');
-                const isBulk = phaseEl?.textContent === 'Bulking';
-                const rateEl = isBulk ? document.getElementById('cycle-bulk-rate') : document.getElementById('cycle-cut-rate');
-                const lbs = parseFloat(rateEl?.value || 0.5);
-                offsetCal = isBulk ? -Math.round(lbs * 500) : Math.round(lbs * 500);
+                const mode = document.querySelector('input[name="cycle-mode-radio"]:checked')?.value || 'cycle';
+                if (mode === 'target') {
+                    offsetCal = 0; // maintenance display — actual offset depends on live weight
+                } else {
+                    const phaseEl = document.getElementById('cycle-phase-label');
+                    const isBulk = phaseEl?.textContent === 'Bulking';
+                    const lbs = parseFloat(document.getElementById('cycle-max-rate')?.value || 0.5);
+                    offsetCal = isBulk ? -Math.round(lbs * 500) : Math.round(lbs * 500);
+                }
             } else {
                 const lbs = parseFloat(deficitLbsInput?.value || 0.5);
                 offsetCal = Math.round(lbs * 500);
@@ -1980,72 +2043,112 @@ class FitnessTrackerApp {
         if (fatInput)     fatInput.addEventListener('input',     () => { if (deficitToggle?.checked) updateDeficitDisplays(); });
 
         // Bulk/cut cycle mode
-        const cycleToggle        = document.getElementById('cycle-mode');
-        const cycleSection       = document.getElementById('cycle-section');
-        const cyclePhaseLabel    = document.getElementById('cycle-phase-label');
-        const cyclePhaseSwitch   = document.getElementById('cycle-phase-switch');
-        const cycleProgress      = document.getElementById('cycle-progress');
-        const cycleCutFloor      = document.getElementById('cycle-cut-floor');
-        const cycleBulkCeiling   = document.getElementById('cycle-bulk-ceiling');
-        const cycleCutRate       = document.getElementById('cycle-cut-rate');
-        const cycleBulkRate      = document.getElementById('cycle-bulk-rate');
-        const deficitSimpleRow   = document.getElementById('deficit-simple-row');
+        const cycleToggle           = document.getElementById('cycle-mode');
+        const cycleSection          = document.getElementById('cycle-section');
+        const cyclePhaseLabel       = document.getElementById('cycle-phase-label');
+        const cyclePhaseSwitch      = document.getElementById('cycle-phase-switch');
+        const cyclePhaseRow         = document.getElementById('cycle-phase-row');
+        const cycleProgress         = document.getElementById('cycle-progress');
+        const cycleCutFloor         = document.getElementById('cycle-cut-floor');
+        const cycleBulkCeiling      = document.getElementById('cycle-bulk-ceiling');
+        const cycleFloorCeilingRow  = document.getElementById('cycle-floor-ceiling-row');
+        const cycleMaxRate          = document.getElementById('cycle-max-rate');
+        const cycleMaxRateValue     = document.getElementById('cycle-max-rate-value');
+        const cycleTargetWeightRow  = document.getElementById('cycle-target-weight-row');
+        const cycleTargetWeightInput= document.getElementById('cycle-target-weight');
+        const deficitSimpleRow      = document.getElementById('deficit-simple-row');
 
-        const savedCycleEnabled     = (await db.getSetting('cycle_enabled')) === 'true';
-        const savedCyclePhase       = await db.getSetting('cycle_phase') || 'cut';
-        const savedCycleCutFloor    = await db.getSetting('cycle_cut_floor')    || '';
-        const savedCycleBulkCeiling = await db.getSetting('cycle_bulk_ceiling') || '';
-        const savedCycleCutDefCal   = parseFloat(await db.getSetting('cycle_cut_deficit_cal') || 250);
-        const savedCycleBulkSurCal  = parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250);
+        const savedCycleEnabled      = (await db.getSetting('cycle_enabled')) === 'true';
+        const savedCycleMode         = await db.getSetting('cycle_mode') || 'cycle';
+        const savedCyclePhase        = await db.getSetting('cycle_phase') || 'cut';
+        const savedCycleCutFloor     = await db.getSetting('cycle_cut_floor')    || '';
+        const savedCycleBulkCeiling  = await db.getSetting('cycle_bulk_ceiling') || '';
+        const savedCycleTargetWeight = await db.getSetting('cycle_target_weight') || '';
+        // Derive max rate from new setting; fall back to old per-phase settings for backward compat
+        const savedMaxRateLbs = parseFloat(
+            await db.getSetting('cycle_max_rate_lbs') ||
+            String(parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250) / 500)
+        );
 
-        if (cycleCutFloor)    cycleCutFloor.value    = savedCycleCutFloor;
-        if (cycleBulkCeiling) cycleBulkCeiling.value = savedCycleBulkCeiling;
-        if (cycleCutRate)     cycleCutRate.value      = (savedCycleCutDefCal / 500).toFixed(1);
-        if (cycleBulkRate)    cycleBulkRate.value     = (savedCycleBulkSurCal / 500).toFixed(1);
+        if (cycleCutFloor)          cycleCutFloor.value          = savedCycleCutFloor;
+        if (cycleBulkCeiling)       cycleBulkCeiling.value       = savedCycleBulkCeiling;
+        if (cycleTargetWeightInput) cycleTargetWeightInput.value  = savedCycleTargetWeight;
+        if (cycleMaxRate)           { cycleMaxRate.value = savedMaxRateLbs; if (cycleMaxRateValue) cycleMaxRateValue.textContent = savedMaxRateLbs.toFixed(2).replace(/\.?0+$/, '') || '0'; }
+        // Set mode radio
+        const modeRadio = document.getElementById(savedCycleMode === 'target' ? 'cycle-mode-target' : 'cycle-mode-cycle');
+        if (modeRadio) modeRadio.checked = true;
+
+        const _getWeightAvg7 = async () => {
+            const allMeas = await db.getAllMeasurements();
+            const wbd = {};
+            allMeas.filter(m => m.type === 'weight')
+                .forEach(r => { wbd[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+            const now2 = new Date();
+            let sum = 0, count = 0;
+            for (let back = 0; back < 7; back++) {
+                const dd = new Date(now2); dd.setDate(dd.getDate() - back);
+                const ds = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+                if (wbd[ds] !== undefined) { sum += wbd[ds]; count++; }
+            }
+            return count > 0 ? { avg: sum / count, count } : null;
+        };
+
+        const updateCycleModeUI = (mode) => {
+            const isTarget = mode === 'target';
+            if (cyclePhaseRow)          cyclePhaseRow.style.display         = isTarget ? 'none' : '';
+            if (cycleFloorCeilingRow)   cycleFloorCeilingRow.style.display  = isTarget ? 'none' : '';
+            if (cycleTargetWeightRow)   cycleTargetWeightRow.style.display  = isTarget ? 'flex' : 'none';
+        };
 
         const updateCyclePhaseUI = async (phase) => {
-            const isBulk = phase === 'bulk';
-            if (cyclePhaseLabel) {
-                cyclePhaseLabel.textContent = isBulk ? 'Bulking' : 'Cutting';
-                cyclePhaseLabel.style.color = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
-            }
-            if (cyclePhaseSwitch) cyclePhaseSwitch.textContent = isBulk ? 'Switch to Cut' : 'Switch to Bulk';
+            const mode = document.querySelector('input[name="cycle-mode-radio"]:checked')?.value || 'cycle';
+            updateCycleModeUI(mode);
 
-            // Progress toward next threshold
-            if (cycleProgress) {
-                const floor   = parseFloat(cycleCutFloor?.value   || 0);
-                const ceiling = parseFloat(cycleBulkCeiling?.value || 0);
-                if (floor && ceiling) {
-                    const allMeas = await db.getAllMeasurements();
-                    const wbd = {};
-                    allMeas.filter(m => m.type === 'weight')
-                        .forEach(r => { wbd[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
-                    const now2 = new Date();
-                    let sum = 0, count = 0;
-                    for (let back = 0; back < 7; back++) {
-                        const dd = new Date(now2);
-                        dd.setDate(dd.getDate() - back);
-                        const ds = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
-                        if (wbd[ds] !== undefined) { sum += wbd[ds]; count++; }
+            if (mode === 'target') {
+                if (cycleProgress) {
+                    const tw = parseFloat(cycleTargetWeightInput?.value || 0);
+                    const w = await _getWeightAvg7();
+                    if (tw > 0 && w) {
+                        const dist = tw - w.avg;
+                        const sign = dist > 0 ? '+' : '';
+                        const dir  = Math.abs(dist) < 0.5 ? 'at target' : (dist > 0 ? 'below target' : 'above target');
+                        cycleProgress.textContent = `7-day avg ${w.avg.toFixed(1)} lbs — ${sign}${dist.toFixed(1)} lbs (${dir})`;
+                    } else {
+                        cycleProgress.textContent = tw > 0 ? 'No weight data' : 'Set a target weight';
                     }
-                    if (count > 0) {
-                        const avg = sum / count;
-                        if (isBulk) {
-                            const toGo = ceiling - avg;
-                            cycleProgress.textContent = toGo > 0
-                                ? `7-day avg ${avg.toFixed(1)} lbs — ${toGo.toFixed(1)} lbs to ceiling`
-                                : `7-day avg ${avg.toFixed(1)} lbs — at or above ceiling`;
+                }
+            } else {
+                const isBulk = phase === 'bulk';
+                if (cyclePhaseLabel) {
+                    cyclePhaseLabel.textContent = isBulk ? 'Bulking' : 'Cutting';
+                    cyclePhaseLabel.style.color = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
+                }
+                if (cyclePhaseSwitch) cyclePhaseSwitch.textContent = isBulk ? 'Switch to Cut' : 'Switch to Bulk';
+
+                if (cycleProgress) {
+                    const floor   = parseFloat(cycleCutFloor?.value   || 0);
+                    const ceiling = parseFloat(cycleBulkCeiling?.value || 0);
+                    if (floor && ceiling) {
+                        const w = await _getWeightAvg7();
+                        if (w) {
+                            const avg = w.avg;
+                            if (isBulk) {
+                                const toGo = ceiling - avg;
+                                cycleProgress.textContent = toGo > 0
+                                    ? `7-day avg ${avg.toFixed(1)} lbs — ${toGo.toFixed(1)} lbs to ceiling`
+                                    : `7-day avg ${avg.toFixed(1)} lbs — at or above ceiling`;
+                            } else {
+                                const toGo = avg - floor;
+                                cycleProgress.textContent = toGo > 0
+                                    ? `7-day avg ${avg.toFixed(1)} lbs — ${toGo.toFixed(1)} lbs to floor`
+                                    : `7-day avg ${avg.toFixed(1)} lbs — at or below floor`;
+                            }
                         } else {
-                            const toGo = avg - floor;
-                            cycleProgress.textContent = toGo > 0
-                                ? `7-day avg ${avg.toFixed(1)} lbs — ${toGo.toFixed(1)} lbs to floor`
-                                : `7-day avg ${avg.toFixed(1)} lbs — at or below floor`;
+                            cycleProgress.textContent = 'No weight data';
                         }
                     } else {
-                        cycleProgress.textContent = 'No weight data';
+                        cycleProgress.textContent = 'Set floor and ceiling to track progress';
                     }
-                } else {
-                    cycleProgress.textContent = 'Set floor and ceiling to track progress';
                 }
             }
             updateDeficitDisplays();
@@ -2096,20 +2199,43 @@ class FitnessTrackerApp {
         if (cycleCutFloor)    cycleCutFloor.addEventListener('change',    saveCycleThresholds);
         if (cycleBulkCeiling) cycleBulkCeiling.addEventListener('change', saveCycleThresholds);
 
-        const saveCycleRates = async () => {
-            if (cycleCutRate) {
-                const cal = Math.round(parseFloat(cycleCutRate.value || 0.5) * 500);
-                await db.setSetting('cycle_cut_deficit_cal', String(cal));
-            }
-            if (cycleBulkRate) {
-                const cal = Math.round(parseFloat(cycleBulkRate.value || 0.5) * 500);
-                await db.setSetting('cycle_bulk_surplus_cal', String(cal));
-            }
-            updateDeficitDisplays();
-            if (this.currentScreen === 'dashboard') await this.loadDashboard();
-        };
-        if (cycleCutRate)  cycleCutRate.addEventListener('change',  saveCycleRates);
-        if (cycleBulkRate) cycleBulkRate.addEventListener('change', saveCycleRates);
+        if (cycleMaxRate) {
+            cycleMaxRate.addEventListener('input', () => {
+                const v = parseFloat(cycleMaxRate.value);
+                if (cycleMaxRateValue) cycleMaxRateValue.textContent = v % 1 === 0 ? String(v) : v.toFixed(2).replace(/0+$/, '');
+                updateDeficitDisplays();
+            });
+            cycleMaxRate.addEventListener('change', async () => {
+                const v = parseFloat(cycleMaxRate.value);
+                await db.setSetting('cycle_max_rate_lbs', String(v));
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+            });
+        }
+
+        // Mode radio listeners
+        document.querySelectorAll('input[name="cycle-mode-radio"]').forEach(radio => {
+            radio.addEventListener('change', async () => {
+                const mode = radio.value;
+                await db.setSetting('cycle_mode', mode);
+                // Reset correction when switching modes
+                await db.setSetting('cycle_weight_correction_cal', '0');
+                await db.setSetting('cycle_wtcorr_eval_date', '');
+                const phase = await db.getSetting('cycle_phase') || 'cut';
+                await updateCyclePhaseUI(phase);
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+            });
+        });
+
+        if (cycleTargetWeightInput) {
+            cycleTargetWeightInput.addEventListener('change', async () => {
+                await db.setSetting('cycle_target_weight', cycleTargetWeightInput.value);
+                // Reset correction so it starts fresh for the new target
+                await db.setSetting('cycle_weight_correction_cal', '0');
+                await db.setSetting('cycle_wtcorr_eval_date', '');
+                await updateCyclePhaseUI(await db.getSetting('cycle_phase') || 'cut');
+                if (this.currentScreen === 'dashboard') await this.loadDashboard();
+            });
+        }
 
         // Tracking mode selector (macros vs calories-only)
         const trackingModeSelect = document.getElementById('tracking-mode');

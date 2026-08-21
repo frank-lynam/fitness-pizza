@@ -401,19 +401,55 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
             const deficitModeOn = cycleEnabled || (await db.getSetting('deficit_mode')) === 'true';
             if (deficitModeOn) {
                 if (cycleEnabled) {
-                    const phase  = await db.getSetting('cycle_phase') || 'cut';
-                    const isBulk = phase === 'bulk';
-                    const rateCal = isBulk
-                        ? parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250)
-                        : parseFloat(await db.getSetting('cycle_cut_deficit_cal')  || 250);
-                    const lbsWk = (rateCal / 500).toFixed(1);
-                    const delta  = rateCal / 500; // lbs/week
-                    const color = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
+                    const cycleMode = await db.getSetting('cycle_mode') || 'cycle';
+                    const maxRateLbs = parseFloat(
+                        await db.getSetting('cycle_max_rate_lbs') ||
+                        String(parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250) / 500)
+                    );
                     const weightCorr = parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0');
                     const corrStr = weightCorr !== 0
                         ? ` <span style="color:var(--text-secondary);font-size:0.9em;">(${weightCorr > 0 ? '+' : ''}${weightCorr} cal adj)</span>`
                         : '';
-                    const label = (isBulk ? `Bulking +${lbsWk}/wk` : `Cutting −${lbsWk}/wk`) + corrStr;
+
+                    let phase, isBulk, color, label;
+                    if (cycleMode === 'target') {
+                        const targetWeight = parseFloat(await db.getSetting('cycle_target_weight') || '0');
+                        // Determine effective direction from weight vs target
+                        const weightByDateT = {};
+                        measurements.filter(m => m.type === 'weight')
+                            .forEach(r => { weightByDateT[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+                        const nowT = new Date();
+                        let tSum = 0, tN = 0;
+                        for (let back = 0; back < 7; back++) {
+                            const dd = new Date(nowT); dd.setDate(dd.getDate() - back);
+                            const ds2 = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+                            if (weightByDateT[ds2] !== undefined) { tSum += weightByDateT[ds2]; tN++; }
+                        }
+                        if (targetWeight > 0 && tN > 0) {
+                            const avg = tSum / tN;
+                            const dist = targetWeight - avg;
+                            if (Math.abs(dist) < 0.5) {
+                                color = 'var(--text-secondary)';
+                                label = `Maintaining ${avg.toFixed(1)} lbs` + corrStr;
+                            } else if (dist > 0) {
+                                isBulk = true;
+                                color = 'var(--accent-success)';
+                                label = `Target ${targetWeight} lbs — ${dist.toFixed(1)} to go` + corrStr;
+                            } else {
+                                isBulk = false;
+                                color = 'var(--accent-primary)';
+                                label = `Target ${targetWeight} lbs — ${(-dist).toFixed(1)} above` + corrStr;
+                            }
+                        } else {
+                            color = 'var(--text-secondary)';
+                            label = targetWeight > 0 ? `Target ${targetWeight} lbs` : 'Set target weight' + corrStr;
+                        }
+                    } else {
+                        phase  = await db.getSetting('cycle_phase') || 'cut';
+                        isBulk = phase === 'bulk';
+                        color  = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
+                        label  = (isBulk ? `Bulking +${maxRateLbs}/wk` : `Cutting −${maxRateLbs}/wk`) + corrStr;
+                    }
 
                     // Inline SVG progress bar: current 7-day avg between cut floor and bulk ceiling
                     // Highlight shows actual week-over-week change: blue = gained, red = lost

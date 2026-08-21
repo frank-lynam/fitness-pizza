@@ -144,8 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.24
-- **Bulk/cut weight-trend correction** — weekly outer loop detects when actual gain/loss rate diverges from target (+0.5 lb/wk bulk, −0.75 lb/wk cut) and adjusts daily calorie goal by up to 100 cal/week (capped ±600 cal); resets on phase switch; active correction shown in dashboard badge
+**Current**: v2.9.25
+- **Cycle: target weight mode + unified rate slider** — bulk/cut cycle gains a "Target weight" mode that bulks or cuts toward a single goal weight and maintains when within 0.5 lbs; rate-of-change slider (0–3 lb/wk) replaces the separate cut/bulk rate inputs and applies to all modes as max rate; weight-trend correction target rate now derived from max-rate slider; PI controller path unaffected (runs on its own `running_average_mode` toggle)
+
+**v2.9.24**
+- **Bulk/cut weight-trend correction** — weekly outer loop detects when actual gain/loss rate diverges from target and adjusts daily calorie goal by up to 100 cal/week (capped ±600 cal); resets on phase switch; active correction shown in dashboard badge
 
 **v2.9.23**
 - **Export fix** — `calorie_vs_goal` in JSON export was double-subtracting workout calories (goal already includes 100% workout credit in cycle/deficit mode); now correctly `cal_in − goal_cal`

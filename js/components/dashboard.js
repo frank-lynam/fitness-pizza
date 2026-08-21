@@ -409,7 +409,11 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                     const lbsWk = (rateCal / 500).toFixed(1);
                     const delta  = rateCal / 500; // lbs/week
                     const color = isBulk ? 'var(--accent-success)' : 'var(--accent-primary)';
-                    const label = isBulk ? `Bulking +${lbsWk}/wk` : `Cutting −${lbsWk}/wk`;
+                    const weightCorr = parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0');
+                    const corrStr = weightCorr !== 0
+                        ? ` <span style="color:var(--text-secondary);font-size:0.9em;">(${weightCorr > 0 ? '+' : ''}${weightCorr} cal adj)</span>`
+                        : '';
+                    const label = (isBulk ? `Bulking +${lbsWk}/wk` : `Cutting −${lbsWk}/wk`) + corrStr;
 
                     // Inline SVG progress bar: current 7-day avg between cut floor and bulk ceiling
                     // Highlight shows actual week-over-week change: blue = gained, red = lost

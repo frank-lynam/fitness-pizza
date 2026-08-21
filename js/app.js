@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.23';
+const APP_VERSION = '2.9.24';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -318,7 +318,10 @@ class FitnessTrackerApp {
             await db.setSetting('inferred_maintenance_cached', String(tdee));
             localStorage.setItem('fp_tdee_date', today);
         }
-        if (cycleEnabled) await this.evaluateCyclePhase();
+        if (cycleEnabled) {
+            await this.evaluateCyclePhase();
+            await this.evaluateWeightTrendCorrection();
+        }
     }
 
     async evaluateCyclePhase() {
@@ -357,8 +360,62 @@ class FitnessTrackerApp {
         if (newPhase !== currentPhase) {
             await db.setSetting('cycle_phase', newPhase);
             await db.setSetting('cycle_phase_start', getTodayDate());
+            // Reset weight-trend correction on phase switch — old correction is wrong for new direction
+            await db.setSetting('cycle_weight_correction_cal', '0');
+            await db.setSetting('cycle_wtcorr_eval_date', '');
             ui.showToast(`Switched to ${newPhase === 'bulk' ? 'Bulk' : 'Cut'} phase`);
             if (this.currentScreen === 'dashboard') await this.loadDashboard();
+        }
+    }
+
+    // Adjusts cycle_weight_correction_cal weekly so that actual weight rate of change
+    // tracks the target rate (bulk: +0.5 lb/wk, cut: -0.75 lb/wk). Moves at most 100 cal
+    // per weekly evaluation and is capped at ±600 cal to prevent runaway corrections.
+    async evaluateWeightTrendCorrection() {
+        const lastEval = await db.getSetting('cycle_wtcorr_eval_date') || '';
+        const today = getTodayDate();
+        if (lastEval === today) return;
+        const daysSince = lastEval
+            ? Math.round((new Date(today + 'T12:00:00') - new Date(lastEval + 'T12:00:00')) / 86400000)
+            : 999;
+        if (daysSince < 7) return;
+
+        const phase = await db.getSetting('cycle_phase') || 'cut';
+        const allMeasurements = await db.getAllMeasurements();
+        const weightByDate = {};
+        allMeasurements.filter(m => m.type === 'weight')
+            .forEach(r => { weightByDate[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
+
+        const now = new Date();
+        const _ds = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        let currSum = 0, currN = 0, prevSum = 0, prevN = 0;
+        for (let back = 0; back < 7; back++) {
+            const d = new Date(now); d.setDate(d.getDate() - back);
+            const w = weightByDate[_ds(d)];
+            if (w !== undefined) { currSum += w; currN++; }
+        }
+        for (let back = 7; back < 14; back++) {
+            const d = new Date(now); d.setDate(d.getDate() - back);
+            const w = weightByDate[_ds(d)];
+            if (w !== undefined) { prevSum += w; prevN++; }
+        }
+
+        await db.setSetting('cycle_wtcorr_eval_date', today);
+        if (currN < 3 || prevN < 3) return; // not enough data for a reliable signal
+
+        const actualRate = (currSum / currN) - (prevSum / prevN); // lbs over this ~1-week gap
+        const targetRate = phase === 'bulk' ? 0.5 : -0.75;
+        const rateError  = targetRate - actualRate;
+
+        const currentCorr = parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0');
+        // 3500 cal/lb ÷ 7 days ≈ 500 cal per lb/week; clamp single-step to ±100 cal
+        const desiredCorr = rateError * 500;
+        const step        = Math.max(-100, Math.min(100, desiredCorr - currentCorr));
+        const newCorr     = Math.max(-600, Math.min(600, Math.round(currentCorr + step)));
+
+        if (Math.abs(newCorr - currentCorr) >= 10) {
+            await db.setSetting('cycle_weight_correction_cal', String(newCorr));
+            console.log(`[cycle] weight correction ${currentCorr > 0 ? '+' : ''}${currentCorr} → ${newCorr > 0 ? '+' : ''}${newCorr} cal (actual ${actualRate.toFixed(2)} lb/wk vs target ${targetRate})`);
         }
     }
 
@@ -411,8 +468,13 @@ class FitnessTrackerApp {
                 } else {
                     offsetCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
                 }
-                // rest-day baseline + workout credit (added by applyWorkoutCredit below) = daily target
-                const targetCal = restDayMaintenance - offsetCal;
+                // Weight-trend correction: closes the gap between actual and target gain/loss rate.
+                // Evaluated weekly; resets to 0 on phase switch.
+                const weightCorr = cycleEnabled
+                    ? parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0')
+                    : 0;
+                // rest-day baseline + surplus/deficit offset + weight-trend correction + workout credit = daily target
+                const targetCal = restDayMaintenance - offsetCal + weightCorr;
                 const derivedCarbs = (targetCal - baseProtein * 4 - baseFat * 9) / 4;
                 baseCarbs = Math.max(0, derivedCarbs);
             }

@@ -28,7 +28,7 @@ See `.gitignore` for full exclusion list.
    - Always pass the last APK version as the second arg (e.g. `bash scripts/bundle.sh 2.8.8 2.8.7`)
    - `minNativeVersion` must equal the installed APK version or the updater will silently refuse to install the bundle
    - Only omit the second arg when you also rebuilt the APK this cycle
-3. **APK (only if native code changed)** — MainActivity.java, plugins, permissions, build.gradle:
+3. **APK** — **Required on every minor version bump** (middle number: e.g. 2.9.x → 2.10.x). Also required when native code changed: MainActivity.java, plugins, permissions, build.gradle:
    - Sync assets: `cp -r www/* android/app/src/main/assets/public/`
    - Build: `cd android && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew assembleDebug`
    - Replace APK: `rm -f app/android/*.apk && cp android/app/build/outputs/apk/debug/app-debug.apk app/android/fitness-pizza.apk`

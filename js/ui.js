@@ -403,7 +403,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         'pointer-events:auto',
         'opacity:1',
         'transition:opacity 0.4s',
-        sliderConfig ? 'min-width:220px;max-width:min(320px,90vw)' : 'white-space:nowrap',
+        sliderConfig ? 'width:min(360px,88vw)' : 'white-space:nowrap',
     ].join(';');
 
     const msg = document.createElement('span');
@@ -426,20 +426,24 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
     btn.addEventListener('click', () => { dismiss(); onUndo(); });
 
     if (sliderConfig) {
-        const sliderRow = document.createElement('div');
-        sliderRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
-
         const slider = document.createElement('input');
         slider.type = 'range';
         slider.min = sliderConfig.min;
         slider.max = sliderConfig.max;
         slider.step = sliderConfig.step;
         slider.value = sliderConfig.value;
-        slider.style.cssText = 'flex:1;min-width:80px;cursor:pointer;';
+        slider.style.cssText = 'width:100%;cursor:pointer;display:block;margin:2px 0 0;';
 
         const valLabel = document.createElement('span');
         valLabel.textContent = sliderConfig.formatValue(sliderConfig.value);
-        valLabel.style.cssText = 'min-width:44px;text-align:right;font-size:0.9em;color:var(--text-secondary);';
+        valLabel.style.cssText = 'min-width:38px;text-align:right;font-size:0.9em;color:var(--text-secondary);flex-shrink:0;';
+
+        // Top row: message + value label + Undo
+        const topRow = document.createElement('div');
+        topRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        topRow.appendChild(msg);
+        topRow.appendChild(valLabel);
+        topRow.appendChild(btn);
 
         slider.addEventListener('input', () => {
             const v = parseFloat(slider.value);
@@ -450,11 +454,8 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             timer = setTimeout(dismiss, duration);
         });
 
-        toast.appendChild(msg);
-        sliderRow.appendChild(slider);
-        sliderRow.appendChild(valLabel);
-        sliderRow.appendChild(btn);
-        toast.appendChild(sliderRow);
+        toast.appendChild(topRow);
+        toast.appendChild(slider);
     } else {
         toast.appendChild(msg);
         toast.appendChild(btn);

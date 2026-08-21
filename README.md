@@ -144,12 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.19
-- **Updater overhaul** — unregister service worker in native APK context (it was caching old files and blocking every bundle switch); switch from `next()` to `set()` so updates apply instantly with no restart required; fix guard that permanently blocked re-download after a failed restart
-- **Dashboard + food library UX** — bulk/cut progress bar highlight now shows actual week-over-week weight change (blue for gain, red for loss); food library "Use" popup now includes an amount slider (per-100g: 0.01–3.00, others: 0.5–5)
+**Current**: v2.9.20
+- **Food library slider fix** — slider now takes full toast width (was ~80px, now ~360px); minimum confirmed 1g for per-100g items
 
 **v2.9.17/18**
-- Dashboard + food library UX features (bundles blocked by updater bugs, superseded by v2.9.19)
+- Dashboard + food library UX features (bundles blocked by updater bugs, superseded by v2.9.20)
 
 **v2.9.16**
 - **Run tracker polish** — bulk/cut dashboard progress bar taller (5→7px) with soft border; pacing announcements now distance-based at every 100m (was 30s interval), reporting pace for the previous 100m segment, skipping 500m boundaries when regular updates are on (those report whole-run pace); weather API now fetches hourly temps covering the full run duration and averages them for a better temperature adjustment

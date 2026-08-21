@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.18';
+const APP_VERSION = '2.9.19';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1149,15 +1149,15 @@ class FitnessTrackerApp {
             if (localStorage.getItem('active_run')) {
                 console.log('[updater] Run active — queuing bundle for next launch');
                 await CU.next({ id: newBundle.id });
+                ui.showToast(`v${latest.version} ready — will apply after your run`);
                 return;
             }
 
-            // Use next() not set(): set() triggers a webview reload but the native layer
-            // doesn't actually switch bundles until the app is fully restarted, so the
-            // reload just shows the old version again. next() queues the bundle silently.
+            // set() switches the bundle and triggers an immediate WebView reload.
+            // The service worker is unregistered in native context so there is no stale
+            // SW cache to serve the old version — new bundle loads cleanly on first try.
             localStorage.setItem('fp_update_applied', latest.version);
-            await CU.next({ id: newBundle.id });
-            ui.showToast(`v${latest.version} ready — restart the app to update`);
+            await CU.set({ id: newBundle.id });
 
         } catch (e) {
             console.warn('[updater] Update check failed:', e.message);

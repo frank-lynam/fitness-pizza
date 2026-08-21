@@ -412,6 +412,7 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                     const label = isBulk ? `Bulking +${lbsWk}/wk` : `Cutting −${lbsWk}/wk`;
 
                     // Inline SVG progress bar: current 7-day avg between cut floor and bulk ceiling
+                    // Highlight shows actual week-over-week change: blue = gained, red = lost
                     const floor   = parseFloat(await db.getSetting('cycle_cut_floor')    || 0);
                     const ceiling = parseFloat(await db.getSetting('cycle_bulk_ceiling') || 0);
                     let progressBar = '';
@@ -419,30 +420,44 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                         const weightByDate = {};
                         measurements.filter(m => m.type === 'weight')
                             .forEach(r => { weightByDate[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
-                        let wSum = 0, wCount = 0;
                         const now7 = new Date();
+                        let wSum = 0, wCount = 0;
                         for (let back = 0; back < 7; back++) {
                             const dd = new Date(now7); dd.setDate(dd.getDate() - back);
                             const ds2 = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
                             if (weightByDate[ds2] !== undefined) { wSum += weightByDate[ds2]; wCount++; }
                         }
+                        let prevSum = 0, prevCount = 0;
+                        for (let back = 7; back < 14; back++) {
+                            const dd = new Date(now7); dd.setDate(dd.getDate() - back);
+                            const ds2 = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+                            if (weightByDate[ds2] !== undefined) { prevSum += weightByDate[ds2]; prevCount++; }
+                        }
                         if (wCount > 0) {
                             const avg   = wSum / wCount;
                             const range = ceiling - floor;
-                            const W     = 44; // bar width px
+                            const W     = 44;
+                            const H     = 7;
                             const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
                             const fillW = clamp((avg - floor) / range * W, 0, W);
-                            let spL, spW;
-                            if (isBulk) {
-                                spL = fillW;
-                                spW = clamp(delta / range * W, 0, W - fillW);
-                            } else {
-                                const rawSpL = clamp((avg - delta - floor) / range * W, 0, fillW);
-                                spW = fillW - rawSpL;
-                                spL = rawSpL;
+                            let spRect = '';
+                            if (prevCount > 0) {
+                                const prevAvg   = prevSum / prevCount;
+                                const prevFillW = clamp((prevAvg - floor) / range * W, 0, W);
+                                const actualDelta = avg - prevAvg;
+                                if (actualDelta > 0.02) {
+                                    // Gained weight: blue highlight from prevAvg pos to current pos (within fill)
+                                    const spL = prevFillW;
+                                    const spW = Math.max(1, fillW - prevFillW);
+                                    spRect = `<rect x="${spL.toFixed(1)}" y="0" width="${spW.toFixed(1)}" height="${H}" fill="rgba(59,130,246,0.9)" rx="0"/>`;
+                                } else if (actualDelta < -0.02) {
+                                    // Lost weight: red highlight from current pos to prevAvg pos (in empty area)
+                                    const spL = fillW;
+                                    const spW = Math.max(1, prevFillW - fillW);
+                                    spRect = `<rect x="${spL.toFixed(1)}" y="0" width="${spW.toFixed(1)}" height="${H}" fill="rgba(239,68,68,0.85)" rx="0"/>`;
+                                }
                             }
-                            const H = 7;
-                            progressBar = `<svg width="${W}" height="${H}" style="vertical-align:middle;margin-left:5px;border-radius:2px;" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${W}" height="${H}" fill="var(--bg-tertiary)" rx="2"/><rect x="0" y="0" width="${fillW.toFixed(1)}" height="${H}" fill="var(--accent-primary)" rx="2"/><rect x="${spL.toFixed(1)}" y="0" width="${Math.max(1,spW).toFixed(1)}" height="${H}" fill="rgba(34,211,238,0.85)" rx="0"/><rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" fill="none" stroke="rgba(128,128,128,0.3)" stroke-width="1" rx="1.5"/></svg>`;
+                            progressBar = `<svg width="${W}" height="${H}" style="vertical-align:middle;margin-left:5px;border-radius:2px;" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${W}" height="${H}" fill="var(--bg-tertiary)" rx="2"/><rect x="0" y="0" width="${fillW.toFixed(1)}" height="${H}" fill="var(--accent-primary)" rx="2"/>${spRect}<rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" fill="none" stroke="rgba(128,128,128,0.3)" stroke-width="1" rx="1.5"/></svg>`;
                         }
                     }
                     deficitBadge = `<span style="font-size:0.78em;color:${color};margin-left:5px;">${label}${progressBar}</span>`;

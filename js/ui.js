@@ -367,7 +367,7 @@ export function showUndoToast(message, onUndo, duration = 5000) {
  * Show a stacking add-confirmation toast with an Undo button.
  * Multiple calls stack vertically; each fades independently.
  */
-export function showAddToast(message, onUndo, duration = 4000) {
+export function showAddToast(message, onUndo, duration = 4000, sliderConfig = null) {
     let container = document.getElementById('fp-add-toasts');
     if (!container) {
         container = document.createElement('div');
@@ -392,17 +392,18 @@ export function showAddToast(message, onUndo, duration = 4000) {
         'background:var(--bg-secondary)',
         'color:var(--text-primary)',
         'padding:8px 14px',
-        'border-radius:20px',
+        sliderConfig ? 'border-radius:14px' : 'border-radius:20px',
         'border:1px solid var(--border-color)',
         'font-size:0.85em',
         'box-shadow:0 2px 8px rgba(0,0,0,0.35)',
         'display:flex',
-        'align-items:center',
-        'gap:10px',
+        sliderConfig ? 'flex-direction:column' : 'flex-direction:row',
+        'align-items:' + (sliderConfig ? 'stretch' : 'center'),
+        'gap:' + (sliderConfig ? '5px' : '10px'),
         'pointer-events:auto',
         'opacity:1',
         'transition:opacity 0.4s',
-        'white-space:nowrap',
+        sliderConfig ? 'min-width:220px;max-width:min(320px,90vw)' : 'white-space:nowrap',
     ].join(';');
 
     const msg = document.createElement('span');
@@ -410,8 +411,9 @@ export function showAddToast(message, onUndo, duration = 4000) {
 
     const btn = document.createElement('button');
     btn.textContent = 'Undo';
-    btn.style.cssText = 'background:var(--accent-primary);color:#fff;border:none;padding:3px 10px;border-radius:10px;cursor:pointer;font-size:0.85em;font-weight:600;';
+    btn.style.cssText = 'background:var(--accent-primary);color:#fff;border:none;padding:3px 10px;border-radius:10px;cursor:pointer;font-size:0.85em;font-weight:600;flex-shrink:0;';
 
+    let timer;
     const dismiss = () => {
         clearTimeout(timer);
         toast.style.opacity = '0';
@@ -422,10 +424,44 @@ export function showAddToast(message, onUndo, duration = 4000) {
     };
 
     btn.addEventListener('click', () => { dismiss(); onUndo(); });
-    toast.appendChild(msg);
-    toast.appendChild(btn);
+
+    if (sliderConfig) {
+        const sliderRow = document.createElement('div');
+        sliderRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.min = sliderConfig.min;
+        slider.max = sliderConfig.max;
+        slider.step = sliderConfig.step;
+        slider.value = sliderConfig.value;
+        slider.style.cssText = 'flex:1;min-width:80px;cursor:pointer;';
+
+        const valLabel = document.createElement('span');
+        valLabel.textContent = sliderConfig.formatValue(sliderConfig.value);
+        valLabel.style.cssText = 'min-width:44px;text-align:right;font-size:0.9em;color:var(--text-secondary);';
+
+        slider.addEventListener('input', () => {
+            const v = parseFloat(slider.value);
+            valLabel.textContent = sliderConfig.formatValue(v);
+            if (sliderConfig.onMessageUpdate) msg.textContent = sliderConfig.onMessageUpdate(v);
+            sliderConfig.onChange(v);
+            clearTimeout(timer);
+            timer = setTimeout(dismiss, duration);
+        });
+
+        toast.appendChild(msg);
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(valLabel);
+        sliderRow.appendChild(btn);
+        toast.appendChild(sliderRow);
+    } else {
+        toast.appendChild(msg);
+        toast.appendChild(btn);
+    }
+
     container.insertBefore(toast, container.firstChild); // newest on top
-    const timer = setTimeout(dismiss, duration);
+    timer = setTimeout(dismiss, duration);
 }
 
 /**

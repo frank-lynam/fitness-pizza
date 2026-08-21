@@ -270,32 +270,66 @@ function setupFoodLibraryButtons(modal, foods) {
             const todayMacros = await db.getMacrosByDate(currentDate);
             const existing = todayMacros.find(m => m.status === 'planned' && m.food_id === food.id);
 
+            const isPerGram = food.format_type === 'per_gram';
+            const sliderMin  = isPerGram ? 0.01 : 0.5;
+            const sliderMax  = isPerGram ? 3.00 : 5;
+            const sliderStep = isPerGram ? 0.01 : 0.5;
+            const fmtVal = isPerGram
+                ? v => Math.round(v * 100) + 'g'
+                : v => v + ' srv';
+
             if (existing) {
                 const prevServings = existing.servings || 1;
-                const newServings = prevServings + 1;
-                const mult = newServings / prevServings;
-                existing.servings = newServings;
-                existing.fat     = (existing.fat     || 0) * mult;
-                existing.protein = (existing.protein || 0) * mult;
-                existing.carbs   = (existing.carbs   || 0) * mult;
-                existing.calories = existing.fat * 9 + existing.protein * 4 + existing.carbs * 4;
+                const prevQuantity = isPerGram ? prevServings * 100 : prevServings;
+                const prevMacros   = db.calculateMacrosFromNamedFood(food, prevQuantity);
+
+                // Start by adding 1 unit (same default as before)
+                const initAdd = 1.0;
+                const initTotal = prevServings + initAdd;
+                const initQuantity = isPerGram ? initTotal * 100 : initTotal;
+                const initMacros = db.calculateMacrosFromNamedFood(food, initQuantity);
+                existing.servings = initTotal;
+                existing.fat      = initMacros.fat;
+                existing.protein  = initMacros.protein;
+                existing.carbs    = initMacros.carbs;
+                existing.calories = initMacros.calories;
                 await db.updateMacroEntry(existing);
                 window.dispatchEvent(new CustomEvent('fp:data-changed'));
-                ui.showAddToast(`${food.name} ×${newServings}`, async () => {
+
+                const sliderConfig = {
+                    min: sliderMin, max: sliderMax, step: sliderStep, value: initAdd,
+                    formatValue: fmtVal,
+                    onMessageUpdate: v => `${food.name} ×${+(prevServings + v).toFixed(2)}`,
+                    onChange: async v => {
+                        const total = prevServings + v;
+                        const qty   = isPerGram ? total * 100 : total;
+                        const m     = db.calculateMacrosFromNamedFood(food, qty);
+                        const rev   = await db.get('macros', existing.id);
+                        if (!rev) return;
+                        rev.servings = total;
+                        rev.fat      = m.fat;
+                        rev.protein  = m.protein;
+                        rev.carbs    = m.carbs;
+                        rev.calories = m.calories;
+                        await db.updateMacroEntry(rev);
+                        window.dispatchEvent(new CustomEvent('fp:data-changed'));
+                    }
+                };
+
+                ui.showAddToast(`${food.name} ×${initTotal}`, async () => {
                     const rev = await db.get('macros', existing.id);
                     if (!rev) return;
-                    const revMult = prevServings / newServings;
                     rev.servings = prevServings;
-                    rev.fat     = (rev.fat     || 0) * revMult;
-                    rev.protein = (rev.protein || 0) * revMult;
-                    rev.carbs   = (rev.carbs   || 0) * revMult;
-                    rev.calories = rev.fat * 9 + rev.protein * 4 + rev.carbs * 4;
+                    rev.fat      = prevMacros.fat;
+                    rev.protein  = prevMacros.protein;
+                    rev.carbs    = prevMacros.carbs;
+                    rev.calories = prevMacros.calories;
                     await db.updateMacroEntry(rev);
                     window.dispatchEvent(new CustomEvent('fp:data-changed'));
-                });
+                }, 4000, sliderConfig);
             } else {
-                const quantity = food.format_type === 'per_gram' ? 100 : 1;
-                const macros = db.calculateMacrosFromNamedFood(food, quantity);
+                const initQuantity = isPerGram ? 100 : 1;
+                const macros = db.calculateMacrosFromNamedFood(food, initQuantity);
                 const entryId = await db.addMacroEntry({
                     ...macros,
                     meal_name: food.name,
@@ -305,10 +339,30 @@ function setupFoodLibraryButtons(modal, foods) {
                     status: 'planned'
                 });
                 window.dispatchEvent(new CustomEvent('fp:data-changed'));
+
+                const sliderConfig = {
+                    min: sliderMin, max: sliderMax, step: sliderStep, value: 1.0,
+                    formatValue: fmtVal,
+                    onMessageUpdate: v => `Added ${food.name} (${fmtVal(v)})`,
+                    onChange: async v => {
+                        const qty = isPerGram ? v * 100 : v;
+                        const m   = db.calculateMacrosFromNamedFood(food, qty);
+                        const entry = await db.get('macros', entryId);
+                        if (!entry) return;
+                        entry.servings = v;
+                        entry.fat      = m.fat;
+                        entry.protein  = m.protein;
+                        entry.carbs    = m.carbs;
+                        entry.calories = m.calories;
+                        await db.updateMacroEntry(entry);
+                        window.dispatchEvent(new CustomEvent('fp:data-changed'));
+                    }
+                };
+
                 ui.showAddToast(`Added ${food.name}`, async () => {
                     await db.deleteMacroEntry(entryId);
                     window.dispatchEvent(new CustomEvent('fp:data-changed'));
-                });
+                }, 4000, sliderConfig);
             }
         });
     });

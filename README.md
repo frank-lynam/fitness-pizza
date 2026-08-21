@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.16
+**Current**: v2.9.17
+- **Dashboard + food library UX** — bulk/cut progress bar highlight now shows actual week-over-week weight change (blue for gain, red for loss) instead of the goal delta; food library "Use" popup now includes an amount slider (per-100g foods: 0.01–3.00 in 0.01 steps; all others: 0.5–5 in 0.5 steps) that updates the entry in real-time; toast fades on normal schedule, or 4s after the last slider move
+
+**v2.9.16**
 - **Run tracker polish** — bulk/cut dashboard progress bar taller (5→7px) with soft border; pacing announcements now distance-based at every 100m (was 30s interval), reporting pace for the previous 100m segment, skipping 500m boundaries when regular updates are on (those report whole-run pace); weather API now fetches hourly temps covering the full run duration and averages them for a better temperature adjustment
 
 **v2.9.15**

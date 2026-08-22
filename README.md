@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.29
+**Current**: v2.9.30
+- **Fix update loop** — version-keyed 90s time guard + SKIP_WAITING before set(); hot-reload reinstated with two independent re-download guards
+
+**v2.9.29**
 - **Fix update loop** — replaced hot-reload set() with next()-only; update now applies on next cold start with a "close and reopen" toast
 
 **v2.9.28**

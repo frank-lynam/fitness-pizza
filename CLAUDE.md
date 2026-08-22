@@ -36,7 +36,43 @@ See `.gitignore` for full exclusion list.
    - Re-run bundle with matching minNativeVersion: `bash scripts/bundle.sh VERSION VERSION`
    - Clean Gradle output: `rm -rf android/app/build/ android/.gradle/ android/build/`
 4. **Validate**: `cat updates/latest.json` — confirm new version and correct minNativeVersion
+   - If the updater has been recently modified, also confirm no update loop: after deploying,
+     the 5s startup check should fire once but NOT trigger a second download in the same session
 5. **Commit + push**: `git add -A && git commit && git push`
 6. **Deploy**: `curl -s http://localhost:12345/invalidate` — local service uploads repo to S3 and invalidates CloudFront. Must return `PWA updated`.
 7. **Verify**: check https://fitness-pizza.com — confirm version in Settings/About matches
 8. **Clean**: `rm -f updates/*.zip app/android/*.apk`
+
+## Live Updater Loop — Root Cause & Fix
+
+### What causes the loop
+
+`CU.set()` triggers an immediate WebView hot reload. During that navigation the **old service
+worker** may still be controlling the page and serve stale `app.js` from its versioned cache.
+After the reload, `APP_VERSION` in JS can equal the OLD version even though the new bundle's
+files are on disk. The 5-second startup `checkLiveUpdate` then sees `latest > current` and
+re-downloads, causing an infinite loop.
+
+### The two-guard fix (added v2.9.30)
+
+`checkLiveUpdate` has two independent guards that each independently block re-download:
+
+1. **Staged-version guard** (`fp_update_applied`): written to `latest.version` before `set()`,
+   cleared only when `appliedVer === APP_VERSION` (confirming the hot reload loaded correct JS).
+   If the SW served stale JS (wrong APP_VERSION), this key stays set and the staged check skips.
+
+2. **Version-keyed time guard** (`fp_update_guard_{version}`): written with a 90-second expiry
+   before `set()`. Blocks re-download of that exact version for 90s regardless of APP_VERSION.
+   Version-keyed so it doesn't block downloads of newer versions. Cleaned up on success.
+
+Additionally, before `set()` the updater sends `SKIP_WAITING` to any installed-but-waiting
+service worker so the new SW takes over before the reload, maximising the chance that the
+reloaded page gets correct JS from the new bundle's cache.
+
+### Rules when modifying the updater
+
+- Never remove both guards simultaneously — they are redundant for a reason
+- Always write both guards **before** calling `set()` (set() causes an immediate reload;
+  code after it does not run in the current page context)
+- Always send `SKIP_WAITING` to the SW before `set()`
+- Never use `set()` without `next()` — `next()` ensures cold-start recovery if `set()` fails

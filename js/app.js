@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.29';
+const APP_VERSION = '2.9.30';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1198,6 +1198,7 @@ class FitnessTrackerApp {
         const appliedVer = localStorage.getItem('fp_update_applied');
         if (appliedVer === APP_VERSION) {
             localStorage.removeItem('fp_update_applied');
+            localStorage.removeItem(`fp_update_guard_${APP_VERSION}`);
             setTimeout(() => ui.showToast(`✨ Updated to v${APP_VERSION}`), 1500);
         }
 
@@ -1243,6 +1244,14 @@ class FitnessTrackerApp {
                 return;
             }
 
+            // Version-keyed time guard: blocks re-download of the same version for 90s
+            // after set() is called. Survives hot reloads regardless of APP_VERSION state.
+            const guardExpiry = parseInt(localStorage.getItem(`fp_update_guard_${latest.version}`) || '0');
+            if (Date.now() < guardExpiry) {
+                console.log(`[updater] reload guard active for v${latest.version}, skipping`);
+                return;
+            }
+
             // If we've already staged this version, don't re-download.
             const stagedVersion = localStorage.getItem('fp_update_applied');
             if (stagedVersion && !this._semverGt(latest.version, stagedVersion)) {
@@ -1269,12 +1278,21 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // Queue for next cold start only — hot-reload (set()) caused a re-check
-            // loop because the 5s startup check fires before the version comparison
-            // can settle. next() is safe: the bundle applies when the user reopens the app.
+            // Write guards before set() — set() causes an immediate hot reload so
+            // nothing after it runs in the current page context.
+            localStorage.setItem(`fp_update_guard_${latest.version}`, String(Date.now() + 90000));
             localStorage.setItem('fp_update_applied', latest.version);
+
+            // Nudge any waiting SW to activate now so the reloaded page gets fresh JS
+            if ('serviceWorker' in navigator) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                for (const reg of regs) {
+                    if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+            }
+
             await CU.next({ id: newBundle.id });
-            ui.showToast(`v${latest.version} ready — close and reopen to update`);
+            await CU.set({ id: newBundle.id }); // hot reload
 
         } catch (e) {
             console.warn('[updater] Update check failed:', e.message);

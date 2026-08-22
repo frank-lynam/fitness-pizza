@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.27
+**Current**: v2.9.28
+- **Settings fix** — resolved "savedDeficitMode not defined" crash after settings UI redesign
+
+**v2.9.27**
 - **Settings UI redesign** — replaced verbose deficit/cycle section with compact 3-row layout: two mutually exclusive checkboxes (Target weight / Bulk/Cut) + phase toggle button, two weight inputs, and the max-rate slider; no empty space
 
 **v2.9.26**

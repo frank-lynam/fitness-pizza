@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.27';
+const APP_VERSION = '2.9.28';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -2169,11 +2169,10 @@ class FitnessTrackerApp {
         const workoutCreditFractionSlider = document.getElementById('workout-credit-fraction');
         const workoutCreditFractionValueEl = document.getElementById('workout-credit-fraction-value');
         const savedCreditFraction = parseFloat(await db.getSetting('workout_credit_fraction') || '0.5');
-        if (workoutCreditFractionSlider && !savedDeficitMode) {
+        if (workoutCreditFractionSlider) {
             workoutCreditFractionSlider.value = savedCreditFraction;
             if (workoutCreditFractionValueEl) workoutCreditFractionValueEl.textContent = `${Math.round(savedCreditFraction * 100)}%`;
             workoutCreditFractionSlider.addEventListener('input', async () => {
-                if (deficitToggle?.checked) return; // locked in deficit mode
                 const v = parseFloat(workoutCreditFractionSlider.value);
                 if (workoutCreditFractionValueEl) workoutCreditFractionValueEl.textContent = `${Math.round(v * 100)}%`;
                 await db.setSetting('workout_credit_fraction', String(v));

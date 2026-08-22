@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.31
+**Current**: v2.9.32
+- **Daily weight-trend correction** — removed 7-day gate; correction now runs every day with ±15 cal/day step (same ~100 cal/wk max movement, responds to direction reversals in 1 day instead of 7)
+
+**v2.9.31**
 - **Update loop confirmed fixed** — hot-reload updater verified stable
 
 **v2.9.30**

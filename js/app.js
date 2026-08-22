@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.31';
+const APP_VERSION = '2.9.32';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -378,10 +378,6 @@ class FitnessTrackerApp {
         const lastEval = await db.getSetting('cycle_wtcorr_eval_date') || '';
         const today = getTodayDate();
         if (lastEval === today) return;
-        const daysSince = lastEval
-            ? Math.round((new Date(today + 'T12:00:00') - new Date(lastEval + 'T12:00:00')) / 86400000)
-            : 999;
-        if (daysSince < 7) return;
 
         const phase = await db.getSetting('cycle_phase') || 'cut';
         const allMeasurements = await db.getAllMeasurements();
@@ -431,12 +427,12 @@ class FitnessTrackerApp {
         const rateError  = targetRate - actualRate;
 
         const currentCorr = parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0');
-        // 3500 cal/lb ÷ 7 days ≈ 500 cal per lb/week; clamp single-step to ±100 cal
+        // 500 cal per lb/week; clamp daily step to ±15 cal (≈100 cal/wk max movement)
         const desiredCorr = rateError * 500;
-        const step        = Math.max(-100, Math.min(100, desiredCorr - currentCorr));
+        const step        = Math.max(-15, Math.min(15, desiredCorr - currentCorr));
         const newCorr     = Math.max(-600, Math.min(600, Math.round(currentCorr + step)));
 
-        if (Math.abs(newCorr - currentCorr) >= 10) {
+        if (Math.abs(newCorr - currentCorr) >= 5) {
             await db.setSetting('cycle_weight_correction_cal', String(newCorr));
             console.log(`[cycle] weight correction ${currentCorr > 0 ? '+' : ''}${currentCorr} → ${newCorr > 0 ? '+' : ''}${newCorr} cal (actual ${actualRate.toFixed(2)} lb/wk vs target ${targetRate})`);
         }

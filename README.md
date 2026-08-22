@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.28
+**Current**: v2.9.29
+- **Fix update loop** — replaced hot-reload set() with next()-only; update now applies on next cold start with a "close and reopen" toast
+
+**v2.9.28**
 - **Settings fix** — resolved "savedDeficitMode not defined" crash after settings UI redesign
 
 **v2.9.27**

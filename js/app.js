@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.28';
+const APP_VERSION = '2.9.29';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1198,11 +1198,8 @@ class FitnessTrackerApp {
         const appliedVer = localStorage.getItem('fp_update_applied');
         if (appliedVer === APP_VERSION) {
             localStorage.removeItem('fp_update_applied');
-            localStorage.removeItem('fp_update_set_at');
             setTimeout(() => ui.showToast(`✨ Updated to v${APP_VERSION}`), 1500);
         }
-        // Don't clear stale flags on version mismatch — the "already staged" guard
-        // and the set() cooldown together prevent re-download loops.
 
         // Check shortly after startup
         setTimeout(() => this.checkLiveUpdate(CU), 5000);
@@ -1231,14 +1228,6 @@ class FitnessTrackerApp {
         const MANIFEST = 'https://fitness-pizza.com/updates/latest.json';
         localStorage.setItem('fp_update_last_check', String(Date.now()));
         try {
-            // Skip if a set() was attempted within the last 30s — prevents the
-            // immediate re-check after a hot reload from triggering another download.
-            const setAt = parseInt(localStorage.getItem('fp_update_set_at') || '0');
-            if (Date.now() - setAt < 30000) {
-                console.log('[updater] set() cooldown active, skipping');
-                return;
-            }
-
             const [current, latest] = await Promise.all([
                 CU.current(),
                 this._fetchJson(`${MANIFEST}?t=${Date.now()}`),
@@ -1280,13 +1269,12 @@ class FitnessTrackerApp {
                 return;
             }
 
-            // Record the set() attempt time before calling set() — the cooldown guard
-            // above will suppress the 5-second startup re-check after the hot reload.
-            // Also call next() so a cold start picks up the bundle if set() somehow fails.
+            // Queue for next cold start only — hot-reload (set()) caused a re-check
+            // loop because the 5s startup check fires before the version comparison
+            // can settle. next() is safe: the bundle applies when the user reopens the app.
             localStorage.setItem('fp_update_applied', latest.version);
-            localStorage.setItem('fp_update_set_at', String(Date.now()));
             await CU.next({ id: newBundle.id });
-            await CU.set({ id: newBundle.id });
+            ui.showToast(`v${latest.version} ready — close and reopen to update`);
 
         } catch (e) {
             console.warn('[updater] Update check failed:', e.message);

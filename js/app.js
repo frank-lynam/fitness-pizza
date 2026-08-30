@@ -19,7 +19,7 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.33';
+const APP_VERSION = '2.9.34';
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1232,8 +1232,19 @@ class FitnessTrackerApp {
 
             const nativeVersion = current.native;
             const currentVersion = APP_VERSION;
+            // Capgo reports the bundle it actually loaded — more reliable than APP_VERSION
+            // when the SW serves stale JS after a hot reload.
+            const capgoBundleVersion = current.bundle?.version;
 
-            console.log(`[updater] native=${nativeVersion} current=${currentVersion} latest=${latest.version} minNative=${latest.minNativeVersion}`);
+            console.log(`[updater] native=${nativeVersion} current=${currentVersion} capgo=${capgoBundleVersion} latest=${latest.version} minNative=${latest.minNativeVersion}`);
+
+            // Guard 0: Capgo already has the latest bundle loaded — don't re-download even
+            // if APP_VERSION is stale (old SW serving cached JS). This survives localStorage
+            // clears because the source of truth is the plugin itself.
+            if (capgoBundleVersion && capgoBundleVersion === latest.version) {
+                if (!silent) ui.showToast(`✓ v${latest.version} is up to date (latest live: v${latest.version})`);
+                return;
+            }
 
             if (!this._semverGt(latest.version, currentVersion)) {
                 if (!silent) ui.showToast(`✓ v${APP_VERSION} is up to date (latest live: v${latest.version})`);

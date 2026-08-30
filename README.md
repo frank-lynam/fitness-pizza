@@ -144,8 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.34
-- **Update loop fix** — add Capgo bundle-version guard (`current.bundle.version`) as the first check in `checkLiveUpdate`; survives localStorage clears and definitively blocks re-download when the plugin already has the latest bundle loaded
+**Current**: v2.9.35
+- **APK rebuild** — built-in fallback bundle is now 2.9.35 (eliminates Capgo rollback-to-2.9.19 loop); weight (raw + 7d avg) added to Macros & Calories chart on its own right axis
+
+**v2.9.34**
+- **Update loop fix** — Capgo bundle-version guard (`current.bundle.version`) as first check in `checkLiveUpdate`; survives localStorage clears
 
 **v2.9.33**
 - **Macros & Calories chart** — new Trends chart showing daily fat/protein/carbs (raw dots + 7-day rolling avg lines) with calories on a secondary right axis

@@ -122,7 +122,7 @@ async function renderCharts(days) {
         // Render individual charts
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderWaistTrend(measurements, days);
-        await renderMacrosRaw(filteredMacros, days);
+        await renderMacrosRaw(macros.filter(m => m.status === 'completed'), days);
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderMacroDelta(filteredMacros, filteredWorkouts, days);
         // All-time data for TDEE inference (more history = better estimates)
@@ -643,8 +643,10 @@ async function renderWaistTrend(allMeasurements, days) {
 
 /**
  * Render daily macros (raw dots) + 7-day rolling avg lines, with calories on a secondary axis.
+ * Receives ALL completed macros so the rolling avg at the left edge of the display window
+ * can look back into prior data (mirrors renderBodyComposition's pattern).
  */
-async function renderMacrosRaw(macros, days) {
+async function renderMacrosRaw(allMacros, days) {
     const ctx = document.getElementById('macro-raw-chart');
     if (!ctx) return;
     if (charts.macrosRaw) charts.macrosRaw.destroy();
@@ -652,58 +654,65 @@ async function renderMacrosRaw(macros, days) {
     const colors = getThemeColors();
     const today = new Date();
     const todayStr = localDateStr(today);
-    let minDate, maxDate;
 
+    // Build a complete per-date map from all history (for lookback)
+    const allByDate = {};
+    allMacros.forEach(m => {
+        if (!allByDate[m.date]) allByDate[m.date] = { fat: 0, protein: 0, carbs: 0, calories: 0, hasData: false };
+        allByDate[m.date].fat      += m.fat      || 0;
+        allByDate[m.date].protein  += m.protein  || 0;
+        allByDate[m.date].carbs    += m.carbs    || 0;
+        allByDate[m.date].calories += m.calories || 0;
+        allByDate[m.date].hasData   = true;
+    });
+
+    // Determine display window
+    let minDate, maxDate;
     if (days) {
         maxDate = todayStr;
         const startDate = new Date(today);
         startDate.setDate(startDate.getDate() - (days - 1));
         minDate = localDateStr(startDate);
     } else {
-        macros.forEach(m => {
-            if (!minDate || m.date < minDate) minDate = m.date;
-            if (!maxDate || m.date > maxDate) maxDate = m.date;
-        });
-        if (!minDate || !maxDate) { minDate = maxDate = todayStr; }
+        const allDates = Object.keys(allByDate).sort();
+        minDate = allDates[0] || todayStr;
+        maxDate = todayStr;
     }
 
-    const byDate = {};
+    // Build display date array
+    const sortedDates = [];
     const cur = new Date(minDate + 'T12:00:00');
     const end = new Date(maxDate + 'T12:00:00');
     while (cur <= end) {
-        byDate[localDateStr(cur)] = { fat: 0, protein: 0, carbs: 0, calories: 0, hasData: false };
+        sortedDates.push(localDateStr(cur));
         cur.setDate(cur.getDate() + 1);
     }
 
-    macros.forEach(m => {
-        if (byDate[m.date]) {
-            byDate[m.date].fat      += m.fat      || 0;
-            byDate[m.date].protein  += m.protein  || 0;
-            byDate[m.date].carbs    += m.carbs    || 0;
-            byDate[m.date].calories += m.calories || 0;
-            byDate[m.date].hasData   = true;
-        }
-    });
+    // Raw values — null for days with no logged food
+    const rawFat      = sortedDates.map(d => allByDate[d]?.hasData ? Math.round(allByDate[d].fat      * 10) / 10 : null);
+    const rawProtein  = sortedDates.map(d => allByDate[d]?.hasData ? Math.round(allByDate[d].protein  * 10) / 10 : null);
+    const rawCarbs    = sortedDates.map(d => allByDate[d]?.hasData ? Math.round(allByDate[d].carbs    * 10) / 10 : null);
+    const rawCalories = sortedDates.map(d => allByDate[d]?.hasData ? Math.round(allByDate[d].calories)          : null);
 
-    const sortedDates = Object.keys(byDate).sort();
-
-    const rawFat      = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].fat      * 10) / 10 : null);
-    const rawProtein  = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].protein  * 10) / 10 : null);
-    const rawCarbs    = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].carbs    * 10) / 10 : null);
-    const rawCalories = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].calories)          : null);
-
+    // 7-day rolling avg using per-date lookback into full history (correct at left edge)
     const WINDOW = 7;
-    function rollingAvg(arr) {
-        return arr.map((_, i) => {
-            const slice = arr.slice(Math.max(0, i - WINDOW + 1), i + 1).filter(v => v !== null);
-            return slice.length > 0 ? Math.round(slice.reduce((s, v) => s + v, 0) / slice.length * 10) / 10 : null;
+    function rollingAvg(dates, field) {
+        return dates.map(d => {
+            let sum = 0, cnt = 0;
+            for (let back = 0; back < WINDOW; back++) {
+                const dt = new Date(d + 'T12:00:00');
+                dt.setDate(dt.getDate() - back);
+                const ds = localDateStr(dt);
+                if (allByDate[ds]?.hasData) { sum += allByDate[ds][field]; cnt++; }
+            }
+            return cnt > 0 ? Math.round(sum / cnt * 10) / 10 : null;
         });
     }
 
-    const avgFat      = rollingAvg(rawFat);
-    const avgProtein  = rollingAvg(rawProtein);
-    const avgCarbs    = rollingAvg(rawCarbs);
-    const avgCalories = rollingAvg(rawCalories);
+    const avgFat      = rollingAvg(sortedDates, 'fat');
+    const avgProtein  = rollingAvg(sortedDates, 'protein');
+    const avgCarbs    = rollingAvg(sortedDates, 'carbs');
+    const avgCalories = rollingAvg(sortedDates, 'calories');
 
     charts.macrosRaw = new Chart(ctx, {
         type: 'line',

@@ -122,6 +122,7 @@ async function renderCharts(days) {
         // Render individual charts
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderWaistTrend(measurements, days);
+        await renderMacrosRaw(filteredMacros, days);
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderMacroDelta(filteredMacros, filteredWorkouts, days);
         // All-time data for TDEE inference (more history = better estimates)
@@ -634,6 +635,126 @@ async function renderWaistTrend(allMeasurements, days) {
                     ticks: { color: colors.secondary },
                     grid:  { drawOnChartArea: false },
                     title: { display: true, text: 'lbs', color: colors.secondary }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Render daily macros (raw dots) + 7-day rolling avg lines, with calories on a secondary axis.
+ */
+async function renderMacrosRaw(macros, days) {
+    const ctx = document.getElementById('macro-raw-chart');
+    if (!ctx) return;
+    if (charts.macrosRaw) charts.macrosRaw.destroy();
+
+    const colors = getThemeColors();
+    const today = new Date();
+    const todayStr = localDateStr(today);
+    let minDate, maxDate;
+
+    if (days) {
+        maxDate = todayStr;
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - (days - 1));
+        minDate = localDateStr(startDate);
+    } else {
+        macros.forEach(m => {
+            if (!minDate || m.date < minDate) minDate = m.date;
+            if (!maxDate || m.date > maxDate) maxDate = m.date;
+        });
+        if (!minDate || !maxDate) { minDate = maxDate = todayStr; }
+    }
+
+    const byDate = {};
+    const cur = new Date(minDate + 'T12:00:00');
+    const end = new Date(maxDate + 'T12:00:00');
+    while (cur <= end) {
+        byDate[localDateStr(cur)] = { fat: 0, protein: 0, carbs: 0, calories: 0, hasData: false };
+        cur.setDate(cur.getDate() + 1);
+    }
+
+    macros.forEach(m => {
+        if (byDate[m.date]) {
+            byDate[m.date].fat      += m.fat      || 0;
+            byDate[m.date].protein  += m.protein  || 0;
+            byDate[m.date].carbs    += m.carbs    || 0;
+            byDate[m.date].calories += m.calories || 0;
+            byDate[m.date].hasData   = true;
+        }
+    });
+
+    const sortedDates = Object.keys(byDate).sort();
+
+    const rawFat      = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].fat      * 10) / 10 : null);
+    const rawProtein  = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].protein  * 10) / 10 : null);
+    const rawCarbs    = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].carbs    * 10) / 10 : null);
+    const rawCalories = sortedDates.map(d => byDate[d].hasData ? Math.round(byDate[d].calories)          : null);
+
+    const WINDOW = 7;
+    function rollingAvg(arr) {
+        return arr.map((_, i) => {
+            const slice = arr.slice(Math.max(0, i - WINDOW + 1), i + 1).filter(v => v !== null);
+            return slice.length > 0 ? Math.round(slice.reduce((s, v) => s + v, 0) / slice.length * 10) / 10 : null;
+        });
+    }
+
+    const avgFat      = rollingAvg(rawFat);
+    const avgProtein  = rollingAvg(rawProtein);
+    const avgCarbs    = rollingAvg(rawCarbs);
+    const avgCalories = rollingAvg(rawCalories);
+
+    charts.macrosRaw = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: sortedDates,
+            datasets: [
+                // Raw dots — left axis (grams)
+                { label: 'Fat (g)',     data: rawFat,      yAxisID: 'y',  borderColor: 'transparent', backgroundColor: colors.warning  + '88', pointRadius: 2, showLine: false, order: 3, spanGaps: false },
+                { label: 'Protein (g)', data: rawProtein,  yAxisID: 'y',  borderColor: 'transparent', backgroundColor: colors.secondary + '88', pointRadius: 2, showLine: false, order: 3, spanGaps: false },
+                { label: 'Carbs (g)',   data: rawCarbs,    yAxisID: 'y',  borderColor: 'transparent', backgroundColor: colors.primary   + '88', pointRadius: 2, showLine: false, order: 3, spanGaps: false },
+                // 7d avg lines — left axis
+                { label: 'Fat 7d avg',     data: avgFat,     yAxisID: 'y',  borderColor: colors.warning,  backgroundColor: 'transparent', tension: 0, pointRadius: 0, borderWidth: 2, order: 1, spanGaps: true },
+                { label: 'Protein 7d avg', data: avgProtein, yAxisID: 'y',  borderColor: colors.secondary, backgroundColor: 'transparent', tension: 0, pointRadius: 0, borderWidth: 2, order: 1, spanGaps: true },
+                { label: 'Carbs 7d avg',   data: avgCarbs,   yAxisID: 'y',  borderColor: colors.primary,   backgroundColor: 'transparent', tension: 0, pointRadius: 0, borderWidth: 2, order: 1, spanGaps: true },
+                // Calories raw dots — right axis
+                { label: 'Calories',     data: rawCalories, yAxisID: 'y1', borderColor: 'transparent', backgroundColor: colors.danger + '55', pointRadius: 2, showLine: false, order: 3, spanGaps: false },
+                // Calories 7d avg — right axis
+                { label: 'Cal 7d avg', data: avgCalories, yAxisID: 'y1', borderColor: colors.danger, backgroundColor: 'transparent', tension: 0, pointRadius: 0, borderWidth: 2.5, order: 1, spanGaps: true }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1.5,
+            plugins: {
+                legend: { labels: { color: colors.text } },
+                tooltip: {
+                    callbacks: {
+                        label: item => {
+                            const v = item.parsed.y;
+                            if (v === null || v === undefined) return null;
+                            return item.dataset.yAxisID === 'y1'
+                                ? `${item.dataset.label}: ${Math.round(v).toLocaleString()} kcal`
+                                : `${item.dataset.label}: ${v.toFixed(1)}g`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x:  { ticks: { color: colors.textSecondary }, grid: { color: colors.border + '40' } },
+                y:  {
+                    position: 'left',
+                    ticks: { color: colors.textSecondary, callback: v => v + 'g' },
+                    grid:  { color: colors.border + '40' },
+                    title: { display: true, text: 'grams', color: colors.textSecondary }
+                },
+                y1: {
+                    position: 'right',
+                    ticks: { color: colors.danger, callback: v => v.toLocaleString() + ' kcal' },
+                    grid:  { drawOnChartArea: false },
+                    title: { display: true, text: 'kcal', color: colors.danger }
                 }
             }
         }

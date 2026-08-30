@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.32
+**Current**: v2.9.33
+- **Macros & Calories chart** — new Trends chart showing daily fat/protein/carbs (raw dots + 7-day rolling avg lines) with calories on a secondary right axis
+
+**v2.9.32**
 - **Daily weight-trend correction** — removed 7-day gate; correction now runs every day with ±15 cal/day step (same ~100 cal/wk max movement, responds to direction reversals in 1 day instead of 7)
 
 **v2.9.31**

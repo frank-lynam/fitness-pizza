@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.36
+**Current**: v2.9.37
+- **Update-loop hardening** — `_healStaleServiceWorker()` runs after every native launch: force-checks for a waiting service worker left over from a Capgo hot-reload and activates it with one bounded extra reload, closing the timing gap the pre-`set()` `SKIP_WAITING` nudge could miss. CLAUDE.md's updater notes also corrected to document the (pre-existing but undocumented) Capgo bundle-version guard as guard 0.
+
+**v2.9.36**
 - **Precision food-quantity slider** — the add-food toast slider now supports iOS-style scrub-speed dragging (drag the finger away from the track vertically to progressively slow the horizontal-to-value ratio, for exact gram/serving targeting); also fixed the "All time" Macros & Calories chart excluding weight history recorded before a user's first macro log
 
 **v2.9.35**

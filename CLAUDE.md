@@ -53,26 +53,51 @@ After the reload, `APP_VERSION` in JS can equal the OLD version even though the 
 files are on disk. The 5-second startup `checkLiveUpdate` then sees `latest > current` and
 re-downloads, causing an infinite loop.
 
-### The two-guard fix (added v2.9.30)
+### The three-guard fix (guards 1+2 added v2.9.30, guard 0 added v2.9.34)
 
-`checkLiveUpdate` has two independent guards that each independently block re-download:
+`checkLiveUpdate` has three independent guards that each independently block re-download —
+listed in the order they're checked:
+
+0. **Capgo bundle-version guard** (`current.bundle.version`, i.e. `CU.current()`): the plugin's
+   own record of which bundle is actually active, read fresh from native state every check —
+   not from JS or localStorage that a stale-served page can get wrong. If it already equals
+   `latest.version`, skip regardless of what `APP_VERSION` or localStorage say. This is the
+   guard that can't be lost to a stale-SW reload, so it's checked first and is the one to
+   restore first if any guard is ever found missing.
 
 1. **Staged-version guard** (`fp_update_applied`): written to `latest.version` before `set()`,
    cleared only when `appliedVer === APP_VERSION` (confirming the hot reload loaded correct JS).
-   If the SW served stale JS (wrong APP_VERSION), this key stays set and the staged check skips.
+   If the SW served stale JS (wrong APP_VERSION), this key stays set (no expiry) and the staged
+   check keeps skipping indefinitely — a stuck-but-safe non-update, never a re-download loop.
 
 2. **Version-keyed time guard** (`fp_update_guard_{version}`): written with a 90-second expiry
    before `set()`. Blocks re-download of that exact version for 90s regardless of APP_VERSION.
    Version-keyed so it doesn't block downloads of newer versions. Cleaned up on success.
 
 Additionally, before `set()` the updater sends `SKIP_WAITING` to any installed-but-waiting
-service worker so the new SW takes over before the reload, maximising the chance that the
-reloaded page gets correct JS from the new bundle's cache.
+service worker — but this only reaches a SW that has *already finished installing* by that
+exact instant, which is usually too early (the browser typically hasn't even fetched the new
+`sw.js` yet). It's a nudge, not a guarantee. To actually close that gap (added v2.9.36):
+`initCapgoUpdater()` calls `_healStaleServiceWorker()` right after `notifyAppReady()` on every
+native launch. It force-checks for a SW update (`reg.update()`, bypasses the normal 24h
+throttle) and, if a new SW has since finished installing and is sitting in `waiting`,
+activates it and does one bounded extra `location.reload()` — guarded by a `fp_sw_heal_done`
+sessionStorage flag so it can only do this once per app session. This fixes the stale-JS
+condition at its source instead of only surviving it via the guards above.
 
 ### Rules when modifying the updater
 
-- Never remove both guards simultaneously — they are redundant for a reason
-- Always write both guards **before** calling `set()` (set() causes an immediate reload;
+- Never remove the Capgo bundle-version guard (guard 0) — it's the one that reads ground truth
+  from the plugin instead of from JS/localStorage state a stale reload can corrupt
+- Never remove all three guards simultaneously — they're redundant for a reason
+- Always write guards 1 and 2 **before** calling `set()` (set() causes an immediate reload;
   code after it does not run in the current page context)
-- Always send `SKIP_WAITING` to the SW before `set()`
+- Always send `SKIP_WAITING` to the SW before `set()`, AND keep `_healStaleServiceWorker()`
+  wired up right after `notifyAppReady()` — the pre-set() nudge and the post-reload heal cover
+  different timing windows of the same race; removing either widens the window a stale SW has
+  to serve mismatched JS
 - Never use `set()` without `next()` — `next()` ensures cold-start recovery if `set()` fails
+- After touching any of this, re-verify per the Deploy Checklist step 4 note, AND confirm
+  `console.log('[updater] ...')` output during a real device test shows the heal check finding
+  nothing to do on a clean update (no `Stale SW still controlling` line) — if it fires on every
+  single update, something upstream is wrong, not just this safety net

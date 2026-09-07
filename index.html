@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Fires notifyAppReady() as early as physically possible — before any module fetch/
+         parse chain, before DB init, before anything. CapacitorUpdater auto-rolls-back
+         (reload to the previous bundle) if this isn't called within ~10s of an update being
+         applied; the module-level fallback in js/app.js (which fires ~1s in, after the ES
+         module import chain resolves) covers the case where window.Capacitor isn't wired up
+         yet at this very first instant. Calling it twice is harmless — it's just a
+         notification. See CLAUDE.md "Live Updater Loop". -->
+    <script>
+        (function () {
+            var CU = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorUpdater;
+            if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && CU) {
+                CU.notifyAppReady();
+            }
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <meta name="description" content="Track macros, weight, and workouts with AI-powered nutrition estimation">
@@ -435,7 +450,7 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.9.37</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.9.38</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>

@@ -45,15 +45,47 @@ See `.gitignore` for full exclusion list.
 
 ## Live Updater Loop — Root Cause & Fix
 
-### What causes the loop
+**There are two distinct, unrelated mechanisms that both produce something that looks like
+"an update loop." Don't assume it's the one you fixed last time — check which symptom matches.**
+
+### Cause A: stale service worker serving old JS after a hot reload
 
 `CU.set()` triggers an immediate WebView hot reload. During that navigation the **old service
 worker** may still be controlling the page and serve stale `app.js` from its versioned cache.
 After the reload, `APP_VERSION` in JS can equal the OLD version even though the new bundle's
 files are on disk. The 5-second startup `checkLiveUpdate` then sees `latest > current` and
-re-downloads, causing an infinite loop.
+re-downloads. Symptom: re-download attempts, `APP_VERSION` mismatches in the `[updater]` log
+line. `index.html` also unregisters/skips the SW entirely on native as a first line of
+defense (the inline module script near the end of `<body>`, right after the `js/app.js`
+script tag) — but a registration from a much older build, or a timing edge in that unregister
+call, can still slip through.
 
-### The three-guard fix (guards 1+2 added v2.9.30, guard 0 added v2.9.34)
+### Cause B (strongly suspected in the v2.9.36→v2.9.37 incident, not yet log-confirmed): CapacitorUpdater's own auto-rollback
+
+CapacitorUpdater auto-rolls-back to the previous bundle if `notifyAppReady()` isn't called
+within ~10s of applying an update (plugin default, per the plugin's own docs). **Symptom:
+reload every ~10-15s, an "Updated to vX" toast every time, with no correlation to
+service-worker state at all** — this matches what was reported for the v2.9.36 → v2.9.37
+incident, but there was no device log available at the time to directly confirm a rollback
+fired (the v2.9.38 fix adds `getFailedUpdate()` logging specifically so next time there is
+one). v2.9.37 shipped a stale-SW fix
+(`_healStaleServiceWorker`, cause-A-shaped) that did not stop the loop, because the real cause
+was B: `notifyAppReady()` was called deep inside `FitnessTrackerApp.init()`, after `db.init()`,
+`seedDefaultFoodsIfEmpty()`, theme load, `navigator.storage.persist()`, and `checkAutoBackup()`
+(real file I/O, once a day) — any one of which running long on a real device risked missing
+the plugin's window. The rollback-and-retry is indistinguishable from a redownload loop by
+eye: same reload cadence, same "Updated" toast, because the JS that boots right after a
+rollback legitimately does match whatever was staged.
+
+**Fixed in v2.9.38** by decoupling `notifyAppReady()` from `init()` entirely: an inline
+`<script>` at the very top of `<head>` in `index.html` calls it as close to instantly as
+possible (~2ms after navigation start, measured), with a redundant module-top-level call in
+`js/app.js` (fires ~0.5-1s in, after the ES module import chain resolves) as a backup in case
+`window.Capacitor` isn't wired up yet at the very first instant. Both also call
+`CU.getFailedUpdate()` and `console.warn` the result if non-null — **check for
+`[updater] Previous bundle was rolled back` in the logs before assuming it's cause A again.**
+
+### The three-guard fix for Cause A (guards 1+2 added v2.9.30, guard 0 added v2.9.34)
 
 `checkLiveUpdate` has three independent guards that each independently block re-download —
 listed in the order they're checked:
@@ -74,16 +106,13 @@ listed in the order they're checked:
    before `set()`. Blocks re-download of that exact version for 90s regardless of APP_VERSION.
    Version-keyed so it doesn't block downloads of newer versions. Cleaned up on success.
 
-Additionally, before `set()` the updater sends `SKIP_WAITING` to any installed-but-waiting
-service worker — but this only reaches a SW that has *already finished installing* by that
-exact instant, which is usually too early (the browser typically hasn't even fetched the new
-`sw.js` yet). It's a nudge, not a guarantee. To actually close that gap (added v2.9.36):
-`initCapgoUpdater()` calls `_healStaleServiceWorker()` right after `notifyAppReady()` on every
-native launch. It force-checks for a SW update (`reg.update()`, bypasses the normal 24h
-throttle) and, if a new SW has since finished installing and is sitting in `waiting`,
-activates it and does one bounded extra `location.reload()` — guarded by a `fp_sw_heal_done`
-sessionStorage flag so it can only do this once per app session. This fixes the stale-JS
-condition at its source instead of only surviving it via the guards above.
+Before `set()` the updater also sends `SKIP_WAITING` to any installed-but-waiting service
+worker — but this only reaches a SW that has *already finished installing* by that exact
+instant, which is usually too early. It's a nudge, not a guarantee; guards 0-2 above are what
+actually keep cause A from becoming a redownload loop even when the nudge misses. (v2.9.37
+tried a `_healStaleServiceWorker` post-reload heal on top of this — reverted in v2.9.38: it
+didn't fix the actual incident, which turned out to be cause B, and it relied on unverified
+`sessionStorage`-across-reload behavior in the native WebView.)
 
 ### Rules when modifying the updater
 
@@ -92,12 +121,15 @@ condition at its source instead of only surviving it via the guards above.
 - Never remove all three guards simultaneously — they're redundant for a reason
 - Always write guards 1 and 2 **before** calling `set()` (set() causes an immediate reload;
   code after it does not run in the current page context)
-- Always send `SKIP_WAITING` to the SW before `set()`, AND keep `_healStaleServiceWorker()`
-  wired up right after `notifyAppReady()` — the pre-set() nudge and the post-reload heal cover
-  different timing windows of the same race; removing either widens the window a stale SW has
-  to serve mismatched JS
+- Always send `SKIP_WAITING` to the SW before `set()`
 - Never use `set()` without `next()` — `next()` ensures cold-start recovery if `set()` fails
-- After touching any of this, re-verify per the Deploy Checklist step 4 note, AND confirm
-  `console.log('[updater] ...')` output during a real device test shows the heal check finding
-  nothing to do on a clean update (no `Stale SW still controlling` line) — if it fires on every
-  single update, something upstream is wrong, not just this safety net
+- **Never move `CU.notifyAppReady()` later or make it depend on other init work.** It must
+  stay callable within ~10s of app launch regardless of how long DB init / seeding / backups
+  / anything else takes — that's cause B. The inline `<head>` script in `index.html` and the
+  module-top-level call in `js/app.js` are two independent, redundant attempts at "as early as
+  possible"; keep both.
+- When a loop is reported, check the `[updater]` console/logcat output for
+  `Previous bundle was rolled back` (cause B) before assuming it's the stale-SW guards (cause
+  A) again — they produce nearly identical user-visible symptoms (repeated reload, "Updated"
+  toast) but need different fixes
+- After touching any of this, re-verify per the Deploy Checklist step 4 note

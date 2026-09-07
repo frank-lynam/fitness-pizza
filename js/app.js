@@ -19,7 +19,23 @@ import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.37';
+const APP_VERSION = '2.9.38';
+
+// Tell the native updater this bundle's JS started executing — immediately, before any
+// other work. CapacitorUpdater auto-rolls-back (reload to the previous bundle) if this
+// isn't called within ~10s of applying an update. DB init, seeding, backups, and component
+// setup further down in FitnessTrackerApp.init() can occasionally run long enough on a real
+// device to blow through that window; the resulting rollback+reload looked identical to an
+// update loop, since the same bundle keeps getting attempted and re-confirmed. Calling this
+// here decouples it entirely from init()'s duration. See CLAUDE.md "Live Updater Loop".
+(function notifyNativeUpdaterReady() {
+    const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
+    if (!window.Capacitor?.isNativePlatform?.() || !CU) return;
+    CU.notifyAppReady();
+    CU.getFailedUpdate?.().then(failed => {
+        if (failed) console.warn('[updater] Previous bundle was rolled back:', JSON.stringify(failed));
+    }).catch(() => {});
+})();
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1187,13 +1203,7 @@ class FitnessTrackerApp {
             return;
         }
 
-        // Required: tell the plugin this bundle loaded successfully
-        CU.notifyAppReady();
-
-        // Fire-and-forget: the SKIP_WAITING nudge sent before CU.set() only reaches a SW
-        // that has ALREADY finished installing by that instant — usually too early, since
-        // the browser hasn't even fetched the new sw.js yet. Catch the case it misses.
-        this._healStaleServiceWorker();
+        // notifyAppReady() already fired at module load, above — see notifyNativeUpdaterReady().
 
         // Show a toast when a bundle successfully loads
         const appliedVer = localStorage.getItem('fp_update_applied');
@@ -1212,44 +1222,6 @@ class FitnessTrackerApp {
             const last = parseInt(localStorage.getItem('fp_update_last_check') || '0');
             if (Date.now() - last > 10 * 60 * 1000) this.checkLiveUpdate(CU);
         });
-    }
-
-    /**
-     * Force-activate a stale service worker left over from a Capgo hot-reload.
-     *
-     * Root cause (see CLAUDE.md "Live Updater Loop"): CU.set() reloads the page
-     * immediately, often before the browser has even fetched the new sw.js, so the
-     * OLD SW is still in control and serves ITS versioned cache — stale app.js with
-     * the old APP_VERSION — even though the correct files are already on disk. The
-     * pre-set() SKIP_WAITING nudge can't help here since there's nothing waiting yet.
-     *
-     * This runs once per app session, after notifyAppReady(): force an update check
-     * (reg.update() bypasses the normal 24h throttle), and if a new SW has since
-     * finished installing and is sitting in `waiting`, activate it and do one bounded
-     * extra reload so this session runs JS that actually matches the applied bundle.
-     * Bounded by fp_sw_heal_done so this can't itself become a reload loop.
-     */
-    async _healStaleServiceWorker() {
-        if (!('serviceWorker' in navigator)) return;
-        if (sessionStorage.getItem('fp_sw_heal_done')) return;
-        try {
-            const reg = await navigator.serviceWorker.getRegistration();
-            if (!reg) return;
-            await reg.update().catch(() => {});
-            if (!reg.waiting) return;
-
-            console.log('[updater] Stale SW still controlling after hot-reload — activating new one');
-            sessionStorage.setItem('fp_sw_heal_done', '1');
-            const activated = new Promise(resolve => {
-                navigator.serviceWorker.addEventListener('controllerchange', resolve, { once: true });
-                setTimeout(resolve, 3000); // safety net if controllerchange never fires
-            });
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            await activated;
-            location.reload();
-        } catch (e) {
-            console.warn('[updater] SW heal check failed:', e.message);
-        }
     }
 
     async _fetchJson(url) {

@@ -144,8 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.37
-- **Update-loop hardening** — `_healStaleServiceWorker()` runs after every native launch: force-checks for a waiting service worker left over from a Capgo hot-reload and activates it with one bounded extra reload, closing the timing gap the pre-`set()` `SKIP_WAITING` nudge could miss. CLAUDE.md's updater notes also corrected to document the (pre-existing but undocumented) Capgo bundle-version guard as guard 0.
+**Current**: v2.9.38
+- **Fix real cause of the update loop** — v2.9.37's service-worker fix didn't help (confirmed: still looped, ~15s per cycle). Root cause was different: `CU.notifyAppReady()` was called late in `init()` (after DB init, seeding, backup checks, component setup), risking CapacitorUpdater's ~10s auto-rollback timeout on a slow boot — the rollback-and-retry looked identical to a redownload loop. `notifyAppReady()` now fires from an inline script at the very top of `<head>` (~2ms after navigation start), with a redundant module-level call in `js/app.js` as backup. Also logs `getFailedUpdate()` so a future recurrence shows up in the console instead of requiring another guessing round. Reverted v2.9.37's `_healStaleServiceWorker` (unverified, plausible second reload trigger).
+
+**v2.9.37**
+- **Update-loop hardening (superseded by v2.9.38 — did not fix the loop)** — `_healStaleServiceWorker()` ran after every native launch: force-checked for a waiting service worker left over from a Capgo hot-reload and activated it with one bounded extra reload. Removed in v2.9.38.
 
 **v2.9.36**
 - **Precision food-quantity slider** — the add-food toast slider now supports iOS-style scrub-speed dragging (drag the finger away from the track vertically to progressively slow the horizontal-to-value ratio, for exact gram/serving targeting); also fixed the "All time" Macros & Calories chart excluding weight history recorded before a user's first macro log

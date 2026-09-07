@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.38
+**Current**: v2.9.39
+- **On-device debug log + confirmed-still-looping fix** — v2.9.38 still looped (confirmed by user: boots to 2.9.35, updates to 2.9.38, repeats, no native debugging tools available to confirm why). Pulled the actual `@capgo/capacitor-updater` Android source and found `appMovedToForeground()` unconditionally re-arms the rollback-check watchdog on *every* foreground event, not just once at boot — `notifyAppReady()` now re-fires on every `visibilitychange`-to-visible too, not just at module load. Added Settings → About → **Debug Log**: persists `[updater]` events to localStorage (survives the reloads being diagnosed) with Copy/Share/Clear, so the next occurrence can be captured without adb or remote debugging.
+
+**v2.9.38**
 - **Fix real cause of the update loop** — v2.9.37's service-worker fix didn't help (confirmed: still looped, ~15s per cycle). Root cause was different: `CU.notifyAppReady()` was called late in `init()` (after DB init, seeding, backup checks, component setup), risking CapacitorUpdater's ~10s auto-rollback timeout on a slow boot — the rollback-and-retry looked identical to a redownload loop. `notifyAppReady()` now fires from an inline script at the very top of `<head>` (~2ms after navigation start), with a redundant module-level call in `js/app.js` as backup. Also logs `getFailedUpdate()` so a future recurrence shows up in the console instead of requiring another guessing round. Reverted v2.9.37's `_healStaleServiceWorker` (unverified, plausible second reload trigger).
 
 **v2.9.37**

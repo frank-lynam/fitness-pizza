@@ -60,30 +60,53 @@ defense (the inline module script near the end of `<body>`, right after the `js/
 script tag) — but a registration from a much older build, or a timing edge in that unregister
 call, can still slip through.
 
-### Cause B (strongly suspected in the v2.9.36→v2.9.37 incident, not yet log-confirmed): CapacitorUpdater's own auto-rollback
+### Cause B: CapacitorUpdater's own auto-rollback
 
-CapacitorUpdater auto-rolls-back to the previous bundle if `notifyAppReady()` isn't called
-within ~10s of applying an update (plugin default, per the plugin's own docs). **Symptom:
-reload every ~10-15s, an "Updated to vX" toast every time, with no correlation to
-service-worker state at all** — this matches what was reported for the v2.9.36 → v2.9.37
-incident, but there was no device log available at the time to directly confirm a rollback
-fired (the v2.9.38 fix adds `getFailedUpdate()` logging specifically so next time there is
-one). v2.9.37 shipped a stale-SW fix
-(`_healStaleServiceWorker`, cause-A-shaped) that did not stop the loop, because the real cause
-was B: `notifyAppReady()` was called deep inside `FitnessTrackerApp.init()`, after `db.init()`,
-`seedDefaultFoodsIfEmpty()`, theme load, `navigator.storage.persist()`, and `checkAutoBackup()`
-(real file I/O, once a day) — any one of which running long on a real device risked missing
-the plugin's window. The rollback-and-retry is indistinguishable from a redownload loop by
-eye: same reload cadence, same "Updated" toast, because the JS that boots right after a
-rollback legitimately does match whatever was staged.
+CapacitorUpdater auto-rolls-back to the previous bundle if `notifyAppReady()` isn't called in
+time. Confirmed by reading the plugin's actual Android source
+(`node_modules/@capgo/capacitor-updater/android/.../CapacitorUpdaterPlugin.java`, or
+`npm pack @capgo/capacitor-updater@<version>` if not installed locally):
 
-**Fixed in v2.9.38** by decoupling `notifyAppReady()` from `init()` entirely: an inline
-`<script>` at the very top of `<head>` in `index.html` calls it as close to instantly as
-possible (~2ms after navigation start, measured), with a redundant module-top-level call in
-`js/app.js` (fires ~0.5-1s in, after the ES module import chain resolves) as a backup in case
-`window.Capacitor` isn't wired up yet at the very first instant. Both also call
-`CU.getFailedUpdate()` and `console.warn` the result if non-null — **check for
-`[updater] Previous bundle was rolled back` in the logs before assuming it's cause A again.**
+- `checkRevert()` reverts to whichever bundle was **last successfully confirmed** via
+  `notifyAppReady()` — falling all the way back to `builtin` (whatever's baked into the
+  currently-installed APK) if no bundle ever has been. **Symptom: boots to the builtin
+  version, updates to the latest, then reverts back to builtin — repeat.** This is what the
+  v2.9.36 → v2.9.38 incident actually looked like, confirmed by direct user report (no device
+  logs were available at the time — see the Debug Log tool below, added specifically to close
+  that gap for next time).
+- The timeout is ~10s normally, but `resolveAppReadyCheckTimeoutMs()` enforces a **30s
+  minimum** (`PENDING_BUNDLE_APP_READY_MIN_TIMEOUT_MS`) whenever the current bundle's status
+  isn't yet `SUCCESS` — i.e. exactly the window right after applying an update, when it
+  matters most.
+- **`appMovedToForeground()` unconditionally re-arms this watchdog on *every* foreground
+  event** (screen on/off, a permission dialog, switching apps and back) — not just once at
+  boot. A `notifyAppReady()` call that only fires once at startup does not cover this; any
+  later foreground-triggered check has to see the bundle status as `SUCCESS` on its own, and
+  if anything ever caused the very first `notifyAppReady()` to not register, a foreground
+  event can trigger `checkRevert()` all over again.
+
+**v2.9.38** decoupled `notifyAppReady()` from `init()` entirely (fires at the top of `<head>`
+and from module-load, both well under 10s) — this did not fix the reported loop by itself.
+
+**v2.9.39** additionally re-sends `notifyAppReady()` on every `visibilitychange`-to-visible
+event (`notifyNativeUpdaterReady('foreground')` in `initCapgoUpdater()`'s listener), matching
+the native re-arm behavior 1:1, and every `notifyAppReady()` call now has real `.then()/.catch()`
+handling logged via `logDebug()` (see below) instead of being fire-and-forget — if the call
+itself is silently failing rather than just running late, that's now visible too.
+
+### Debug Log tool (added v2.9.39)
+
+`js/utils/debug-log.js` (`logDebug`/`getDebugLog`/`clearDebugLog`) persists diagnostic lines to
+`localStorage` (`fp_debug_log`, capped at 300 entries) instead of only `console.log`-ing them,
+specifically so they **survive the reloads that are themselves what's being diagnosed** — a
+plain console can't be read after the app has already reloaded past the event of interest, and
+this user has no adb/remote-debugging access. `window.__fpLog`, defined inline at the very top
+of `<head>` in `index.html` (before any module loads), is the single shared sink — `logDebug()`
+delegates to it when present. Currently wired into every `[updater]` log line. Exposed at
+Settings → About → **Debug Log** (Copy to Clipboard / Share… / Clear). When debugging a report
+of this class of bug, ask for this before writing new code — it directly shows which guard or
+call fired, in order, across the actual reload sequence, instead of requiring another round of
+static-analysis guesswork against the plugin source.
 
 ### The three-guard fix for Cause A (guards 1+2 added v2.9.30, guard 0 added v2.9.34)
 
@@ -124,12 +147,22 @@ didn't fix the actual incident, which turned out to be cause B, and it relied on
 - Always send `SKIP_WAITING` to the SW before `set()`
 - Never use `set()` without `next()` — `next()` ensures cold-start recovery if `set()` fails
 - **Never move `CU.notifyAppReady()` later or make it depend on other init work.** It must
-  stay callable within ~10s of app launch regardless of how long DB init / seeding / backups
-  / anything else takes — that's cause B. The inline `<head>` script in `index.html` and the
+  stay callable well within its window regardless of how long DB init / seeding / backups /
+  anything else takes — that's cause B. The inline `<head>` script in `index.html` and the
   module-top-level call in `js/app.js` are two independent, redundant attempts at "as early as
   possible"; keep both.
-- When a loop is reported, check the `[updater]` console/logcat output for
-  `Previous bundle was rolled back` (cause B) before assuming it's the stale-SW guards (cause
-  A) again — they produce nearly identical user-visible symptoms (repeated reload, "Updated"
-  toast) but need different fixes
+- **Never call `notifyAppReady()` only once at boot.** The native side re-arms its rollback
+  watchdog on every foreground event (`appMovedToForeground()`), so it must be re-sent on every
+  `visibilitychange`-to-visible too — see `notifyNativeUpdaterReady('foreground')` in
+  `initCapgoUpdater()`. Removing this re-send reopens cause B for any session that backgrounds
+  even once before the first confirmation lands.
+- Always give `notifyAppReady()` calls real `.then()/.catch()` handling logged via `logDebug()`
+  (from `js/utils/debug-log.js`) — a fire-and-forget call hides a silent native-side failure
+  completely, which is exactly what made this incident take three deploys to pin down
+- When a loop is reported, **ask for Settings → About → Debug Log first** (Copy/Share/Clear —
+  works without adb or remote debugging) before writing a new fix. Check for
+  `Previous bundle was rolled back` and which `notifyAppReady()` call site logged (cause B) vs.
+  redownload-guard lines (cause A) — they produce nearly identical user-visible symptoms
+  (repeated reload, "Updated" toast) but need different fixes, and guessing from symptoms alone
+  cost three iterations here
 - After touching any of this, re-verify per the Deploy Checklist step 4 note

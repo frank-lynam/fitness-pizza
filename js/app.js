@@ -17,25 +17,35 @@ import { initFoodLibrary } from './components/food-library.js';
 import { initEasterEggs } from './easter-eggs.js';
 import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
+import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.38';
+const APP_VERSION = '2.9.39';
 
-// Tell the native updater this bundle's JS started executing — immediately, before any
-// other work. CapacitorUpdater auto-rolls-back (reload to the previous bundle) if this
-// isn't called within ~10s of applying an update. DB init, seeding, backups, and component
-// setup further down in FitnessTrackerApp.init() can occasionally run long enough on a real
-// device to blow through that window; the resulting rollback+reload looked identical to an
-// update loop, since the same bundle keeps getting attempted and re-confirmed. Calling this
-// here decouples it entirely from init()'s duration. See CLAUDE.md "Live Updater Loop".
-(function notifyNativeUpdaterReady() {
+/**
+ * Tell the native updater this bundle's JS started executing. CapacitorUpdater
+ * auto-rolls-back (reload to the previous bundle) if this isn't called within ~10s of
+ * applying an update — confirmed by reading the plugin's Android source
+ * (CapacitorUpdaterPlugin.checkRevert / appReadyTimeout). It also re-arms a fresh check on
+ * *every* app-foreground event (checkAppReady() is called unconditionally from
+ * appMovedToForeground()), not just once at boot, so this must be re-sent on every
+ * foreground too — see the visibilitychange listener in initCapgoUpdater(). Logged via
+ * logDebug (not just console) with explicit .then()/.catch() so a silent native-side
+ * failure is visible in Settings → About → Debug Log instead of vanishing. See CLAUDE.md
+ * "Live Updater Loop".
+ */
+function notifyNativeUpdaterReady(label) {
     const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
     if (!window.Capacitor?.isNativePlatform?.() || !CU) return;
-    CU.notifyAppReady();
+    logDebug(`[updater] ${label} notifyAppReady() firing`);
+    CU.notifyAppReady()
+        .then(() => logDebug(`[updater] ${label} notifyAppReady() resolved OK`))
+        .catch(e => logDebug(`[updater] ${label} notifyAppReady() FAILED: ${e?.message || e}`));
     CU.getFailedUpdate?.().then(failed => {
-        if (failed) console.warn('[updater] Previous bundle was rolled back:', JSON.stringify(failed));
+        if (failed) logDebug(`[updater] Previous bundle was rolled back: ${JSON.stringify(failed)}`);
     }).catch(() => {});
-})();
+}
+notifyNativeUpdaterReady('module-load');
 
 function activityFactorLabel(f) {
     if (f <= 1.2)    return 'Sedentary (desk job)';
@@ -1199,7 +1209,7 @@ class FitnessTrackerApp {
     initCapgoUpdater() {
         const CU = window.Capacitor?.Plugins?.CapacitorUpdater;
         if (!CU) {
-            console.warn('[updater] CapacitorUpdater plugin not found');
+            logDebug('[updater] CapacitorUpdater plugin not found');
             return;
         }
 
@@ -1216,9 +1226,14 @@ class FitnessTrackerApp {
         // Check shortly after startup
         setTimeout(() => this.checkLiveUpdate(CU), 5000);
 
-        // Re-check each time the app comes to the foreground (at most once per 10 min)
+        // The native side re-arms its rollback-check watchdog on EVERY foreground event
+        // (CapacitorUpdaterPlugin.appMovedToForeground() unconditionally calls
+        // checkAppReady()), not just once at boot — so notifyAppReady() must be re-sent
+        // every time too, unthrottled (it's a cheap, idempotent notification). The
+        // redownload check stays throttled to at most once per 10 min, separately.
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') return;
+            notifyNativeUpdaterReady('foreground');
             const last = parseInt(localStorage.getItem('fp_update_last_check') || '0');
             if (Date.now() - last > 10 * 60 * 1000) this.checkLiveUpdate(CU);
         });
@@ -1251,7 +1266,7 @@ class FitnessTrackerApp {
             // when the SW serves stale JS after a hot reload.
             const capgoBundleVersion = current.bundle?.version;
 
-            console.log(`[updater] native=${nativeVersion} current=${currentVersion} capgo=${capgoBundleVersion} latest=${latest.version} minNative=${latest.minNativeVersion}`);
+            logDebug(`[updater] native=${nativeVersion} current=${currentVersion} capgo=${capgoBundleVersion} latest=${latest.version} minNative=${latest.minNativeVersion}`);
 
             // Guard 0: Capgo already has the latest bundle loaded — don't re-download even
             // if APP_VERSION is stale (old SW serving cached JS). This survives localStorage
@@ -1270,14 +1285,14 @@ class FitnessTrackerApp {
             // after set() is called. Survives hot reloads regardless of APP_VERSION state.
             const guardExpiry = parseInt(localStorage.getItem(`fp_update_guard_${latest.version}`) || '0');
             if (Date.now() < guardExpiry) {
-                console.log(`[updater] reload guard active for v${latest.version}, skipping`);
+                logDebug(`[updater] reload guard active for v${latest.version}, skipping`);
                 return;
             }
 
             // If we've already staged this version, don't re-download.
             const stagedVersion = localStorage.getItem('fp_update_applied');
             if (stagedVersion && !this._semverGt(latest.version, stagedVersion)) {
-                console.log(`[updater] already staged v${stagedVersion}, skipping`);
+                logDebug(`[updater] already staged v${stagedVersion}, skipping`);
                 return;
             }
 
@@ -1288,13 +1303,13 @@ class FitnessTrackerApp {
             }
 
             if (!silent) ui.showToast(`Downloading v${latest.version}…`);
-            console.log(`[updater] Downloading bundle v${latest.version}`);
+            logDebug(`[updater] Downloading bundle v${latest.version}`);
 
             const newBundle = await CU.download({ url: latest.url, version: latest.version });
 
             // If a GPS run is active, queue for next launch — never reload mid-run
             if (localStorage.getItem('active_run')) {
-                console.log('[updater] Run active — queuing bundle for next launch');
+                logDebug('[updater] Run active — queuing bundle for next launch');
                 await CU.next({ id: newBundle.id });
                 ui.showToast(`v${latest.version} ready — will apply after your run`);
                 return;
@@ -1313,11 +1328,12 @@ class FitnessTrackerApp {
                 }
             }
 
+            logDebug(`[updater] applying bundle v${latest.version} (id=${newBundle.id}) — reload imminent`);
             await CU.next({ id: newBundle.id });
             await CU.set({ id: newBundle.id }); // hot reload
 
         } catch (e) {
-            console.warn('[updater] Update check failed:', e.message);
+            logDebug(`[updater] Update check failed: ${e.message}`);
             if (!silent) {
                 const msg = (e.message === 'Failed to fetch' || e.name === 'TypeError')
                     ? 'Could not reach server — check your connection and try again'
@@ -1401,6 +1417,88 @@ class FitnessTrackerApp {
             if (!CU) { ui.showError('Updater plugin not available'); return; }
             ui.showToast('Checking for updates…');
             this.checkLiveUpdate(CU, false);
+        });
+
+        document.getElementById('btn-debug-log')?.addEventListener('click', () => {
+            this.showDebugLogModal();
+        });
+    }
+
+    /**
+     * Debug log modal — shows the persisted diagnostic log (currently: live-updater
+     * events, see js/utils/debug-log.js) so it can be pulled off the device without
+     * native debugging tools. The log survives the app reloads it's meant to diagnose
+     * since it's written to localStorage, not just kept in memory.
+     */
+    showDebugLogModal() {
+        const existing = document.getElementById('debug-log-modal');
+        if (existing) existing.remove();
+
+        const entries = getDebugLog();
+        const text = entries.length ? entries.join('\n') : '(empty — nothing logged yet)';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'debug-log-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:560px;">
+                <div class="modal-header">
+                    <h3>📋 Debug Log</h3>
+                    <button class="modal-close" id="debug-log-close-top">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:16px;">
+                    <p class="help-text" style="margin:0 0 8px;">
+                        ${entries.length} line${entries.length === 1 ? '' : 's'}. Persists across app reloads —
+                        reproduce the issue, then come back here and copy or share it.
+                    </p>
+                    <textarea id="debug-log-text" readonly style="width:100%;height:280px;font-family:monospace;font-size:0.75em;box-sizing:border-box;">${text}</textarea>
+                    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+                        <button id="debug-log-copy" class="btn-secondary">Copy to Clipboard</button>
+                        <button id="debug-log-share" class="btn-secondary native-only">Share…</button>
+                        <button id="debug-log-clear" class="btn-danger">Clear Log</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const close = () => modal.remove();
+        document.getElementById('debug-log-close-top').addEventListener('click', close);
+        modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+        document.getElementById('debug-log-copy').addEventListener('click', async () => {
+            const textarea = document.getElementById('debug-log-text');
+            try {
+                await navigator.clipboard.writeText(textarea.value);
+                ui.showToast('Copied to clipboard');
+            } catch (e) {
+                // Clipboard API can be unreliable in WebViews — fall back to select+execCommand
+                textarea.focus();
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    ui.showToast('Copied to clipboard');
+                } catch (e2) {
+                    ui.showToast('Copy failed — text is selected, copy manually');
+                }
+            }
+        });
+
+        document.getElementById('debug-log-share')?.addEventListener('click', async () => {
+            const SharePlugin = window.Capacitor?.Plugins?.Share;
+            if (!SharePlugin) { ui.showToast('Share not available'); return; }
+            try {
+                await SharePlugin.share({ title: 'Fitness Pizza debug log', text });
+            } catch (e) {
+                // User cancelled the share sheet, or it's genuinely unavailable — either way, non-fatal
+            }
+        });
+
+        document.getElementById('debug-log-clear').addEventListener('click', () => {
+            clearDebugLog();
+            close();
+            ui.showToast('Debug log cleared');
         });
     }
 

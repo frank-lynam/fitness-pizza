@@ -1,18 +1,46 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Fires notifyAppReady() as early as physically possible — before any module fetch/
-         parse chain, before DB init, before anything. CapacitorUpdater auto-rolls-back
-         (reload to the previous bundle) if this isn't called within ~10s of an update being
-         applied; the module-level fallback in js/app.js (which fires ~1s in, after the ES
-         module import chain resolves) covers the case where window.Capacitor isn't wired up
-         yet at this very first instant. Calling it twice is harmless — it's just a
-         notification. See CLAUDE.md "Live Updater Loop". -->
+    <!-- window.__fpLog: persists diagnostic lines to localStorage (fp_debug_log) so they
+         survive the reloads that are themselves what's being diagnosed. Defined here, before
+         any module loads, so this same script can log its own notifyAppReady() call — see
+         js/utils/debug-log.js, which the rest of the app uses and which delegates to this
+         function when present so there's one shared log. Grab it via Settings → About →
+         Debug Log (no native debugging tools needed). -->
     <script>
         (function () {
+            var LOG_KEY = 'fp_debug_log';
+            var MAX_ENTRIES = 300;
+            window.__fpLog = function (msg) {
+                var line = new Date().toISOString() + ' ' + msg;
+                try { console.log(line); } catch (e) {}
+                try {
+                    var log = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+                    log.push(line);
+                    while (log.length > MAX_ENTRIES) log.shift();
+                    localStorage.setItem(LOG_KEY, JSON.stringify(log));
+                } catch (e) {}
+            };
+
+            // Fires notifyAppReady() as early as physically possible — before any module
+            // fetch/parse chain, before DB init, before anything. CapacitorUpdater
+            // auto-rolls-back (reload to the previous bundle) if this isn't called within
+            // ~10s of an update being applied; the module-level fallback in js/app.js
+            // (fires ~1s in, after the ES module import chain resolves) covers the case
+            // where window.Capacitor isn't wired up yet at this very first instant.
+            // Calling it more than once is harmless — it's just a notification.
+            // See CLAUDE.md "Live Updater Loop".
             var CU = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorUpdater;
-            if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && CU) {
-                CU.notifyAppReady();
+            var isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+            if (isNative && CU) {
+                window.__fpLog('[updater] head-script notifyAppReady() firing');
+                CU.notifyAppReady().then(function () {
+                    window.__fpLog('[updater] head-script notifyAppReady() resolved OK');
+                }).catch(function (e) {
+                    window.__fpLog('[updater] head-script notifyAppReady() FAILED: ' + (e && e.message ? e.message : e));
+                });
+            } else {
+                window.__fpLog('[boot] head-script skipped notifyAppReady (native=' + isNative + ' CU=' + !!CU + ')');
             }
         })();
     </script>
@@ -450,11 +478,12 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.9.38</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.9.39</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>
                         <button id="btn-check-updates" class="btn-secondary native-only" style="margin-top:12px;">🔄 Check for Updates</button>
+                        <button id="btn-debug-log" class="btn-secondary" style="margin-top:8px;">📋 Debug Log</button>
                     </div>
                 </div>
             </div>

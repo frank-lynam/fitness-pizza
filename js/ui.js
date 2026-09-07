@@ -426,13 +426,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
     btn.addEventListener('click', () => { dismiss(); onUndo(); });
 
     if (sliderConfig) {
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.min = sliderConfig.min;
-        slider.max = sliderConfig.max;
-        slider.step = sliderConfig.step;
-        slider.value = sliderConfig.value;
-        slider.style.cssText = 'width:100%;cursor:pointer;display:block;margin:2px 0 0;';
+        const { min, max, step } = sliderConfig;
 
         const valLabel = document.createElement('span');
         valLabel.textContent = sliderConfig.formatValue(sliderConfig.value);
@@ -445,17 +439,105 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         topRow.appendChild(valLabel);
         topRow.appendChild(btn);
 
-        slider.addEventListener('input', () => {
-            const v = parseFloat(slider.value);
-            valLabel.textContent = sliderConfig.formatValue(v);
-            if (sliderConfig.onMessageUpdate) msg.textContent = sliderConfig.onMessageUpdate(v);
-            sliderConfig.onChange(v);
-            clearTimeout(timer);
-            timer = setTimeout(dismiss, duration);
+        // Custom precision slider: horizontal drag moves the value, but dragging the
+        // finger away from the track vertically (like iOS's scrub-speed sliders) drops
+        // the horizontal-to-value ratio through progressively finer tiers, so a small
+        // sideways nudge with the finger held low/high lands on an exact value.
+        const sliderWrap = document.createElement('div');
+        sliderWrap.style.cssText = 'position:relative;width:100%;height:32px;margin-top:2px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;';
+
+        const track = document.createElement('div');
+        track.style.cssText = 'position:absolute;left:0;right:0;top:50%;height:4px;transform:translateY(-50%);background:var(--border-color);border-radius:2px;';
+
+        const fill = document.createElement('div');
+        fill.style.cssText = 'position:absolute;left:0;top:50%;height:4px;transform:translateY(-50%);background:var(--accent-primary);border-radius:2px;';
+
+        const thumb = document.createElement('div');
+        thumb.style.cssText = 'position:absolute;top:50%;width:20px;height:20px;border-radius:50%;background:var(--accent-primary);box-shadow:0 1px 4px rgba(0,0,0,0.4);transform:translate(-50%,-50%);';
+
+        sliderWrap.appendChild(track);
+        sliderWrap.appendChild(fill);
+        sliderWrap.appendChild(thumb);
+
+        const DEFAULT_HINT = 'drag up/down to fine-tune';
+        const hint = document.createElement('div');
+        hint.textContent = DEFAULT_HINT;
+        hint.style.cssText = 'font-size:0.68em;color:var(--text-secondary);opacity:0.6;text-align:center;margin-top:1px;';
+
+        const SPEED_TIERS = [
+            { maxDy: 40, factor: 1, label: DEFAULT_HINT },
+            { maxDy: 80, factor: 1 / 4, label: 'fine-tune ×¼' },
+            { maxDy: 130, factor: 1 / 12, label: 'fine-tune ×1/12' },
+            { maxDy: Infinity, factor: 1 / 40, label: 'fine-tune ×1/40' },
+        ];
+        const tierForOffset = dy => SPEED_TIERS.find(t => dy < t.maxDy) || SPEED_TIERS[SPEED_TIERS.length - 1];
+        const quantize = v => {
+            const steps = Math.round((v - min) / step);
+            return Math.round((min + steps * step) * 1000) / 1000;
+        };
+
+        let value = sliderConfig.value;
+        let rawValue = value;
+        let lastEmitted = value;
+        let dragging = false, lastX = 0, startY = 0;
+
+        function render(v) {
+            const pct = Math.max(0, Math.min(1, (v - min) / (max - min))) * 100;
+            thumb.style.left = pct + '%';
+            fill.style.width = pct + '%';
+        }
+        render(value);
+
+        function commit(v, isFinal) {
+            rawValue = Math.max(min, Math.min(max, v));
+            render(rawValue);
+            const stepped = quantize(rawValue);
+            if (stepped !== lastEmitted || isFinal) {
+                lastEmitted = stepped;
+                valLabel.textContent = sliderConfig.formatValue(stepped);
+                if (sliderConfig.onMessageUpdate) msg.textContent = sliderConfig.onMessageUpdate(stepped);
+                sliderConfig.onChange(stepped);
+                clearTimeout(timer);
+                timer = setTimeout(dismiss, duration);
+            }
+        }
+
+        sliderWrap.addEventListener('pointerdown', (e) => {
+            dragging = true;
+            lastX = e.clientX;
+            startY = e.clientY;
+            rawValue = value;
+            sliderWrap.setPointerCapture(e.pointerId);
+            thumb.style.width = '24px';
+            thumb.style.height = '24px';
         });
 
+        sliderWrap.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const dx = e.clientX - lastX;
+            lastX = e.clientX;
+            const dy = Math.abs(e.clientY - startY);
+            const tier = tierForOffset(dy);
+            hint.textContent = tier.label;
+            const trackWidth = sliderWrap.getBoundingClientRect().width || 1;
+            commit(rawValue + (dx / trackWidth) * (max - min) * tier.factor, false);
+        });
+
+        const endDrag = () => {
+            if (!dragging) return;
+            dragging = false;
+            thumb.style.width = '20px';
+            thumb.style.height = '20px';
+            hint.textContent = DEFAULT_HINT;
+            value = quantize(rawValue);
+            commit(value, true);
+        };
+        sliderWrap.addEventListener('pointerup', endDrag);
+        sliderWrap.addEventListener('pointercancel', endDrag);
+
         toast.appendChild(topRow);
-        toast.appendChild(slider);
+        toast.appendChild(sliderWrap);
+        toast.appendChild(hint);
     } else {
         toast.appendChild(msg);
         toast.appendChild(btn);

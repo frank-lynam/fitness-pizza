@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.35
+**Current**: v2.9.36
+- **Precision food-quantity slider** — the add-food toast slider now supports iOS-style scrub-speed dragging (drag the finger away from the track vertically to progressively slow the horizontal-to-value ratio, for exact gram/serving targeting); also fixed the "All time" Macros & Calories chart excluding weight history recorded before a user's first macro log
+
+**v2.9.35**
 - **APK rebuild** — built-in fallback bundle is now 2.9.35 (eliminates Capgo rollback-to-2.9.19 loop); weight (raw + 7d avg) added to Macros & Calories chart on its own right axis
 
 **v2.9.34**

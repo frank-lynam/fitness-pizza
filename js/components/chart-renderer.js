@@ -665,6 +665,12 @@ async function renderMacrosRaw(allMacros, allMeasurements, days) {
         allByDate[m.date].hasData   = true;
     });
 
+    // Weight — per-date map (last reading of each day, lbs)
+    const weightByDate = {};
+    allMeasurements.filter(m => m.type === 'weight')
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .forEach(m => { weightByDate[m.date] = m.unit === 'kg' ? m.value * 2.20462 : m.value; });
+
     // Determine display window
     let minDate, maxDate;
     if (days) {
@@ -673,7 +679,7 @@ async function renderMacrosRaw(allMacros, allMeasurements, days) {
         startDate.setDate(startDate.getDate() - (days - 1));
         minDate = localDateStr(startDate);
     } else {
-        const allDates = Object.keys(allByDate).sort();
+        const allDates = [...Object.keys(allByDate), ...Object.keys(weightByDate)].sort();
         minDate = allDates[0] || todayStr;
         maxDate = todayStr;
     }
@@ -712,12 +718,6 @@ async function renderMacrosRaw(allMacros, allMeasurements, days) {
     const avgProtein  = rollingAvg(sortedDates, 'protein');
     const avgCarbs    = rollingAvg(sortedDates, 'carbs');
     const avgCalories = rollingAvg(sortedDates, 'calories');
-
-    // Weight — per-date map (last reading of each day, lbs)
-    const weightByDate = {};
-    allMeasurements.filter(m => m.type === 'weight')
-        .sort((a, b) => a.timestamp - b.timestamp)
-        .forEach(m => { weightByDate[m.date] = m.unit === 'kg' ? m.value * 2.20462 : m.value; });
 
     const rawWeight = sortedDates.map(d => weightByDate[d] !== undefined
         ? Math.round(weightByDate[d] * 10) / 10 : null);

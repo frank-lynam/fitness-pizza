@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.39';
+const APP_VERSION = '2.9.40';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -802,7 +802,7 @@ class FitnessTrackerApp {
                         const itemClass = isCompleted ? '' : 'planned';
                         const macroSummary = `${(activity.data.fat || 0).toFixed(2)}f / ${(activity.data.carbs || 0).toFixed(2)}c / ${(activity.data.protein || 0).toFixed(2)}p`;
                         const servings = activity.data.servings || 1;
-                        const servingsDisplay = ` - ${servings.toFixed(1)}x`;
+                        const servingsDisplay = ` - ${servings.toFixed(2)}x`;
                         return `
                             <div class="activity-item ${itemClass}">
                                 ${!isCompleted ? `

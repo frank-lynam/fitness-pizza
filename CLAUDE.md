@@ -24,16 +24,22 @@ See `.gitignore` for full exclusion list.
 ## Deploy Checklist (every change, no exceptions)
 
 1. **Bump version in all six files** — `sw.js` (comment + CACHE_NAME), `manifest.json`, `index.html`, `package.json`, `README.md` (+ changelog entry), `js/app.js` (APP_VERSION constant)
-2. **Build bundle**: `rm -f updates/*.zip && bash scripts/bundle.sh VERSION LAST_APK_VERSION`
-   - Always pass the last APK version as the second arg (e.g. `bash scripts/bundle.sh 2.8.8 2.8.7`)
-   - `minNativeVersion` must equal the installed APK version or the updater will silently refuse to install the bundle
-   - Only omit the second arg when you also rebuilt the APK this cycle
+2. **Build bundle**: `rm -f updates/*.zip && bash scripts/bundle.sh VERSION`
+   - `bundle.sh` takes ONLY the version arg. `minNativeVersion` is read automatically from
+     `android/app/build.gradle`'s `versionName` — it is NEVER passed or guessed manually.
+     (This is a hard-learned fix: a manual second arg was previously required, and it got
+     guessed as "the last JS deploy version" instead of "the last version an APK was actually
+     built for" — those two numbers had already diverged, which shipped a `minNativeVersion`
+     higher than what was installed and made the updater demand a fresh APK install. See git
+     blame on this line if this section ever regresses back to a manual arg.)
+   - If you are about to run step 3 (APK rebuild) in the same cycle, bump `versionName` in
+     `build.gradle` FIRST, then run `bundle.sh` — it'll pick up the new value automatically.
 3. **APK** — **Required on every minor version bump** (middle number: e.g. 2.9.x → 2.10.x). Also required when native code changed: MainActivity.java, plugins, permissions, build.gradle:
+   - Bump `versionCode` (+1) and `versionName` in `android/app/build.gradle` FIRST
    - Sync assets: `cp -r www/* android/app/src/main/assets/public/`
    - Build: `cd android && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew assembleDebug`
    - Replace APK: `rm -f app/android/*.apk && cp android/app/build/outputs/apk/debug/app-debug.apk app/android/fitness-pizza.apk`
-   - Bump `versionCode` (+1) and `versionName` in `android/app/build.gradle`
-   - Re-run bundle with matching minNativeVersion: `bash scripts/bundle.sh VERSION VERSION`
+   - Re-run bundle now that build.gradle matches: `bash scripts/bundle.sh VERSION`
    - Clean Gradle output: `rm -rf android/app/build/ android/.gradle/ android/build/`
 4. **Validate**: `cat updates/latest.json` — confirm new version and correct minNativeVersion
    - If the updater has been recently modified, also confirm no update loop: after deploying,

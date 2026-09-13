@@ -144,8 +144,12 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.40
+**Current**: v2.9.41
+- **Fix real cause of the update loop (again) — native plugin bug, not app code** — v2.9.40's `minNativeVersion` mistake (fixed same day) masked the real, deeper issue: the on-device Debug Log showed `notifyAppReady()` firing within ~0.1s of every reload but not *resolving* for exactly ~30s, with rollback landing the instant it finally resolved. Diffed the actual pinned plugin version (`@capgo/capacitor-updater` 7.45.10, baked into the installed 2.9.35 APK) against the latest 7.x release: in 7.45.10, the `set()` plugin method calls `_reload()` synchronously on the same thread Capacitor dispatches that plugin call on, and `_reload()` blocks that thread for up to 30s waiting on a semaphore that only `notifyAppReady()` can release — but `notifyAppReady()` is a separate call stuck behind that same blocked thread, so it can never signal in time. Self-deadlock, broken only by timeout → rollback, every time, regardless of app-side timing. Fixed upstream in 7.51.15 (`set()` now wraps its body in its own thread). Bumped the dependency to `^7.51.15` and rebuilt the APK — this required a one-time manual APK reinstall since the bug was compiled into the native binary, not the JS bundle.
 - **Dashboard servings precision** — recent-activity list on the dashboard now shows servings to 2 decimal places (e.g. "1.25x") instead of 1, matching the precision already used by the macros-tab servings stepper.
+
+**v2.9.40**
+- **Fix: `minNativeVersion` mistakenly set to 2.9.39** — no APK had actually been built at 2.9.39 (last real APK build was 2.9.35), so the bundle shipped a `minNativeVersion` higher than what was installed, making the updater demand a fresh APK install. Also fixed `scripts/bundle.sh` to read `minNativeVersion` from `android/app/build.gradle` automatically instead of accepting it as a manual argument, so this can't be mis-guessed again.
 
 **v2.9.39**
 - **On-device debug log + confirmed-still-looping fix** — v2.9.38 still looped (confirmed by user: boots to 2.9.35, updates to 2.9.38, repeats, no native debugging tools available to confirm why). Pulled the actual `@capgo/capacitor-updater` Android source and found `appMovedToForeground()` unconditionally re-arms the rollback-check watchdog on *every* foreground event, not just once at boot — `notifyAppReady()` now re-fires on every `visibilitychange`-to-visible too, not just at module load. Added Settings → About → **Debug Log**: persists `[updater]` events to localStorage (survives the reloads being diagnosed) with Copy/Share/Clear, so the next occurrence can be captured without adb or remote debugging.

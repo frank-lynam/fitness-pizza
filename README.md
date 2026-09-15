@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.42
+**Current**: v2.9.43
+- **Big-number overlay shows the planned total, not just the delta** — when the slider is incrementing an already-planned food-library entry, the large overlay now shows the running total (e.g. "3.5 srv") instead of just the amount being added in this drag, via a new `formatBigValue` slider-config callback (falls back to the existing `formatValue` for fresh entries, where total and delta are the same number).
+
+**v2.9.42**
 - **Big-number slider overlay** — dragging the precision quantity/serving slider in the food-library add-food toast now superimposes a large, legible value (e.g. "205g" or "2 srv") near the top of the screen, since the small inline label was hard to read while dragging; fades out in ~0.2s the instant you lift your finger. Reuses the slider's existing `formatValue`, so gram-based and serving-based foods both format correctly with no special-casing.
 
 **v2.9.41**

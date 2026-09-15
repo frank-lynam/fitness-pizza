@@ -518,6 +518,12 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         }
         render(value);
 
+        // Big overlay shows the running total (planned amount) when the caller
+        // tracks one separately from the delta the slider itself controls
+        // (e.g. incrementing an already-planned entry); otherwise it mirrors
+        // the same delta value as the small label.
+        const formatBig = sliderConfig.formatBigValue || sliderConfig.formatValue;
+
         function commit(v, isFinal) {
             rawValue = Math.max(min, Math.min(max, v));
             render(rawValue);
@@ -525,7 +531,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             if (stepped !== lastEmitted || isFinal) {
                 lastEmitted = stepped;
                 valLabel.textContent = sliderConfig.formatValue(stepped);
-                getBigValueOverlay().textContent = sliderConfig.formatValue(stepped);
+                getBigValueOverlay().textContent = formatBig(stepped);
                 if (sliderConfig.onMessageUpdate) msg.textContent = sliderConfig.onMessageUpdate(stepped);
                 sliderConfig.onChange(stepped);
                 clearTimeout(timer);
@@ -542,7 +548,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             thumb.style.width = '24px';
             thumb.style.height = '24px';
             const overlay = getBigValueOverlay();
-            overlay.textContent = sliderConfig.formatValue(quantize(rawValue));
+            overlay.textContent = formatBig(quantize(rawValue));
             overlay.style.transition = 'none';
             overlay.style.opacity = '1';
             void overlay.offsetWidth; // flush so the transition:none applies before we restore it

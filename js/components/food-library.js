@@ -299,6 +299,7 @@ function setupFoodLibraryButtons(modal, foods) {
                 const sliderConfig = {
                     min: sliderMin, max: sliderMax, step: sliderStep, value: initAdd,
                     formatValue: fmtVal,
+                    formatBigValue: v => fmtVal(prevServings + v),
                     onMessageUpdate: v => `${food.name} ×${+(prevServings + v).toFixed(2)}`,
                     onChange: async v => {
                         const total = prevServings + v;

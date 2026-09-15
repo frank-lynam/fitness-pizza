@@ -367,6 +367,36 @@ export function showUndoToast(message, onUndo, duration = 5000) {
  * Show a stacking add-confirmation toast with an Undo button.
  * Multiple calls stack vertically; each fades independently.
  */
+let bigValueOverlay = null;
+function getBigValueOverlay() {
+    if (!bigValueOverlay || !document.body.contains(bigValueOverlay)) {
+        bigValueOverlay = document.createElement('div');
+        bigValueOverlay.id = 'fp-slider-bigvalue';
+        bigValueOverlay.style.cssText = [
+            'position:fixed',
+            'top:14%',
+            'left:50%',
+            'transform:translate(-50%,-50%)',
+            'font-size:clamp(40px,15vw,84px)',
+            'font-weight:700',
+            'color:var(--text-primary)',
+            'background:var(--bg-secondary)',
+            'border:1px solid var(--border-color)',
+            'padding:8px 26px',
+            'border-radius:22px',
+            'box-shadow:0 4px 20px rgba(0,0,0,0.4)',
+            'z-index:9999',
+            'pointer-events:none',
+            'opacity:0',
+            'transition:opacity 0.2s ease-out',
+            'text-align:center',
+            'white-space:nowrap',
+        ].join(';');
+        document.body.appendChild(bigValueOverlay);
+    }
+    return bigValueOverlay;
+}
+
 export function showAddToast(message, onUndo, duration = 4000, sliderConfig = null) {
     let container = document.getElementById('fp-add-toasts');
     if (!container) {
@@ -495,6 +525,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             if (stepped !== lastEmitted || isFinal) {
                 lastEmitted = stepped;
                 valLabel.textContent = sliderConfig.formatValue(stepped);
+                getBigValueOverlay().textContent = sliderConfig.formatValue(stepped);
                 if (sliderConfig.onMessageUpdate) msg.textContent = sliderConfig.onMessageUpdate(stepped);
                 sliderConfig.onChange(stepped);
                 clearTimeout(timer);
@@ -510,6 +541,12 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             sliderWrap.setPointerCapture(e.pointerId);
             thumb.style.width = '24px';
             thumb.style.height = '24px';
+            const overlay = getBigValueOverlay();
+            overlay.textContent = sliderConfig.formatValue(quantize(rawValue));
+            overlay.style.transition = 'none';
+            overlay.style.opacity = '1';
+            void overlay.offsetWidth; // flush so the transition:none applies before we restore it
+            overlay.style.transition = 'opacity 0.2s ease-out';
         });
 
         sliderWrap.addEventListener('pointermove', (e) => {
@@ -531,6 +568,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             hint.textContent = DEFAULT_HINT;
             value = quantize(rawValue);
             commit(value, true);
+            getBigValueOverlay().style.opacity = '0';
         };
         sliderWrap.addEventListener('pointerup', endDrag);
         sliderWrap.addEventListener('pointercancel', endDrag);

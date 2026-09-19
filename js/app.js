@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.43';
+const APP_VERSION = '2.9.44';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -268,9 +268,18 @@ class FitnessTrackerApp {
             content.addEventListener('touchcancel', cancelSwipe, { passive: true });
         }
 
-        // Auto-refresh current tab whenever any component saves data
+        // Auto-refresh current tab whenever any component saves data.
+        // Debounced because the food-library quantity slider fires this on every
+        // quantized drag step (as often as every pointermove) — undebounced, each
+        // step triggered a full loadScreen() (DB reads + chart rebuild), which made
+        // dragging the slider lag the whole UI. Collapse a burst into one trailing
+        // reload shortly after it settles.
+        let dataChangedTimer = null;
         window.addEventListener('fp:data-changed', () => {
-            if (this.initialized) this.loadScreen(this.currentScreen);
+            clearTimeout(dataChangedTimer);
+            dataChangedTimer = setTimeout(() => {
+                if (this.initialized) this.loadScreen(this.currentScreen);
+            }, 150);
         });
     }
 

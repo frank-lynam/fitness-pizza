@@ -511,6 +511,23 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         let lastEmitted = value;
         let dragging = false, lastX = 0, startY = 0;
 
+        // The overlay text is large (up to 84px) and repainting it on every single
+        // pointermove-driven step (the slider's step is as fine as 0.01) was adding
+        // enough per-event layout/paint cost on mobile to drop frames mid-drag — which
+        // then starves the fine-tune math of event resolution (the browser coalesces
+        // pointermove events under jank), making the vertical slow-down tiers feel like
+        // they aren't applying even though the factor itself is computed correctly.
+        // Throttling the overlay write to once per animation frame removes that cost.
+        let pendingBigText = null, overlayRAF = null;
+        function flushOverlayText() {
+            overlayRAF = null;
+            if (pendingBigText !== null) getBigValueOverlay().textContent = pendingBigText;
+        }
+        function setBigTextThrottled(text) {
+            pendingBigText = text;
+            if (!overlayRAF) overlayRAF = requestAnimationFrame(flushOverlayText);
+        }
+
         function render(v) {
             const pct = Math.max(0, Math.min(1, (v - min) / (max - min))) * 100;
             thumb.style.left = pct + '%';
@@ -531,7 +548,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             if (stepped !== lastEmitted || isFinal) {
                 lastEmitted = stepped;
                 valLabel.textContent = sliderConfig.formatValue(stepped);
-                getBigValueOverlay().textContent = formatBig(stepped);
+                setBigTextThrottled(formatBig(stepped));
                 if (sliderConfig.onMessageUpdate) msg.textContent = sliderConfig.onMessageUpdate(stepped);
                 sliderConfig.onChange(stepped);
                 clearTimeout(timer);

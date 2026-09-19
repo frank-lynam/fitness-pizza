@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.43
+**Current**: v2.9.44
+- **Fix slider jank and post-drag UI lag introduced by the v2.9.42 big-number overlay** — the overlay's `textContent` was being rewritten on nearly every pointermove-driven step (steps as fine as 0.01), repainting a huge 40-84px fixed element at high frequency; enough to drop frames mid-drag and make the fine-tune scrub-speed tiers feel like they weren't slowing down (the browser coalesces pointermove events under jank, so bigger position jumps land per processed event even though the factor math itself was untouched). Throttled the overlay write to once per animation frame (`js/ui.js`). That alone exposed a second, worse issue: the food-library slider's `onChange` fires `fp:data-changed` on every quantized step, and `js/app.js`'s listener reacted to *every* event with a full `loadScreen()` (DB reads + chart rebuild) — previously the overlay jank had accidentally throttled how many of those fired per drag; removing it let a single drag trigger dozens of full-screen reloads back to back. Debounced the `fp:data-changed` → `loadScreen()` reaction itself (150ms trailing) rather than the slider's per-step writes, since the event is shared by workout-library, run-tracker, and setup-wizard too.
+
+**v2.9.43**
 - **Big-number overlay shows the planned total, not just the delta** — when the slider is incrementing an already-planned food-library entry, the large overlay now shows the running total (e.g. "3.5 srv") instead of just the amount being added in this drag, via a new `formatBigValue` slider-config callback (falls back to the existing `formatValue` for fresh entries, where total and delta are the same number).
 
 **v2.9.42**

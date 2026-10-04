@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.45
+**Current**: v2.9.46
+- **Food Library "Recent" sort means last used, not last added** — it sorted by the food's `updated_at`, which only changes when a food is created or edited. It now reads the macro log itself: `db.getFoodLastUsed()` walks the existing `food_id` index on `macros` once (only library-linked entries are in it) and finds each food's latest entry by day, then entry id for same-day ties. Works for all past entries immediately, no new field or DB migration. Used foods sort above never-used ones (those still order by added/edited date); starred foods stay on top. Read once per library opening, so the list doesn't reshuffle while you're adding things.
+
+**v2.9.45**
 - **Food Library: Close moved to the header, list fills the window** — the "Use" quantity-slider toast sits at the bottom of the screen and covered the modal's footer Close button. The library now has a Close button in its header and no footer, and the modal is full height (85vh) with search/sort fixed at the top and only the food list scrolling, so more foods are visible at once. Empty `createModal` footers are now hidden (`.modal-footer:empty`).
 - **JP3 calipers is now the main body fat button** — "+ Add Body Fat % (JP3)" sits with Add Weight/Add Waist; direct % entry moved down to the small secondary row next to the Navy estimate.
 

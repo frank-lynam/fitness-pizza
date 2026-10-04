@@ -603,6 +603,31 @@ class DatabaseManager {
     /**
      * Get all named foods
      */
+    /**
+     * When each library food was last used, from the macro log itself (so it
+     * covers all past entries, no extra bookkeeping): food_id -> [the entry's
+     * day (timestamp), its id], so the later of two entries on the same day
+     * wins. One pass over the food_id index, which only holds entries that
+     * came from the library.
+     */
+    async getFoodLastUsed() {
+        return new Promise((resolve, reject) => {
+            const lastUsed = new Map();
+            const tx = this.db.transaction(['macros'], 'readonly');
+            const request = tx.objectStore('macros').index('food_id').openCursor();
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor) return resolve(lastUsed);
+                const m = cursor.value;
+                const prev = lastUsed.get(m.food_id);
+                const ts = m.timestamp || 0, id = m.id || 0;
+                if (!prev || ts > prev[0] || (ts === prev[0] && id > prev[1])) lastUsed.set(m.food_id, [ts, id]);
+                cursor.continue();
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async getAllNamedFoods() {
         const foods = await this.getAll('named_foods');
         // Sort alphabetically by name

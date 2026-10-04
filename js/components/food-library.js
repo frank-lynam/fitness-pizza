@@ -89,6 +89,7 @@ export async function showFoodLibrary() {
     const sortSelect = modal.querySelector('#food-sort');
     const foodList = modal.querySelector('#food-library-list');
 
+    let lastUsed = null; // read once per opening, on the first "Recent" sort
     const updateFoodList = async () => {
         const searchTerm = searchInput.value.toLowerCase();
         const sortBy = sortSelect.value;
@@ -104,11 +105,18 @@ export async function showFoodLibrary() {
         if (sortBy === 'macro-match') {
             filteredFoods = await sortByMacroMatch(filteredFoods);
         } else if (sortBy === 'recent') {
-            // Sort by most recently used (updated_at desc), starred first
+            // Starred first, then most recently used (from the macro log),
+            // then foods never logged, newest added/edited first.
+            lastUsed = lastUsed || await db.getFoodLastUsed();
+            const usedAt = (f) => {
+                const u = lastUsed.get(f.id);
+                return u ? [1, u[0], u[1]] : [0, f.updated_at || 0, 0];
+            };
             filteredFoods.sort((a, b) => {
                 if (a.starred && !b.starred) return -1;
                 if (!a.starred && b.starred) return 1;
-                return (b.updated_at || 0) - (a.updated_at || 0);
+                const ua = usedAt(a), ub = usedAt(b);
+                return (ub[0] - ua[0]) || (ub[1] - ua[1]) || (ub[2] - ua[2]);
             });
         } else {
             // Sort by starred first, then by name

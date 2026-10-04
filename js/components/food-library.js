@@ -66,9 +66,13 @@ export async function showFoodLibrary() {
                     foods.map(food => createFoodItemHTML(food)).join('')}
             </div>
         </div>
-    `, [
-        { text: 'Close', className: 'btn-secondary' }
-    ]);
+    `);
+    modal.querySelector('.modal-content').classList.add('modal-tall');
+
+    // Close lives in the header: the add toast's quantity slider covers the bottom of the screen
+    const headerClose = modal.querySelector('.modal-close');
+    headerClose.className = 'btn-secondary btn-small';
+    headerClose.textContent = 'Close';
 
     // Set up add food button
     const btnAddFood = modal.querySelector('#btn-add-named-food');

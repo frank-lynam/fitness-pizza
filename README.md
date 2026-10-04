@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.44
+**Current**: v2.9.45
+- **Food Library: Close moved to the header, list fills the window** — the "Use" quantity-slider toast sits at the bottom of the screen and covered the modal's footer Close button. The library now has a Close button in its header and no footer, and the modal is full height (85vh) with search/sort fixed at the top and only the food list scrolling, so more foods are visible at once. Empty `createModal` footers are now hidden (`.modal-footer:empty`).
+- **JP3 calipers is now the main body fat button** — "+ Add Body Fat % (JP3)" sits with Add Weight/Add Waist; direct % entry moved down to the small secondary row next to the Navy estimate.
+
+**v2.9.44**
 - **Fix slider jank and post-drag UI lag introduced by the v2.9.42 big-number overlay** — the overlay's `textContent` was being rewritten on nearly every pointermove-driven step (steps as fine as 0.01), repainting a huge 40-84px fixed element at high frequency; enough to drop frames mid-drag and make the fine-tune scrub-speed tiers feel like they weren't slowing down (the browser coalesces pointermove events under jank, so bigger position jumps land per processed event even though the factor math itself was untouched). Throttled the overlay write to once per animation frame (`js/ui.js`). That alone exposed a second, worse issue: the food-library slider's `onChange` fires `fp:data-changed` on every quantized step, and `js/app.js`'s listener reacted to *every* event with a full `loadScreen()` (DB reads + chart rebuild) — previously the overlay jank had accidentally throttled how many of those fired per drag; removing it let a single drag trigger dozens of full-screen reloads back to back. Debounced the `fp:data-changed` → `loadScreen()` reaction itself (150ms trailing) rather than the slider's per-step writes, since the event is shared by workout-library, run-tracker, and setup-wizard too.
 
 **v2.9.43**

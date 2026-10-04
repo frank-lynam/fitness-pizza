@@ -168,8 +168,7 @@ export function createModal(title, content, buttons = []) {
             <div class="modal-body">
                 ${content}
             </div>
-            <div class="modal-footer">
-            </div>
+            <div class="modal-footer"></div>
         </div>
     `;
 

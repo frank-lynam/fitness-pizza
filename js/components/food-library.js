@@ -31,73 +31,8 @@ export function initFoodLibrary() {
 export async function showFoodLibrary() {
     const foods = await db.getAllNamedFoods();
 
-    // Sort foods: starred first, then by name
-    foods.sort((a, b) => {
-        if (a.starred && !b.starred) return -1;
-        if (!a.starred && b.starred) return 1;
-        return a.name.localeCompare(b.name);
-    });
-
-    const modal = ui.createModal('Food Library', `
-        <div class="food-library-content">
-            <button id="btn-add-named-food" class="btn-primary" style="width: 100%; margin-bottom: 8px;">
-                + Add New Food
-            </button>
-
-            <div class="form-group-inline" style="margin-bottom: 4px;">
-                <label for="food-search">Search</label>
-                <div style="position: relative; flex: 1;">
-                    <input type="text" id="food-search" placeholder="Search foods..." value="${lastSearchTerm}" style="width: 100%; padding-right: 30px;">
-                    <button id="clear-search" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; font-size: 16px; display: ${lastSearchTerm ? 'block' : 'none'};" title="Clear search">×</button>
-                </div>
-            </div>
-
-            <div class="form-group-inline" style="margin-bottom: 8px;">
-                <label for="food-sort">Sort by</label>
-                <select id="food-sort">
-                    <option value="name" ${lastSortBy === 'name' ? 'selected' : ''}>Name</option>
-                    <option value="recent" ${lastSortBy === 'recent' ? 'selected' : ''}>Recent</option>
-                    <option value="macro-match" ${lastSortBy === 'macro-match' ? 'selected' : ''}>Macro Match</option>
-                </select>
-            </div>
-
-            <div id="food-library-list">
-                ${foods.length === 0 ? '<p class="text-muted">No saved foods yet. Add your frequently eaten meals!</p>' :
-                    foods.map(food => createFoodItemHTML(food)).join('')}
-            </div>
-        </div>
-    `);
-    modal.querySelector('.modal-content').classList.add('modal-tall');
-
-    // Close lives in the header: the add toast's quantity slider covers the bottom of the screen
-    const headerClose = modal.querySelector('.modal-close');
-    headerClose.className = 'btn-secondary btn-small';
-    headerClose.textContent = 'Close';
-
-    // Set up add food button
-    const btnAddFood = modal.querySelector('#btn-add-named-food');
-    if (btnAddFood) {
-        btnAddFood.addEventListener('click', () => {
-            ui.closeModal(modal);
-            showFoodForm();
-        });
-    }
-
-    // Set up search and sort
-    const searchInput = modal.querySelector('#food-search');
-    const clearSearchBtn = modal.querySelector('#clear-search');
-    const sortSelect = modal.querySelector('#food-sort');
-    const foodList = modal.querySelector('#food-library-list');
-
     let lastUsed = null; // read once per opening, on the first "Recent" sort
-    const updateFoodList = async () => {
-        const searchTerm = searchInput.value.toLowerCase();
-        const sortBy = sortSelect.value;
-
-        // Save search state
-        lastSearchTerm = searchInput.value;
-        lastSortBy = sortBy;
-
+    const filterAndSort = async (searchTerm, sortBy) => {
         let filteredFoods = foods.filter(food =>
             food.name.toLowerCase().includes(searchTerm)
         );
@@ -126,6 +61,77 @@ export async function showFoodLibrary() {
                 return a.name.localeCompare(b.name);
             });
         }
+        return filteredFoods;
+    };
+
+    // Sort before the modal exists, so it opens already in the saved order
+    // instead of showing a name-sorted list that re-sorts a moment later.
+    const initialFoods = await filterAndSort(lastSearchTerm.toLowerCase(), lastSortBy);
+
+    const modal = ui.createModal('Food Library', `
+        <div class="food-library-content">
+            <button id="btn-add-named-food" class="btn-primary" style="width: 100%; margin-bottom: 8px;">
+                + Add New Food
+            </button>
+
+            <div class="form-group-inline" style="margin-bottom: 4px;">
+                <label for="food-search">Search</label>
+                <div style="position: relative; flex: 1;">
+                    <input type="text" id="food-search" placeholder="Search foods..." value="${lastSearchTerm}" style="width: 100%; padding-right: 30px;">
+                    <button id="clear-search" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; font-size: 16px; display: ${lastSearchTerm ? 'block' : 'none'};" title="Clear search">×</button>
+                </div>
+            </div>
+
+            <div class="form-group-inline" style="margin-bottom: 8px;">
+                <label for="food-sort">Sort by</label>
+                <select id="food-sort">
+                    <option value="name" ${lastSortBy === 'name' ? 'selected' : ''}>Name</option>
+                    <option value="recent" ${lastSortBy === 'recent' ? 'selected' : ''}>Recent</option>
+                    <option value="macro-match" ${lastSortBy === 'macro-match' ? 'selected' : ''}>Macro Match</option>
+                </select>
+            </div>
+
+            <div id="food-library-list">
+                ${foods.length === 0 ? '<p class="text-muted">No saved foods yet. Add your frequently eaten meals!</p>' :
+                    initialFoods.length === 0 ? '<p class="text-muted">No foods found</p>' :
+                    initialFoods.map(food => createFoodItemHTML(food)).join('')}
+            </div>
+        </div>
+    `);
+    modal.querySelector('.modal-content').classList.add('modal-tall');
+
+    // Close lives in the header: the add toast's quantity slider covers the bottom of the screen
+    const headerClose = modal.querySelector('.modal-close');
+    headerClose.className = 'btn-secondary btn-small';
+    headerClose.textContent = 'Close';
+
+    // Set up add food button
+    const btnAddFood = modal.querySelector('#btn-add-named-food');
+    if (btnAddFood) {
+        btnAddFood.addEventListener('click', () => {
+            ui.closeModal(modal);
+            showFoodForm();
+        });
+    }
+
+    // Set up search and sort
+    const searchInput = modal.querySelector('#food-search');
+    const clearSearchBtn = modal.querySelector('#clear-search');
+    const sortSelect = modal.querySelector('#food-sort');
+    const foodList = modal.querySelector('#food-library-list');
+
+    let updateSeq = 0; // sorting can wait on the database; only the latest update renders
+    const updateFoodList = async () => {
+        const searchTerm = searchInput.value.toLowerCase();
+        const sortBy = sortSelect.value;
+
+        // Save search state
+        lastSearchTerm = searchInput.value;
+        lastSortBy = sortBy;
+
+        const seq = ++updateSeq;
+        const filteredFoods = await filterAndSort(searchTerm, sortBy);
+        if (seq !== updateSeq) return;
         localStorage.setItem('food_library_sort', sortBy);
 
         foodList.innerHTML = filteredFoods.length === 0
@@ -149,13 +155,7 @@ export async function showFoodLibrary() {
 
     sortSelect.addEventListener('change', updateFoodList);
 
-    // Apply initial filter if there's a saved search
-    if (lastSearchTerm || lastSortBy !== 'name') {
-        await updateFoodList();
-    } else {
-        // Set up buttons for initial load (updateFoodList handles it otherwise)
-        setupFoodLibraryButtons(modal, foods);
-    }
+    setupFoodLibraryButtons(modal, initialFoods);
 }
 
 /**

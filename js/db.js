@@ -601,9 +601,6 @@ class DatabaseManager {
     }
 
     /**
-     * Get all named foods
-     */
-    /**
      * When each library food was last used, from the macro log itself (so it
      * covers all past entries, no extra bookkeeping): food_id -> [the entry's
      * day (timestamp), its id], so the later of two entries on the same day
@@ -628,6 +625,9 @@ class DatabaseManager {
         });
     }
 
+    /**
+     * Get all named foods
+     */
     async getAllNamedFoods() {
         const foods = await this.getAll('named_foods');
         // Sort alphabetically by name

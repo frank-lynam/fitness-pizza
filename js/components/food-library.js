@@ -68,6 +68,10 @@ export async function showFoodLibrary() {
     // instead of showing a name-sorted list that re-sorts a moment later.
     const initialFoods = await filterAndSort(lastSearchTerm.toLowerCase(), lastSortBy);
 
+    // Replace a library that's already open (e.g. undo after a delete reopens
+    // it) instead of stacking a second one on top.
+    document.querySelectorAll('#food-library-list').forEach(el => ui.closeModal(el.closest('.modal-overlay')));
+
     const modal = ui.createModal('Food Library', `
         <div class="food-library-content">
             <button id="btn-add-named-food" class="btn-primary" style="width: 100%; margin-bottom: 8px;">
@@ -162,6 +166,10 @@ export async function showFoodLibrary() {
  * Sort foods by how well they match remaining macros
  */
 async function sortByMacroMatch(foods) {
+    // Starred foods stay on top, as in the other sorts; the match score orders
+    // foods within each group.
+    const starredFirst = (sorted) => [...sorted.filter(f => f.starred), ...sorted.filter(f => !f.starred)];
+
     const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : new Date().toISOString().split('T')[0];
     const macros = await db.getMacrosByDate(currentDate);
 
@@ -193,7 +201,7 @@ async function sortByMacroMatch(foods) {
     const totalRemaining = remainingFat + remainingProtein + remainingCarbs;
 
     if (totalRemaining === 0) {
-        return foods.sort((a, b) => a.name.localeCompare(b.name));
+        return starredFirst(foods.sort((a, b) => a.name.localeCompare(b.name)));
     }
 
     // Target ratios from remaining macro budget
@@ -217,7 +225,7 @@ async function sortByMacroMatch(foods) {
 
     scoredFoods.sort((a, b) => a.score - b.score);
 
-    return scoredFoods.map(item => item.food);
+    return starredFirst(scoredFoods.map(item => item.food));
 }
 
 /**
@@ -250,7 +258,6 @@ function createFoodItemHTML(food) {
                     </button>
                     <button class="btn-use-food btn-primary btn-small" data-id="${food.id}" style="min-width:72px;">Use</button>
                     <button class="btn-edit-food btn-secondary btn-small" data-id="${food.id}">Edit</button>
-                    <button class="btn-delete-food btn-danger btn-small" data-id="${food.id}">×</button>
                 </div>
             </div>
             <div class="entry-item-content">
@@ -391,22 +398,6 @@ function setupFoodLibraryButtons(modal, foods) {
         });
     });
 
-    modal.querySelectorAll('.btn-delete-food').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const id = parseInt(e.target.dataset.id);
-            const food = foods.find(f => f.id === id);
-            if (!food) return;
-            await db.deleteNamedFood(id);
-            ui.closeModal(modal);
-            showFoodLibrary();
-            ui.showUndoToast('Food deleted', async () => {
-                const { id: _id, ...restoreData } = food;
-                await db.addNamedFood(restoreData);
-                showFoodLibrary();
-            });
-        });
-    });
-
     modal.querySelectorAll('.btn-star-food').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             const id = parseInt(e.target.dataset.id);
@@ -506,6 +497,10 @@ function showFoodForm(existingFood = null) {
                 </div>
                 <small id="food-cost-hint" style="color:var(--text-secondary);font-size:0.8em;margin-left:8px;"></small>
             </div>
+            ${isEdit ? `
+            <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:12px;">
+                <button type="button" class="btn-danger btn-small" id="delete-food-form">Delete food</button>
+            </div>` : ''}
         </form>
     `, []);
 
@@ -520,6 +515,21 @@ function showFoodForm(existingFood = null) {
     if (cancelBtn) {
         cancelBtn.addEventListener('click', () => ui.closeModal(modal));
     }
+
+    // Delete lives here rather than on the library list, away from Use/Edit,
+    // so it isn't hit by accident. Undo is still offered.
+    modal.querySelector('#delete-food-form')?.addEventListener('click', async () => {
+        await db.deleteNamedFood(existingFood.id);
+        ui.closeModal(modal);
+        showFoodLibrary();
+        window.dispatchEvent(new CustomEvent('fp:food-library-changed'));
+        ui.showUndoToast('Food deleted', async () => {
+            const { id: _id, ...restoreData } = existingFood;
+            await db.addNamedFood(restoreData);
+            showFoodLibrary();
+            window.dispatchEvent(new CustomEvent('fp:food-library-changed'));
+        });
+    });
 
     // Set up format type change handler
     const formatSelect = modal.querySelector('#food-format');

@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.47
+**Current**: v2.9.48
+- **Starred foods stay on top in every Food Library sort** — "Macro Match" ordered purely by match score and ignored stars, so favorites only reliably led the list under "Name" and "Recent". Macro Match now puts starred foods first too, each group ordered by score.
+- **Delete moved into the Edit dialog** — the × on every library row sat next to Use/Edit and was easy to hit by accident. Rows now have only star/Use/Edit; "Delete food" is at the bottom of the Edit dialog, still with an undo toast. Undo (and anything else that reopens the library) now replaces an open library instead of stacking a second one on top.
+
+**v2.9.47**
 - **Food Library opens already sorted (no flash)** — with "Recent" (or "Macro Match") saved as the sort, the library first rendered in name order and then re-sorted a moment later, once the sort's database read finished (`db.getFoodLastUsed()` since v2.9.46). The list is now filtered and sorted before the modal is created, so it opens in the saved order. Search/sort updates that wait on the database also render only if no newer update has started since.
 
 **v2.9.46**

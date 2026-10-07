@@ -667,6 +667,15 @@ class DatabaseManager {
     }
 
     /**
+     * Put a deleted named food back exactly as it was, under its original id.
+     * Deleting leaves its macro entries' food_id untouched, so restoring the
+     * same id reconnects its history ("Recent" sort, last used).
+     */
+    async restoreNamedFood(food) {
+        return this.add('named_foods', { ...food });
+    }
+
+    /**
      * Calculate macros from named food based on quantity
      */
     calculateMacrosFromNamedFood(food, quantity) {

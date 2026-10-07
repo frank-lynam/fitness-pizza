@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.48
+**Current**: v2.9.49
+- **Undoing a Food Library delete keeps the food's history** — undo re-added the food as a brand-new entry with a new id, so its past macro entries no longer pointed at it and "Recent" treated it as never used. Deleting never touches the macro log, so undo now restores the food under its original id (`db.restoreNamedFood()`), with every field intact, and its history reconnects.
+
+**v2.9.48**
 - **Starred foods stay on top in every Food Library sort** — "Macro Match" ordered purely by match score and ignored stars, so favorites only reliably led the list under "Name" and "Recent". Macro Match now puts starred foods first too, each group ordered by score.
 - **Delete moved into the Edit dialog** — the × on every library row sat next to Use/Edit and was easy to hit by accident. Rows now have only star/Use/Edit; "Delete food" is at the bottom of the Edit dialog, still with an undo toast. Undo (and anything else that reopens the library) now replaces an open library instead of stacking a second one on top.
 

@@ -524,8 +524,7 @@ function showFoodForm(existingFood = null) {
         showFoodLibrary();
         window.dispatchEvent(new CustomEvent('fp:food-library-changed'));
         ui.showUndoToast('Food deleted', async () => {
-            const { id: _id, ...restoreData } = existingFood;
-            await db.addNamedFood(restoreData);
+            await db.restoreNamedFood(existingFood);
             showFoodLibrary();
             window.dispatchEvent(new CustomEvent('fp:food-library-changed'));
         });

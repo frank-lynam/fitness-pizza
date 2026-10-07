@@ -818,7 +818,7 @@ export async function loadTodaysMacros() {
                                 <button class="servings-btn-minus" data-id="${macro.id}">−</button>
                                 <input type="number" class="servings-input" data-id="${macro.id}" value="${(macro.servings || 1).toFixed(2)}" step="0.01" min="0.01">
                                 <button class="servings-btn-plus" data-id="${macro.id}">+</button>
-                                <button class="servings-btn-max" data-id="${macro.id}" title="Max servings before exceeding any macro">>></button>
+                                <button class="servings-btn-max" data-id="${macro.id}" title="Fill up to your calorie target">>></button>
                             </span>
                         </div>
                     </div>
@@ -1081,8 +1081,15 @@ async function handleSetServings(id, newServings, { deferSort = false } = {}) {
         entry.carbs = entry.carbs * multiplier;
         if (entry.fiber) entry.fiber = entry.fiber * multiplier;
 
-        const { calculateMacroCalories } = await import('../utils/calorie-calc.js');
-        entry.calories = calculateMacroCalories(entry.protein, entry.carbs, entry.fat, entry.fiber || 0);
+        // Scale calories with the servings rather than recomputing them from
+        // macros: calorie-only entries have no macros, and a typed-in calorie
+        // count would otherwise be lost.
+        if (typeof entry.calories === 'number') {
+            entry.calories = entry.calories * multiplier;
+        } else {
+            const { calculateMacroCalories } = await import('../utils/calorie-calc.js');
+            entry.calories = calculateMacroCalories(entry.protein, entry.carbs, entry.fat, entry.fiber || 0);
+        }
         await db.updateMacroEntry(entry);
 
         if (deferSort) {
@@ -1111,7 +1118,8 @@ async function handleSetServings(id, newServings, { deferSort = false } = {}) {
 }
 
 /**
- * Handle setting servings to maximum before exceeding any macro target
+ * Fill (>>): set servings to the most that keeps the day at or under the
+ * calorie target, counting completed and planned entries.
  * @param {number} id - Entry ID
  */
 async function handleMaxServings(id) {
@@ -1120,47 +1128,22 @@ async function handleMaxServings(id) {
         if (!entry) return;
 
         const currentServings = entry.servings || 1;
+        const perServingCalories = (entry.calories || 0) / currentServings;
+        if (perServingCalories <= 0) return;
 
-        // Calculate per-serving macros
-        const perServingFat = entry.fat / currentServings;
-        const perServingCarbs = entry.carbs / currentServings;
-        const perServingProtein = entry.protein / currentServings;
-
-        // Get effective goals (includes reverse diet, PI controller, workout credit)
+        // Effective calorie goal (includes reverse diet, PI controller, workout credit)
         const today = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
-        let goalFat, goalCarbs, goalProtein;
-        if (window.fitnessApp) {
-            const goals = await window.fitnessApp.calculateEffectiveGoals(today);
-            goalFat = goals.fat;
-            goalCarbs = goals.carbs;
-            goalProtein = goals.protein;
-        } else {
-            goalFat = parseFloat(await db.getSetting('goal_fat') || 70);
-            goalCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
-            goalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-        }
+        const goalCalories = window.fitnessApp
+            ? (await window.fitnessApp.calculateEffectiveGoals(today)).calories
+            : parseFloat(await db.getSetting('goal_calories') || 2000);
 
-        // Get today's macros (excluding this entry, including planned)
+        // Today's other entries (completed and planned)
         const allMacros = await db.getMacrosByDate(today);
-        const otherMacros = allMacros.filter(m => m.id !== id &&
-            (m.status === 'completed' || m.status === 'planned'));
+        const otherCalories = allMacros
+            .filter(m => m.id !== id && (m.status === 'completed' || m.status === 'planned'))
+            .reduce((sum, m) => sum + (m.calories || 0), 0);
 
-        // Calculate current totals (excluding this entry)
-        const totalFat = otherMacros.reduce((sum, m) => sum + (m.fat || 0), 0);
-        const totalCarbs = otherMacros.reduce((sum, m) => sum + (m.carbs || 0), 0);
-        const totalProtein = otherMacros.reduce((sum, m) => sum + (m.protein || 0), 0);
-
-        // Calculate remaining for each macro
-        const remainingFat = goalFat - totalFat;
-        const remainingCarbs = goalCarbs - totalCarbs;
-        const remainingProtein = goalProtein - totalProtein;
-
-        // Calculate max servings for each macro
-        const maxServingsFat = perServingFat > 0 ? remainingFat / perServingFat : Infinity;
-        const maxServingsCarbs = perServingCarbs > 0 ? remainingCarbs / perServingCarbs : Infinity;
-        const maxServingsProtein = perServingProtein > 0 ? remainingProtein / perServingProtein : Infinity;
-
-        const rawMax = Math.min(maxServingsFat, maxServingsCarbs, maxServingsProtein);
+        const rawMax = (goalCalories - otherCalories) / perServingCalories;
 
         // For per-gram foods the serving unit is grams — floor to 2 decimal places
         // (nearest 0.01g) so the user gets precise gram amounts.

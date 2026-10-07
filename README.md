@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.49
+**Current**: v2.9.50
+- **The >> fill button fills to your calorie target** — it used to add servings until any one macro (fat, carbs or protein) would go over its goal. It now adds whole servings (0.01g steps for per-100g foods) until the day's calories, completed plus planned, would pass the effective calorie target (the same one the dashboard uses, with workout credit). This also makes it work in calorie-only tracking mode, where every macro goal is 0.
+- **Changing servings no longer zeroes calorie-only entries** — +/−, >> and typing a serving count recomputed calories from fat/carbs/protein, so an entry logged as calories only dropped to 0 cal, and a typed-in calorie count was replaced. Calories now scale with the servings like the macros do.
+
+**v2.9.49**
 - **Undoing a Food Library delete keeps the food's history** — undo re-added the food as a brand-new entry with a new id, so its past macro entries no longer pointed at it and "Recent" treated it as never used. Deleting never touches the macro log, so undo now restores the food under its original id (`db.restoreNamedFood()`), with every field intact, and its history reconnects.
 
 **v2.9.48**

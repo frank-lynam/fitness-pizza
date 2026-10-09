@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.52
+**Current**: v2.9.53
+- **Spinner while the Food Library opens** — with the "Recent" sort, opening reads the whole macro log, which can take a noticeable moment on a phone with nothing on screen. If opening takes longer than ~120ms, the loading spinner ("Opening Food Library…") shows (it also blocks taps), and a second tap while it's still opening is ignored, so the library never opens twice.
+
+**v2.9.52**
 - **Workout Library looks like the Food Library** — the same tall window with a Close button in the header, a list that fills it and scrolls, and the same compact rows: name with the exercise type as a badge beside it, then star / Add / Edit / ×, then one details line. Behaviour is unchanged: same sort (starred first, then most recent), Add with undo, Edit, and delete.
 
 **v2.9.51**

@@ -26,9 +26,26 @@ export function initFoodLibrary() {
 }
 
 /**
- * Show the food library modal
+ * Show the food library modal. Opening can take a moment (the Recent sort
+ * reads the whole macro log): if it isn't instant, the loading spinner
+ * shows (it also blocks taps), and a second call while it's still opening
+ * is ignored, so a double tap doesn't open it twice.
  */
+let libraryOpening = false;
 export async function showFoodLibrary() {
+    if (libraryOpening) return;
+    libraryOpening = true;
+    const spinner = setTimeout(() => ui.showLoading('Opening Food Library…'), 120);
+    try {
+        await openFoodLibrary();
+    } finally {
+        clearTimeout(spinner);
+        ui.hideLoading();
+        libraryOpening = false;
+    }
+}
+
+async function openFoodLibrary() {
     const foods = await db.getAllNamedFoods();
 
     let lastUsed = null; // read once per opening, on the first "Recent" sort

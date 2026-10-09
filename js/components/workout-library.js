@@ -40,9 +40,9 @@ async function refreshLibraryBody(modal) {
     const body = modal.querySelector('.modal-body');
     body.innerHTML = uniqueWorkouts.length === 0
         ? `<p class="text-muted text-center">No workouts yet. Log your first workout!</p>`
-        : `<div class="workout-library-content">
+        : `<div class="food-library-content"><div class="workout-library-content">
                ${uniqueWorkouts.map(w => createWorkoutLibraryItemHTML(w)).join('')}
-           </div>`;
+           </div></div>`;
     attachLibraryListeners(modal);
 }
 
@@ -52,10 +52,10 @@ export async function showWorkoutLibraryModal() {
     modal.id = 'workout-library-modal';
 
     modal.innerHTML = `
-        <div class="modal-content">
+        <div class="modal-content modal-tall">
             <div class="modal-header">
                 <h3>Workout Library</h3>
-                <button class="modal-close" id="close-workout-library">&times;</button>
+                <button class="btn-secondary btn-small" id="close-workout-library">Close</button>
             </div>
             <div class="modal-body"></div>
         </div>
@@ -154,14 +154,17 @@ function createWorkoutLibraryItemHTML(workout) {
     }
     details.push(`${workout.estimated_calories_burned || 0} cal`);
 
+    // Same look as the Food Library's rows (food-item / entry-item-*).
     return `
-        <div class="workout-library-item">
-            <div class="workout-library-item-header">
-                <strong>${workout._starred ? '⭐ ' : ''}${name}</strong>
-                <div style="display:flex;gap:4px;flex-shrink:0;">
-                    <button class="btn-star-workout btn-small ${workout._starred ? 'starred' : ''}"
-                            data-name="${name}" title="${workout._starred ? 'Unstar' : 'Star'}"
-                            style="padding:0 8px;">
+        <div class="food-item">
+            <div class="entry-item-header">
+                <span class="entry-item-title">
+                    ${workout._starred ? '⭐ ' : ''}${name}
+                    <span class="food-format-badge" style="font-size: 0.85em; margin-left: 4px;">${typeBadge}</span>
+                </span>
+                <div class="entry-item-actions">
+                    <button class="btn-star-workout ${workout._starred ? 'starred' : ''}"
+                            data-name="${name}" title="${workout._starred ? 'Unstar' : 'Star'}">
                         ${workout._starred ? '⭐' : '☆'}
                     </button>
                     <button class="btn-add-workout-from-library btn-primary btn-small"
@@ -170,8 +173,8 @@ function createWorkoutLibraryItemHTML(workout) {
                     <button class="btn-delete-workout-library btn-danger btn-small" data-id="${workout.id}">×</button>
                 </div>
             </div>
-            <div class="workout-library-item-details">
-                <span class="workout-type-badge">${typeBadge}</span> • ${details.join(' • ')}
+            <div class="entry-item-content">
+                <div class="entry-macros">${details.join(' | ')}</div>
             </div>
         </div>
     `;

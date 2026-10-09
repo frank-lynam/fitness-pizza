@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.51
+**Current**: v2.9.52
+- **Workout Library looks like the Food Library** — the same tall window with a Close button in the header, a list that fills it and scrolls, and the same compact rows: name with the exercise type as a badge beside it, then star / Add / Edit / ×, then one details line. Behaviour is unchanged: same sort (starred first, then most recent), Add with undo, Edit, and delete.
+
+**v2.9.51**
 - **Food Library add toast: shorter, and clear of the tabs** — the toast with the serving-size slider was 130px tall: the Undo button picked up the app's large default button size, and the "drag up/down to fine-tune" hint had a row of its own. Undo is now compact (and uses the theme's primary-button colours, so it's readable on every theme), the food name stays on one line, and the fine-tune hint shows under the big value readout while you drag. Now about 62px, with the slider still full width. Toasts also sat behind the tab bar on phones with a gesture bar (they didn't count the bottom safe area); they now stack above it with a little more room.
 
 **v2.9.50**

@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.50
+**Current**: v2.9.51
+- **Food Library add toast: shorter, and clear of the tabs** — the toast with the serving-size slider was 130px tall: the Undo button picked up the app's large default button size, and the "drag up/down to fine-tune" hint had a row of its own. Undo is now compact (and uses the theme's primary-button colours, so it's readable on every theme), the food name stays on one line, and the fine-tune hint shows under the big value readout while you drag. Now about 62px, with the slider still full width. Toasts also sat behind the tab bar on phones with a gesture bar (they didn't count the bottom safe area); they now stack above it with a little more room.
+
+**v2.9.50**
 - **The >> fill button fills to your calorie target** — it used to add servings until any one macro (fat, carbs or protein) would go over its goal. It now adds whole servings (0.01g steps for per-100g foods) until the day's calories, completed plus planned, would pass the effective calorie target (the same one the dashboard uses, with workout credit). This also makes it work in calorie-only tracking mode, where every macro goal is 0.
 - **Changing servings no longer zeroes calorie-only entries** — +/−, >> and typing a serving count recomputed calories from fat/carbs/protein, so an entry logged as calories only dropped to 0 cal, and a typed-in calorie count was replaced. Calories now scale with the servings like the macros do.
 

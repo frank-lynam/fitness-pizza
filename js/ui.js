@@ -326,7 +326,7 @@ export function showUndoToast(message, onUndo, duration = 5000) {
     toast.id = 'fp-undo-toast';
     toast.style.cssText = [
         'position:fixed',
-        'bottom:calc(var(--bottom-nav-height,60px) + 16px)',
+        'bottom:calc(var(--bottom-nav-height,64px) + env(safe-area-inset-bottom,0px) + 18px)',
         'left:50%',
         'transform:translateX(-50%)',
         'background:var(--bg-secondary)',
@@ -391,10 +391,15 @@ function getBigValueOverlay() {
             'text-align:center',
             'white-space:nowrap',
         ].join(';');
+        // The value, and under it the fine-tune hint (shown while dragging,
+        // where the eye already is, instead of a row in the toast).
+        bigValueOverlay.innerHTML = '<div class="bv-value"></div><div class="bv-hint" style="font-size:12px;font-weight:500;color:var(--text-secondary);margin-top:2px"></div>';
         document.body.appendChild(bigValueOverlay);
     }
     return bigValueOverlay;
 }
+const setBigValue = (text) => { getBigValueOverlay().querySelector('.bv-value').textContent = text; };
+const setBigHint = (text) => { getBigValueOverlay().querySelector('.bv-hint').textContent = text; };
 
 export function showAddToast(message, onUndo, duration = 4000, sliderConfig = null) {
     let container = document.getElementById('fp-add-toasts');
@@ -403,7 +408,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         container.id = 'fp-add-toasts';
         container.style.cssText = [
             'position:fixed',
-            'bottom:calc(var(--bottom-nav-height,60px) + 10px)',
+            'bottom:calc(var(--bottom-nav-height,64px) + env(safe-area-inset-bottom,0px) + 18px)',
             'left:50%',
             'transform:translateX(-50%)',
             'display:flex',
@@ -420,7 +425,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
     toast.style.cssText = [
         'background:var(--bg-secondary)',
         'color:var(--text-primary)',
-        'padding:8px 14px',
+        sliderConfig ? 'padding:6px 12px 4px' : 'padding:8px 14px',
         sliderConfig ? 'border-radius:14px' : 'border-radius:20px',
         'border:1px solid var(--border-color)',
         'font-size:0.85em',
@@ -428,7 +433,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         'display:flex',
         sliderConfig ? 'flex-direction:column' : 'flex-direction:row',
         'align-items:' + (sliderConfig ? 'stretch' : 'center'),
-        'gap:' + (sliderConfig ? '5px' : '10px'),
+        'gap:' + (sliderConfig ? '0' : '10px'),
         'pointer-events:auto',
         'opacity:1',
         'transition:opacity 0.4s',
@@ -440,7 +445,11 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
 
     const btn = document.createElement('button');
     btn.textContent = 'Undo';
-    btn.style.cssText = 'background:var(--accent-primary);color:#fff;border:none;padding:3px 10px;border-radius:10px;cursor:pointer;font-size:0.85em;font-weight:600;flex-shrink:0;';
+    // The theme's primary-button colours (readable on every theme), at a
+    // compact size: min-height/line-height undo the app's large default
+    // button size, which otherwise makes the whole toast tall.
+    btn.className = 'btn-primary';
+    btn.style.cssText = 'border:none;padding:5px 12px;min-height:0;height:auto;line-height:1.2;border-radius:10px;cursor:pointer;font-size:0.85em;font-weight:600;flex-shrink:0;';
 
     let timer;
     const dismiss = () => {
@@ -464,6 +473,8 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         // Top row: message + value label + Undo
         const topRow = document.createElement('div');
         topRow.style.cssText = 'display:flex;align-items:center;gap:8px;';
+        // One line: a long food name is cut short rather than wrapping.
+        msg.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
         topRow.appendChild(msg);
         topRow.appendChild(valLabel);
         topRow.appendChild(btn);
@@ -473,7 +484,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         // the horizontal-to-value ratio through progressively finer tiers, so a small
         // sideways nudge with the finger held low/high lands on an exact value.
         const sliderWrap = document.createElement('div');
-        sliderWrap.style.cssText = 'position:relative;width:100%;height:32px;margin-top:2px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;';
+        sliderWrap.style.cssText = 'position:relative;width:100%;height:26px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:pointer;';
 
         const track = document.createElement('div');
         track.style.cssText = 'position:absolute;left:0;right:0;top:50%;height:4px;transform:translateY(-50%);background:var(--border-color);border-radius:2px;';
@@ -489,9 +500,6 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         sliderWrap.appendChild(thumb);
 
         const DEFAULT_HINT = 'drag up/down to fine-tune';
-        const hint = document.createElement('div');
-        hint.textContent = DEFAULT_HINT;
-        hint.style.cssText = 'font-size:0.68em;color:var(--text-secondary);opacity:0.6;text-align:center;margin-top:1px;';
 
         const SPEED_TIERS = [
             { maxDy: 40, factor: 1, label: DEFAULT_HINT },
@@ -520,7 +528,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
         let pendingBigText = null, overlayRAF = null;
         function flushOverlayText() {
             overlayRAF = null;
-            if (pendingBigText !== null) getBigValueOverlay().textContent = pendingBigText;
+            if (pendingBigText !== null) setBigValue(pendingBigText);
         }
         function setBigTextThrottled(text) {
             pendingBigText = text;
@@ -564,7 +572,8 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             thumb.style.width = '24px';
             thumb.style.height = '24px';
             const overlay = getBigValueOverlay();
-            overlay.textContent = formatBig(quantize(rawValue));
+            setBigValue(formatBig(quantize(rawValue)));
+            setBigHint(DEFAULT_HINT);
             overlay.style.transition = 'none';
             overlay.style.opacity = '1';
             void overlay.offsetWidth; // flush so the transition:none applies before we restore it
@@ -577,7 +586,7 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             lastX = e.clientX;
             const dy = Math.abs(e.clientY - startY);
             const tier = tierForOffset(dy);
-            hint.textContent = tier.label;
+            setBigHint(tier.label);
             const trackWidth = sliderWrap.getBoundingClientRect().width || 1;
             commit(rawValue + (dx / trackWidth) * (max - min) * tier.factor, false);
         });
@@ -587,7 +596,6 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
             dragging = false;
             thumb.style.width = '20px';
             thumb.style.height = '20px';
-            hint.textContent = DEFAULT_HINT;
             value = quantize(rawValue);
             commit(value, true);
             getBigValueOverlay().style.opacity = '0';
@@ -597,7 +605,6 @@ export function showAddToast(message, onUndo, duration = 4000, sliderConfig = nu
 
         toast.appendChild(topRow);
         toast.appendChild(sliderWrap);
-        toast.appendChild(hint);
     } else {
         toast.appendChild(msg);
         toast.appendChild(btn);
@@ -620,7 +627,7 @@ export function showToast(message, duration = 3500) {
     toast.textContent = message;
     toast.style.cssText = [
         'position:fixed',
-        'bottom:calc(var(--bottom-nav-height,60px) + 16px)',
+        'bottom:calc(var(--bottom-nav-height,64px) + env(safe-area-inset-bottom,0px) + 18px)',
         'left:50%',
         'transform:translateX(-50%)',
         'background:var(--bg-secondary)',

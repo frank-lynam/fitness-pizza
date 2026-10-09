@@ -54,8 +54,13 @@ const DEFAULT_FOODS = [
     { name: 'Tofu, Firm', format_type: 'per_gram', protein: 8.1, carbs: 1.9, fat: 4.8, fiber: 0.3, calories: 76 },
 ];
 
+// Settings key for the saved "when was each library food last used" table
+// (see getFoodLastUsed).
+const FOOD_LAST_USED_KEY = 'food_last_used';
+
 class DatabaseManager {
     constructor() {
+        this._lastUsedChain = Promise.resolve();
         this.db = null;
         this.DB_NAME = 'fitness-tracker-db';
         this.DB_VERSION = 3;
@@ -371,7 +376,9 @@ class DatabaseManager {
             entry_mode: data.entry_mode || 'macros',
             serving_label: data.serving_label || ''
         };
-        return this.add('macros', entry);
+        const id = await this.add('macros', entry);
+        await this._touchFoodLastUsed([entry.food_id]);
+        return id;
     }
 
     /**
@@ -406,14 +413,20 @@ class DatabaseManager {
         } else if (!data.timestamp) {
             data.timestamp = Date.now();
         }
-        return this.update('macros', data);
+        // Its day or its food may change: refresh both the old and new food.
+        const before = data.id != null ? await this.get('macros', data.id) : null;
+        const result = await this.update('macros', data);
+        await this._touchFoodLastUsed([before && before.food_id, data.food_id]);
+        return result;
     }
 
     /**
      * Delete a macro entry
      */
     async deleteMacroEntry(id) {
-        return this.delete('macros', id);
+        const before = await this.get('macros', id);
+        await this.delete('macros', id);
+        await this._touchFoodLastUsed([before && before.food_id]);
     }
 
     // ==================== MEASUREMENTS OPERATIONS ====================
@@ -601,13 +614,66 @@ class DatabaseManager {
     }
 
     /**
-     * When each library food was last used, from the macro log itself (so it
-     * covers all past entries, no extra bookkeeping): food_id -> [the entry's
+     * When each library food was last used: food_id -> [the latest entry's
      * day (timestamp), its id], so the later of two entries on the same day
-     * wins. One pass over the food_id index, which only holds entries that
-     * came from the library.
+     * wins. Saved in settings (FOOD_LAST_USED_KEY) and kept current by
+     * add/update/deleteMacroEntry, so opening the library doesn't read the
+     * whole macro log. Missing (first run, or after an import or clear), it's
+     * rebuilt once from the log.
      */
     async getFoodLastUsed() {
+        await this._lastUsedChain; // let any pending update land first
+        const saved = await this.getSetting(FOOD_LAST_USED_KEY);
+        if (saved) {
+            try {
+                return new Map(Object.entries(JSON.parse(saved)).map(([id, v]) => [Number(id), v]));
+            } catch (_) { /* unreadable: rebuild below */ }
+        }
+        const map = await this._scanFoodLastUsed();
+        await this.setSetting(FOOD_LAST_USED_KEY, JSON.stringify(Object.fromEntries(map)));
+        return map;
+    }
+
+    /**
+     * Recompute the saved last-used time of these foods from their own
+     * entries (the food_id index), one update at a time. If nothing is saved
+     * yet there's nothing to update: the next read rebuilds it all.
+     */
+    _touchFoodLastUsed(foodIds) {
+        const ids = [...new Set(foodIds.filter(id => id != null))];
+        if (!ids.length) return this._lastUsedChain;
+        this._lastUsedChain = this._lastUsedChain.then(async () => {
+            const saved = await this.getSetting(FOOD_LAST_USED_KEY);
+            if (!saved) return;
+            const table = JSON.parse(saved);
+            for (const id of ids) {
+                const latest = await this._latestEntryForFood(id);
+                if (latest) table[id] = latest; else delete table[id];
+            }
+            await this.setSetting(FOOD_LAST_USED_KEY, JSON.stringify(table));
+        }).catch(err => console.error('Updating food last-used failed:', err));
+        return this._lastUsedChain;
+    }
+
+    _latestEntryForFood(foodId) {
+        return new Promise((resolve, reject) => {
+            const request = this.db.transaction(['macros'], 'readonly').objectStore('macros')
+                .index('food_id').getAll(IDBKeyRange.only(foodId));
+            request.onsuccess = () => {
+                let best = null;
+                for (const m of request.result) {
+                    const ts = m.timestamp || 0, id = m.id || 0;
+                    if (!best || ts > best[0] || (ts === best[0] && id > best[1])) best = [ts, id];
+                }
+                resolve(best);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // One pass over the food_id index (it only holds entries that came
+    // from the library).
+    _scanFoodLastUsed() {
         return new Promise((resolve, reject) => {
             const lastUsed = new Map();
             const tx = this.db.transaction(['macros'], 'readonly');
@@ -824,10 +890,24 @@ class DatabaseManager {
             // Clear all existing data first so import is a restore, not a merge
             await this.clearAllData();
 
+            // Library foods first: they get new ids, and macro entries' food_id
+            // links are remapped from the backup's ids to the new ones (an
+            // entry whose food isn't in the backup loses its link).
+            const foodIdMap = new Map();
+            if (data.named_foods) {
+                for (const entry of data.named_foods) {
+                    const oldId = entry.id;
+                    delete entry.id;
+                    const newId = await this.addNamedFood(entry);
+                    if (oldId != null) foodIdMap.set(oldId, newId);
+                }
+            }
+
             // Import each store
             if (data.macros) {
                 for (const entry of data.macros) {
                     delete entry.id; // Remove old ID to let autoIncrement assign new one
+                    if (entry.food_id != null) entry.food_id = foodIdMap.get(entry.food_id) ?? null;
                     await this.addMacroEntry(entry);
                 }
             }
@@ -843,13 +923,6 @@ class DatabaseManager {
                 for (const entry of data.workouts) {
                     delete entry.id;
                     await this.addWorkout(entry);
-                }
-            }
-
-            if (data.named_foods) {
-                for (const entry of data.named_foods) {
-                    delete entry.id;
-                    await this.addNamedFood(entry);
                 }
             }
 
@@ -879,6 +952,10 @@ class DatabaseManager {
                     await this.addWorkoutTemplate(entry);
                 }
             }
+
+            // A last-used table in the backup is keyed by the old food ids:
+            // drop it, and the library rebuilds it from the imported entries.
+            await this.delete('settings', FOOD_LAST_USED_KEY);
 
             console.log('Data import completed successfully');
             return true;

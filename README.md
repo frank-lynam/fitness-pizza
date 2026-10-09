@@ -144,7 +144,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.53
+**Current**: v2.9.54
+- **Food Library opens instantly with the "Recent" sort** — each food's last-used time is now saved (settings key `food_last_used`) instead of being worked out from the whole macro log on every open. `addMacroEntry`, `updateMacroEntry` and `deleteMacroEntry` keep it current by recomputing just the affected foods from their own entries (the `food_id` index), so moving an entry to another day or another food, or deleting the latest one, stays right. The first open after updating builds it once from the log (the spinner covers that); after that, opening takes a few milliseconds instead of a few hundred.
+- **Fix: restoring a backup kept macro entries linked to the right foods** — import gave every library food a new id but left entries pointing at the old ids, so after a restore their "last used" history (and the Recent sort) attached to the wrong foods or none. Foods are now imported first and entries' links remapped to the new ids.
+
+**v2.9.53**
 - **Spinner while the Food Library opens** — with the "Recent" sort, opening reads the whole macro log, which can take a noticeable moment on a phone with nothing on screen. If opening takes longer than ~120ms, the loading spinner ("Opening Food Library…") shows (it also blocks taps), and a second tap while it's still opening is ignored, so the library never opens twice.
 
 **v2.9.52**

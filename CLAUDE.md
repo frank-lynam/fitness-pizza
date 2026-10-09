@@ -47,6 +47,10 @@ See `.gitignore` for full exclusion list.
 5. **Commit + push**: `git add -A && git commit && git push`
 6. **Deploy**: `curl -s http://localhost:12345/invalidate` — local service uploads repo to S3 and invalidates CloudFront. Must return `PWA updated`.
 7. **Verify**: check https://fitness-pizza.com — confirm version in Settings/About matches
+   - Quick check: `curl -s "https://fitness-pizza.com/js/app.js?nc=$RANDOM" | grep -m1 APP_VERSION`.
+     If it still shows the old version a minute later, run step 6 again: a deploy
+     triggered the instant `git push` returns can pick up the previous commit
+     (seen with v2.9.53); the second run went live within seconds.
 8. **Clean**: `rm -f updates/*.zip app/android/*.apk`
 
 ## Live Updater Loop — Root Cause & Fix

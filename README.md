@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.56
+**Current**: v2.9.57
+- **Dashboard shows grams for per-100g foods** — an entry from a library food measured per 100g shows its weight after the name: 1.23 servings of edamame reads "Edamame · 123g". It shows even at exactly 100g. Other foods keep "×2" when you have more or less than one serving.
+
+**v2.9.56**
 - **Stylesheet tidy-up, no visual change** — the v2.9.55 layout overrides that were appended at the end of `styles.css` are folded into the rules they changed, so each component is defined in one place. The screens were checked pixel-for-pixel against v2.9.55 in the dark and light themes. Two small differences are intended: the checkbox options in Settings now have the same spacing as every other checkbox label, and the Cheat Day checkbox keeps its 18px size. CLAUDE.md has a new "UI Style Rules" section covering tokens, the button set, shared layouts, number formatting and theme checks.
 
 **v2.9.55**

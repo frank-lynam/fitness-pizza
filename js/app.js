@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.56';
+const APP_VERSION = '2.9.57';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -798,6 +798,12 @@ class FitnessTrackerApp {
             const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
             const baseCarbs   = parseFloat(await db.getSetting('goal_carbs') || 200);
 
+            // Library foods behind today's entries, so per-100g foods can show their weight in grams
+            const foodsById = {};
+            await Promise.all([...new Set(allMacros.map(m => m.food_id).filter(Boolean))].map(async fid => {
+                try { foodsById[fid] = await db.getNamedFood(fid); } catch (e) { /* no quantity shown */ }
+            }));
+
             activityList.innerHTML = activities.map(activity => {
                 const time = new Date(activity.timestamp).toLocaleTimeString('en-US', {
                     hour: 'numeric',
@@ -812,7 +818,10 @@ class FitnessTrackerApp {
                         const g = (v) => Math.round(v || 0);
                         const macroSummary = `${g(activity.data.fat)}f · ${g(activity.data.carbs)}c · ${g(activity.data.protein)}p`;
                         const servings = activity.data.servings || 1;
-                        const servingsDisplay = servings === 1 ? '' : ` ×${+servings.toFixed(2)}`;
+                        // Per-100g foods: always the weight in grams (servings are hundreds of grams)
+                        const perGram = foodsById[activity.data.food_id]?.format_type === 'per_gram';
+                        const servingsDisplay = perGram ? ` · ${+(servings * 100).toFixed(1)}g`
+                            : servings === 1 ? '' : ` ×${+servings.toFixed(2)}`;
                         return `
                             <div class="activity-item ${itemClass}">
                                 ${!isCompleted ? `

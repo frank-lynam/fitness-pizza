@@ -13,6 +13,9 @@ import { MACRO_INTENSITY_LOW_G, MACRO_INTENSITY_HIGH_G } from '../constants.js';
 // One-shot timeout (fires at next midnight) for date-change detection
 let _cheatDayTimeoutId = null;
 
+// Weight of a per-100g food entry: servings are hundreds of grams
+const gramsLabel = (servings) => `${+((servings || 1) * 100).toFixed(1)}g`;
+
 // Debounce timer for re-sorting after rapid +/- edits
 let _sortRenderTimer = null;
 
@@ -766,7 +769,8 @@ export async function loadTodaysMacros() {
                 if (!food) return '';
                 let label;
                 switch (food.format_type) {
-                    case 'per_gram':    label = 'per 100g'; break;
+                    // Per-100g foods show the weight itself (servings are hundreds of grams)
+                    case 'per_gram':    return `<span class="entry-qty" data-id="${macro.id}">${gramsLabel(macro.servings)}</span>`;
                     case 'per_serving': label = food.serving_size || 'serving'; break;
                     case 'per_batch':   label = `${food.batch_servings} servings/batch`; break;
                     default: return '';
@@ -1096,6 +1100,8 @@ async function handleSetServings(id, newServings, { deferSort = false } = {}) {
             // Update this row in-place so numbers change without re-sorting
             const input = document.querySelector(`.servings-input[data-id="${id}"]`);
             if (input) input.value = newServings.toFixed(2);
+            const qtyEl = document.querySelector(`.entry-qty[data-id="${id}"]`);
+            if (qtyEl) qtyEl.textContent = gramsLabel(newServings);
             const numsEl = document.querySelector(`.entry-macros-nums[data-id="${id}"]`);
             if (numsEl) {
                 numsEl.textContent = entry.entry_mode === 'calories'

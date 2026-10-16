@@ -31,7 +31,18 @@ only breakpoint tweaks, `css/charts.css` the charts.
   radii `--radius-md` (controls) and `--radius-lg` (cards), control heights
   `--btn-height` (44px) and `--btn-height-sm` (32px), button text `--font-size-btn`.
   Colours only through the theme variables (`--bg-*`, `--text-*`, `--accent-*`,
-  `--border-color`): never hard-code a colour, or one of the seven themes breaks.
+  `--border-color`): never hard-code a colour, or one of the themes breaks. Text on a
+  filled colour uses `--on-accent` (on `--accent-primary`) or `--on-color` (on the other
+  accents), never `white`; hover is `filter: brightness(1.08)`, not a new colour.
+- **Themes** (`:root[data-theme=...]` near the top of `styles.css`): dark (default),
+  midnight, forest, ember, goth-rave, white-on-black ("High Contrast"), trs-80, light,
+  sepia, pink, plus psychedelic (easter egg). Every theme sets the same variables. The
+  accents double as macro colours, so keep these four clearly distinct in each theme:
+  `--accent-warning` = fat, `--accent-success` = carbs, `--accent-primary` = protein,
+  calories and the main button, `--accent-danger` = over target. Light themes also set
+  `color-scheme: light` and a light `--bar-label-shadow`. A new theme also needs an
+  `<option>` in `#theme-toggle` (index.html). Charts read the variables, so don't
+  special-case a theme in JS.
 - **Buttons come in a fixed set**; pick one, don't style a new one inline:
   - `btn-primary`: the one main action on a screen (gets its own full-width row in `.action-buttons`)
   - `btn-secondary`: other actions; `btn-tertiary`: quiet outlined actions; `btn-danger`: destructive

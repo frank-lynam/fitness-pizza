@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.57';
+const APP_VERSION = '2.9.58';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -3018,11 +3018,16 @@ class FitnessTrackerApp {
 
     /**
      * Apply a theme to the app
-     * @param {string} theme - Theme name (dark, light, white-on-black, goth-rave, psychedelic, pink, trs-80)
+     * @param {string} theme - Theme name (dark, midnight, forest, ember, goth-rave, white-on-black, trs-80,
+     *                         light, sepia, pink, psychedelic)
      */
     applyTheme(theme) {
         const root = document.documentElement;
         root.setAttribute('data-theme', theme);
+        // Browser/phone status bar follows the header colour
+        const meta = document.querySelector('meta[name="theme-color"]');
+        const headerBg = getComputedStyle(root).getPropertyValue('--bg-secondary').trim();
+        if (meta && headerBg) meta.setAttribute('content', headerBg);
         console.log(`Theme applied: ${theme}`);
     }
 

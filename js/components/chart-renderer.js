@@ -139,22 +139,6 @@ async function renderCharts(days) {
 function getThemeColors() {
     const root = document.documentElement;
     const style = getComputedStyle(root);
-    const theme = root.getAttribute('data-theme');
-
-    // TRS-80 uses different shades of green
-    if (theme === 'trs-80') {
-        return {
-            primary: '#00ff00',
-            secondary: '#00dd00',
-            success: '#00bb00',
-            warning: '#009900',
-            danger: '#007700',
-            text: '#00ff00',
-            textSecondary: '#00dd00',
-            border: '#003300'
-        };
-    }
-
     return {
         primary: style.getPropertyValue('--accent-primary').trim() || '#d4c5b0',
         secondary: style.getPropertyValue('--accent-secondary').trim() || '#7a6b9f',

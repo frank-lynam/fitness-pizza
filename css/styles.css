@@ -195,6 +195,12 @@
 }
 
 /* Psychedelic animation */
+/* Themes whose cards match the page background: outline the cards so rows stay distinct */
+:root:is([data-theme="light"], [data-theme="white-on-black"], [data-theme="trs-80"])
+    :is(.entry-item, .activity-item, .stat-card, .chart-container, .settings-section, .toolbar-row, .food-item) {
+    box-shadow: inset 0 0 0 1px var(--border-color);
+}
+
 @keyframes psychedelic-hue {
     0% { filter: hue-rotate(0deg); }
     100% { filter: hue-rotate(360deg); }
@@ -597,7 +603,7 @@ body {
 /* Buttons */
 button {
     font-family: var(--font-family);
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-btn);
     cursor: pointer;
     border: none;
     border-radius: var(--radius-md);
@@ -659,11 +665,54 @@ button {
     min-height: var(--btn-height-sm);
 }
 
+/* Link styled as a button */
+a.btn-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--btn-height);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: var(--font-size-btn);
+}
+
+/* Chip: small outlined pill for sort/filter toggles */
+.btn-chip {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Toolbar row: a label/checkbox on the left, chips on the right */
+.toolbar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    min-height: 40px;
+    padding: 4px var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+}
+
+.toolbar-row .checkbox-label { margin: 0; font-size: var(--font-size-sm); }
+.toolbar-row .checkbox-label input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; accent-color: var(--accent-primary); }
+.stat-card .toolbar-row { background: none; padding: 0; margin: var(--spacing-sm) 0 0; min-height: 0; }
+
 .action-buttons {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
 }
 
 .action-buttons button {
@@ -676,6 +725,8 @@ button {
 .action-buttons .btn-primary {
     flex-basis: 100%;
 }
+
+.action-buttons + .action-buttons { margin-top: calc(-1 * var(--spacing-sm)); }
 
 .btn-quick-action {
     background-color: var(--accent-secondary);
@@ -709,15 +760,15 @@ button {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xs);
+    margin-bottom: 6px;
 }
 
 .form-group-inline label {
     flex-shrink: 0;
-    width: 80px;
+    width: 104px;
     font-weight: 600;
     color: var(--text-secondary);
-    font-size: var(--font-size-sm);
+    font-size: 13px;
     margin: 0;
 }
 
@@ -727,7 +778,7 @@ button {
     padding: var(--spacing-xs) var(--spacing-sm);
     background-color: var(--bg-input);
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     color: var(--text-primary);
     font-size: var(--font-size-sm);
     min-height: 36px;
@@ -765,6 +816,8 @@ button {
     color: var(--text-tertiary);
     margin-top: var(--spacing-xs);
 }
+
+.help-text a { color: var(--accent-primary); }
 
 /* Quick Actions */
 .quick-actions {
@@ -830,6 +883,14 @@ button {
     text-decoration: underline;
 }
 
+.settings-stack { display: flex; flex-direction: column; gap: var(--spacing-sm); }
+.settings-stack > button,
+#btn-test-api-key, #btn-check-updates, #btn-debug-log { width: 100%; }
+
+.about-text { font-size: 14px; line-height: 1.5; color: var(--text-secondary); }
+.about-text p { margin: 0 0 2px; }
+.about-text p:first-child { color: var(--text-primary); font-weight: 600; }
+
 .goals-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -868,15 +929,15 @@ button {
 .fab {
     position: fixed;
     bottom: calc(var(--bottom-nav-height) + var(--spacing-sm));
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     -webkit-touch-callout: none;
     user-select: none;
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     color: white;
     border: none;
-    font-size: 24px;
+    font-size: 22px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     cursor: pointer;
     z-index: 90;
@@ -1042,7 +1103,7 @@ button {
 .date-range-selector {
     display: flex;
     gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
     overflow-x: auto;
 }
 
@@ -1052,6 +1113,9 @@ button {
     font-weight: 600;
     white-space: nowrap;
     flex-shrink: 0;
+    flex: 1;
+    min-height: 36px;
+    font-size: 14px;
 }
 
 .btn-range.active {
@@ -1067,10 +1131,10 @@ button {
 .entry-item {
     background-color: var(--bg-card);
     border: none;
-    border-radius: var(--radius-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    margin-bottom: 4px;
-    min-height: 48px;
+    border-radius: var(--radius-lg);
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    min-height: 0;
 }
 
 .entry-item-header {
@@ -1078,37 +1142,71 @@ button {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0;
+    gap: var(--spacing-sm);
+    min-height: 32px;
 }
+
+.entry-item-header > .checkbox-inline { flex: 0 0 auto; gap: var(--spacing-sm); }
+.entry-item-header > .checkbox-inline:has(.entry-item-title) { flex: 1; min-width: 0; }
+.entry-item-header > .checkbox-inline + .entry-item-title,
+.entry-item-header > .entry-item-title { flex: 1; min-width: 0; }
+.entry-item-header input[type="checkbox"] { accent-color: var(--accent-success); }
 
 .entry-item-title {
     font-weight: 600;
     color: var(--text-primary);
-    font-size: var(--font-size-sm);
+    font-size: 15px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .entry-item-time {
-    font-size: var(--font-size-sm);
+    font-size: 12px;
     color: var(--text-tertiary);
 }
 
 .entry-item-content {
     color: var(--text-secondary);
-    font-size: var(--font-size-sm);
+    font-size: 12px;
     display: flex;
     gap: var(--spacing-sm);
     align-items: center;
+    margin-top: 2px;
+    flex-wrap: wrap;
+    row-gap: 4px;
 }
 
 .entry-item-actions {
     display: flex;
-    gap: 2px;
+    gap: 4px;
     margin-top: 0;
+    align-items: center;
+    flex-shrink: 0;
 }
 
-.entry-item-actions button {
-    font-size: var(--font-size-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    min-height: 36px;
+.entry-item-actions button,
+.entry-item-actions .btn-small {
+    min-height: 30px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 13px;
+    border-radius: var(--radius-md);
+}
+
+.entry-item-actions .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.entry-item-actions .btn-danger {
+    width: 30px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--accent-danger);
+    font-size: 18px;
 }
 
 /* Section Headers */
@@ -1155,38 +1253,50 @@ button {
     color: var(--text-tertiary);
 }
 
-/* Star Button */
-.btn-star-macro {
+/* Star toggles (macros and workouts share one look) */
+.btn-star-macro,
+.btn-star-workout {
     background: none;
     border: none;
-    font-size: var(--font-size-xl);
     padding: 0;
-    min-height: 36px;
-    width: 36px;
+    width: 30px;
+    min-height: 30px;
+    height: 30px;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--text-tertiary);
+    opacity: 0.8;
     cursor: pointer;
     transition: transform 0.2s;
-    color: var(--text-tertiary);
-    opacity: 0.6;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.btn-star-macro:hover {
-    transform: scale(1.2);
+.btn-star-macro:hover,
+.btn-star-workout:hover {
+    transform: scale(1.15);
     opacity: 1;
 }
 
-.btn-star-macro.starred {
+.btn-star-macro.starred,
+.btn-star-workout.starred {
     filter: drop-shadow(0 0 2px var(--accent-warning));
     opacity: 1;
     color: var(--accent-warning);
 }
 
 /* Checkbox Labels */
-.checkbox-label {
+.checkbox-label,
+.form-group .checkbox-label {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
     cursor: pointer;
-    font-weight: normal;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0;
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -1215,6 +1325,10 @@ button {
 /* Planned Entry Styling */
 .entry-item.planned {
     opacity: 0.7;
+    border-left: 3px solid var(--accent-warning);
+}
+
+.entry-item.entry-planned {
     border-left: 3px solid var(--accent-warning);
 }
 
@@ -1339,11 +1453,11 @@ button {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
+    padding: 8px 10px;
     background-color: var(--bg-card);
     border: none;
-    border-radius: var(--radius-md);
-    margin-bottom: var(--spacing-xs);
+    border-radius: var(--radius-lg);
+    margin-bottom: 6px;
 }
 
 .activity-item.planned {
@@ -1362,9 +1476,9 @@ button {
     color: white;
     border: none;
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    min-height: 24px;
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
     font-size: 16px;
     font-weight: bold;
     line-height: 1;
@@ -1377,17 +1491,21 @@ button {
 }
 
 .activity-icon {
-    font-size: 24px;
+    font-size: 20px;
+    width: 26px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .activity-content {
     flex: 1;
+    min-width: 0;
 }
 
 .activity-title {
     font-weight: 600;
     color: var(--text-primary);
-    font-size: var(--font-size-sm);
+    font-size: 15px;
 }
 
 .activity-macros {
@@ -1397,8 +1515,9 @@ button {
 }
 
 .activity-time {
-    font-size: var(--font-size-sm);
+    font-size: 12px;
     color: var(--text-tertiary);
+    margin-top: 2px;
 }
 
 .btn-remove-activity {
@@ -1406,9 +1525,9 @@ button {
     color: white;
     border: none;
     border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    min-height: 24px;
+    width: 28px;
+    height: 28px;
+    min-height: 28px;
     font-size: 18px;
     line-height: 1;
     padding: 0;
@@ -1423,7 +1542,7 @@ button {
 .macro-summary-compact {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: 6px;
 }
 
 .macro-progress-item {
@@ -1509,7 +1628,7 @@ button {
 .progress-bar-wide {
     position: relative;
     width: 100%;
-    height: 32px;
+    height: 28px;
     background-color: var(--bg-tertiary);
     border-radius: var(--radius-md);
     overflow: visible;
@@ -1533,7 +1652,9 @@ button {
     font-weight: 700;
     font-size: var(--font-size-sm);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-    z-index: 3;
+    z-index: 11;
+    padding-left: 10px;
+    position: relative;
 }
 
 .progress-value {
@@ -1543,7 +1664,7 @@ button {
     font-weight: 700;
     font-size: var(--font-size-sm);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-    z-index: 4;
+    z-index: 11;
 }
 
 .progress-value.over-target {
@@ -1682,6 +1803,11 @@ button {
     color: var(--text-primary);
     font-weight: 600;
 }
+
+/* Measurement history */
+.section-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin: var(--spacing-md) 0 var(--spacing-xs); }
+.history-date-header { margin: 12px 0 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-tertiary); }
+.history-time { font-size: 12px; color: var(--text-tertiary); margin-right: 4px; }
 
 /* Entry Calories */
 .entry-calories {
@@ -1898,7 +2024,14 @@ textarea.error {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    flex: 1;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 4px;
+    margin: 0;
 }
+
+.entry-macros-nums { font-variant-numeric: tabular-nums; }
 
 .servings-display {
     display: inline-flex;
@@ -1910,19 +2043,19 @@ textarea.error {
 .servings-stepper {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    margin-left: var(--spacing-xs);
+    gap: 3px;
+    margin-left: auto;
 }
 
 .servings-stepper .servings-input {
-    width: 50px;
+    width: 52px;
     text-align: center;
     padding: 2px 4px;
     background: var(--bg-input);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     color: var(--text-primary);
-    font-size: var(--font-size-sm);
+    font-size: 13px !important;
     height: 28px;
     font-family: var(--font-family);
 }
@@ -1938,7 +2071,7 @@ textarea.error {
     background: var(--bg-tertiary);
     color: var(--text-primary);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     width: 28px;
     height: 28px;
     min-height: 28px;
@@ -2273,175 +2406,17 @@ textarea.error {
 .wizard-total-row { display:flex; justify-content:space-between; padding:10px 0 0; font-weight:700; font-size:14px; }
 
 /* Collapsible settings sections */
-.settings-section h3 { display:flex; justify-content:space-between; align-items:center; user-select:none; }
+.settings-section h3 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    margin-bottom: 0;
+    min-height: 28px;
+    font-size: 16px;
+}
 .settings-section h3::after { content:'▾'; font-size:14px; color:var(--text-secondary); transition:transform 0.2s; }
 .settings-section.collapsed h3::after { transform:rotate(-90deg); }
 .settings-section-body { overflow:hidden; }
 .settings-section.collapsed .settings-section-body { display:none; }
-
-/* ------------------------------------------------------------------
-   Layout polish: one control scale, aligned rows, consistent cards
-   ------------------------------------------------------------------ */
-button { font-size: var(--font-size-btn); }
-
-.action-buttons { margin-bottom: var(--spacing-md); }
-.action-buttons + .action-buttons { margin-top: calc(-1 * var(--spacing-sm)); }
-
-/* Small toolbar row: a label/checkbox on the left, chips on the right */
-.toolbar-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    min-height: 40px;
-    padding: 4px var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-}
-.toolbar-row .checkbox-label { margin: 0; font-size: var(--font-size-sm); }
-.toolbar-row .checkbox-label input { width: 18px; height: 18px; accent-color: var(--accent-primary); }
-.stat-card .toolbar-row { background: none; padding: 0; margin: var(--spacing-sm) 0 0; min-height: 0; }
-
-/* Chip: small outlined button for sort/filter toggles */
-.btn-chip {
-    min-height: 28px;
-    padding: 0 10px;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-/* Entry cards (macros, workouts, measurements) */
-.entry-item {
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    border-radius: var(--radius-lg);
-    min-height: 0;
-}
-.entry-item-header { gap: var(--spacing-sm); min-height: 32px; }
-.entry-item-header > .checkbox-inline { flex: 0 0 auto; gap: var(--spacing-sm); }
-.entry-item-header > .checkbox-inline:has(.entry-item-title) { flex: 1; min-width: 0; }
-.entry-item-header input[type="checkbox"] { accent-color: var(--accent-success); }
-.entry-item-header > .checkbox-inline + .entry-item-title,
-.entry-item-header > .entry-item-title { flex: 1; min-width: 0; }
-.entry-item-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 15px;
-}
-.entry-item-actions { gap: 4px; align-items: center; flex-shrink: 0; }
-.entry-item-actions button,
-.entry-item-actions .btn-small {
-    min-height: 30px;
-    height: 30px;
-    padding: 0 10px;
-    font-size: 13px;
-    border-radius: var(--radius-md);
-}
-.entry-item-actions .btn-secondary {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-}
-.entry-item-actions .btn-danger {
-    width: 30px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--accent-danger);
-    font-size: 18px;
-}
-.entry-item-time { font-size: 12px; }
-.entry-item-content { font-size: 12px; margin-top: 2px; flex-wrap: wrap; row-gap: 4px; }
-.entry-macros { flex: 1; flex-wrap: wrap; justify-content: space-between; row-gap: 4px; margin: 0; }
-.entry-macros-nums { font-variant-numeric: tabular-nums; }
-.servings-stepper { margin-left: auto; gap: 3px; }
-.servings-stepper .servings-input { width: 52px; height: 28px; font-size: 13px !important; }
-.servings-btn-minus, .servings-btn-plus, .servings-btn-max { border-radius: var(--radius-md); }
-.entry-item.planned, .entry-item.entry-planned { border-left: 3px solid var(--accent-warning); }
-
-/* Star toggles (macros and workouts share one look) */
-.btn-star-macro,
-.btn-star-workout {
-    background: none;
-    border: none;
-    padding: 0;
-    width: 30px;
-    min-height: 30px;
-    height: 30px;
-    font-size: 20px;
-    line-height: 1;
-    color: var(--text-tertiary);
-    opacity: 0.8;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-.btn-star-macro.starred,
-.btn-star-workout.starred { opacity: 1; color: var(--accent-warning); }
-.btn-star-workout:hover { transform: scale(1.15); }
-
-/* Dashboard */
-.progress-bar-wide { height: 28px; }
-.progress-label { padding-left: 10px; z-index: 11; position: relative; }
-.progress-value { z-index: 11; }
-.macro-summary-compact { gap: 6px; }
-.activity-item { padding: 8px 10px; margin-bottom: 6px; border-radius: var(--radius-lg); }
-.activity-icon { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
-.activity-content { min-width: 0; }
-.activity-title { font-size: 15px; }
-.activity-macros, .activity-time { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
-.btn-complete-activity, .btn-complete-workout, .btn-remove-activity { width: 28px; height: 28px; min-height: 28px; }
-
-/* Measurement history */
-.history-date-header { margin: 12px 0 4px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-tertiary); }
-.history-time { font-size: 12px; color: var(--text-tertiary); margin-right: 4px; }
-
-/* Trends range buttons */
-.btn-range { flex: 1; min-height: 36px; font-size: 14px; }
-.date-range-selector { margin-bottom: var(--spacing-md); }
-
-/* Settings */
-.settings-section h3 { margin-bottom: 0; min-height: 28px; font-size: 16px; }
 .settings-section:not(.collapsed) h3 { margin-bottom: var(--spacing-sm); }
-.settings-stack { display: flex; flex-direction: column; gap: var(--spacing-sm); }
-.settings-stack > button { width: 100%; }
-
-/* FABs: a touch smaller so they cover less of the list */
-.fab { width: 52px; height: 52px; font-size: 22px; }
-
-.section-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin: var(--spacing-md) 0 var(--spacing-xs); }
-a.btn-link {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: var(--btn-height);
-    border-radius: var(--radius-md);
-    text-decoration: none;
-    font-weight: 600;
-    font-size: var(--font-size-btn);
-}
-.form-group-inline { margin-bottom: 6px; }
-.form-group-inline label { width: 104px; font-size: 13px; }
-.form-group-inline input, .form-group-inline select { min-height: 36px; border-radius: var(--radius-md); }
-
-.checkbox-label, .form-group .checkbox-label { font-size: 14px; font-weight: 500; color: var(--text-primary); margin: 0; }
-.help-text a { color: var(--accent-primary); }
-.about-text { font-size: 14px; line-height: 1.5; color: var(--text-secondary); }
-.about-text p { margin: 0 0 2px; }
-.about-text p:first-child { color: var(--text-primary); font-weight: 600; }
-#btn-test-api-key, #btn-check-updates, #btn-debug-log { width: 100%; }
-
-/* Themes whose cards match the page background: outline the cards so rows stay distinct */
-:root:is([data-theme="light"], [data-theme="white-on-black"], [data-theme="trs-80"])
-    :is(.entry-item, .activity-item, .stat-card, .chart-container, .settings-section, .toolbar-row, .food-item) {
-    box-shadow: inset 0 0 0 1px var(--border-color);
-}

@@ -21,6 +21,41 @@ Tech: Vanilla JS (ES modules), IndexedDB, Chart.js, Capacitor (Android APK).
 
 See `.gitignore` for full exclusion list.
 
+## UI Style Rules
+
+The app is used one-handed on a phone; keep it compact and consistent.
+`css/styles.css` holds the tokens (`:root`) and every component, `css/mobile.css`
+only breakpoint tweaks, `css/charts.css` the charts.
+
+- **Use the tokens, not new numbers.** Spacing `--spacing-xs/sm/md/lg` (4/8/16/24),
+  radii `--radius-md` (controls) and `--radius-lg` (cards), control heights
+  `--btn-height` (44px) and `--btn-height-sm` (32px), button text `--font-size-btn`.
+  Colours only through the theme variables (`--bg-*`, `--text-*`, `--accent-*`,
+  `--border-color`): never hard-code a colour, or one of the seven themes breaks.
+- **Buttons come in a fixed set**; pick one, don't style a new one inline:
+  - `btn-primary`: the one main action on a screen (gets its own full-width row in `.action-buttons`)
+  - `btn-secondary`: other actions; `btn-tertiary`: quiet outlined actions; `btn-danger`: destructive
+  - add `btn-small` for the 32px size; `btn-chip` for sort/filter pills; `a.btn-link` for a link that looks like a button
+  - in card rows (`.entry-item-actions`) Edit is an outlined 30px button and × an outlined 30px square; stars are `.btn-star-macro` / `.btn-star-workout` (shared style)
+  - don't give `button` a bigger size in `mobile.css`; the base sizes are already touch-sized
+- **Reuse the layouts:** `.action-buttons` (main action full width, the rest pair up),
+  `.toolbar-row` (checkbox/label left, chips right), `.entry-item` cards
+  (header: checkbox + title that ellipsizes on the left, actions on the right;
+  then one 12px details line), `.form-group-inline` for label/input rows
+  (104px label column), `.settings-stack` for a column of full-width buttons.
+- **No inline `style=`** for new markup: add or reuse a class. (Older markup in
+  `index.html` and the components still has many; move them to classes when you touch them.)
+- **One rule per selector.** Change a component where it's defined; never append an
+  override block at the end of the file. Equal-specificity rules resolve by order, so
+  a later duplicate silently wins (and an earlier one silently loses).
+- **Numbers are for reading:** whole grams on summaries, at most one decimal elsewhere
+  (`+x.toFixed(1)` drops a trailing `.0`), no "1.00x" when servings is 1, " · " between
+  values (not " | " or " / "), and no date on rows that are already for one day.
+- **Check before deploying:** look at the changed screens at phone width (≈412px) in
+  dark plus at least `light` and one loud theme (`goth-rave` or `trs-80`). In themes where
+  cards match the page (`light`, `white-on-black`, `trs-80`) cards get a hairline outline;
+  add new card classes to that rule near the theme definitions.
+
 ## Deploy Checklist (every change, no exceptions)
 
 1. **Bump version in all six files** — `sw.js` (comment + CACHE_NAME), `manifest.json`, `index.html`, `package.json`, `README.md` (+ changelog entry), `js/app.js` (APP_VERSION constant)

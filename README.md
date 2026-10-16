@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.55
+**Current**: v2.9.56
+- **Stylesheet tidy-up, no visual change** — the v2.9.55 layout overrides that were appended at the end of `styles.css` are folded into the rules they changed, so each component is defined in one place. The screens were checked pixel-for-pixel against v2.9.55 in the dark and light themes. Two small differences are intended: the checkbox options in Settings now have the same spacing as every other checkbox label, and the Cheat Day checkbox keeps its 18px size. CLAUDE.md has a new "UI Style Rules" section covering tokens, the button set, shared layouts, number formatting and theme checks.
+
+**v2.9.55**
 - **Tidier layout** — buttons now come in two consistent sizes (44px, and 32px for small ones) instead of every button on a phone being 52px with 18px text. The action buttons on Macros, Measurements and Workouts are a compact grid: the main action gets a full-width row and the others pair up. Entry cards for macros, workouts and measurements share one layout: the title on the left, then a star, an outlined Edit and an outlined × in matching sizes. The servings stepper lines up the same way on every card. The workout star is styled; it used to be a plain white box. Workout titles no longer drift to the centre. The Cheat Day and sort controls sit in a slim toolbar with a pill-shaped sort chip. Progress bar labels have padding and sit above the marker lines. Dashboard rows read "9f · 60c · 42p · 470 cal" with the time only, not "9.00f / 60.00c / 42.00p (470.00 cal)" and the full date. Settings has aligned labels, full-width standalone buttons, readable link and About text, and smaller checkbox labels. The light, white-on-black and TRS-80 themes get hairline card outlines, because there the cards are the same colour as the page.
 
 **v2.9.54**

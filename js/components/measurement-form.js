@@ -253,15 +253,15 @@ export async function loadMeasurements() {
                 const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
                 let html = '';
                 for (const date of dates) {
-                    html += `<div class="history-date-header" style="font-size:0.85em;color:var(--text-secondary);margin:8px 0 4px;">${date}</div>`;
+                    html += `<div class="history-date-header">${date}</div>`;
                     for (const m of byDate[date]) {
                         const time = new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
                         html += `
-                            <div class="entry-item" data-id="${m.id}" style="margin-bottom:4px;">
+                            <div class="entry-item" data-id="${m.id}">
                                 <div class="entry-item-header">
                                     <span class="entry-item-title">${m.type}: ${m.value} ${m.unit}</span>
                                     <div class="entry-item-actions">
-                                        <span style="font-size:0.8em;color:var(--text-secondary);margin-right:8px;">${time}</span>
+                                        <span class="history-time">${time}</span>
                                         <button class="btn-delete btn-danger btn-small history-delete-btn" data-id="${m.id}">×</button>
                                     </div>
                                 </div>

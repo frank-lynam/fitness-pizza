@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.54';
+const APP_VERSION = '2.9.55';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -799,7 +799,6 @@ class FitnessTrackerApp {
             const baseCarbs   = parseFloat(await db.getSetting('goal_carbs') || 200);
 
             activityList.innerHTML = activities.map(activity => {
-                const date = new Date(activity.timestamp).toLocaleDateString();
                 const time = new Date(activity.timestamp).toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit'
@@ -809,9 +808,11 @@ class FitnessTrackerApp {
                     case 'macro':
                         const isCompleted = activity.data.status === 'completed';
                         const itemClass = isCompleted ? '' : 'planned';
-                        const macroSummary = `${(activity.data.fat || 0).toFixed(2)}f / ${(activity.data.carbs || 0).toFixed(2)}c / ${(activity.data.protein || 0).toFixed(2)}p`;
+                        // Display only: whole grams, and servings only when it isn't one
+                        const g = (v) => Math.round(v || 0);
+                        const macroSummary = `${g(activity.data.fat)}f · ${g(activity.data.carbs)}c · ${g(activity.data.protein)}p`;
                         const servings = activity.data.servings || 1;
-                        const servingsDisplay = ` - ${servings.toFixed(2)}x`;
+                        const servingsDisplay = servings === 1 ? '' : ` ×${+servings.toFixed(2)}`;
                         return `
                             <div class="activity-item ${itemClass}">
                                 ${!isCompleted ? `
@@ -820,7 +821,7 @@ class FitnessTrackerApp {
                                 <span class="activity-icon">🍽️</span>
                                 <div class="activity-content">
                                     <div class="activity-title">${activity.data.meal_name || 'Macro entry'}${servingsDisplay}</div>
-                                    <div class="activity-macros">${macroSummary} (${(activity.data.calories || 0).toFixed(2)} cal)</div>
+                                    <div class="activity-macros">${macroSummary} · ${g(activity.data.calories)} cal</div>
                                 </div>
                                 ${!isCompleted ? `
                                     <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="macro" title="Remove">×</button>
@@ -850,7 +851,7 @@ class FitnessTrackerApp {
                                 <span class="activity-icon">💪</span>
                                 <div class="activity-content">
                                     <div class="activity-title">${activity.data.exercise_name}</div>
-                                    <div class="activity-time">${workoutSubtitle}${date} at ${time}</div>
+                                    <div class="activity-time">${workoutSubtitle}${time}</div>
                                 </div>
                                 ${!workoutDone ? `
                                     <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="workout" title="Remove">×</button>
@@ -863,7 +864,7 @@ class FitnessTrackerApp {
                                 <span class="activity-icon">📊</span>
                                 <div class="activity-content">
                                     <div class="activity-title">${activity.data.type}: ${activity.data.value} ${activity.data.unit}</div>
-                                    <div class="activity-time">${date} at ${time}</div>
+                                    <div class="activity-time">${time}</div>
                                 </div>
                             </div>
                         `;

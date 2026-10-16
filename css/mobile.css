@@ -22,16 +22,6 @@
         order: 3;
     }
 
-    /* Larger touch targets on mobile */
-    button {
-        min-height: 52px;
-        font-size: var(--font-size-lg);
-    }
-
-    .btn-small {
-        min-height: 40px;
-        font-size: var(--font-size-base);
-    }
 
     .btn-date-nav,
     .btn-date-today,
@@ -47,14 +37,6 @@
         font-size: 16px !important;
     }
 
-    /* Full-width buttons on mobile */
-    .action-buttons {
-        flex-direction: column;
-    }
-
-    .action-buttons button {
-        width: 100%;
-    }
 
     /* Single column grid on mobile */
     .stats-grid {

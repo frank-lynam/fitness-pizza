@@ -813,7 +813,7 @@ export async function loadTodaysMacros() {
                         <div class="entry-macros">
                             <span class="entry-macros-nums" data-id="${macro.id}">${macro.entry_mode === 'calories'
                                 ? `${macro.calories.toFixed(0)} cal`
-                                : `F: ${macro.fat.toFixed(1)}g | C: ${macro.carbs.toFixed(1)}g | P: ${macro.protein.toFixed(1)}g | ${macro.calories.toFixed(0)} cal`}</span>
+                                : `${+macro.fat.toFixed(1)}f · ${+macro.carbs.toFixed(1)}c · ${+macro.protein.toFixed(1)}p · ${macro.calories.toFixed(0)} cal`}</span>
                             <span class="servings-stepper">
                                 <button class="servings-btn-minus" data-id="${macro.id}">−</button>
                                 <input type="number" class="servings-input" data-id="${macro.id}" value="${(macro.servings || 1).toFixed(2)}" step="0.01" min="0.01">
@@ -1100,7 +1100,7 @@ async function handleSetServings(id, newServings, { deferSort = false } = {}) {
             if (numsEl) {
                 numsEl.textContent = entry.entry_mode === 'calories'
                     ? `${entry.calories.toFixed(0)} cal`
-                    : `F: ${entry.fat.toFixed(1)}g | C: ${entry.carbs.toFixed(1)}g | P: ${entry.protein.toFixed(1)}g | ${entry.calories.toFixed(0)} cal`;
+                    : `${+entry.fat.toFixed(1)}f · ${+entry.carbs.toFixed(1)}c · ${+entry.protein.toFixed(1)}p · ${entry.calories.toFixed(0)} cal`;
             }
             // Debounce full re-render (re-sorts after 1.5s of inactivity)
             clearTimeout(_sortRenderTimer);

@@ -103,9 +103,9 @@
                 <div id="dashboard-content">
                     <div class="stat-card">
                         <div id="today-macros-summary">Loading...</div>
-                        <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 0;">
+                        <div class="toolbar-row">
                             <div id="streak-counter" style="font-size:0.9em;font-weight:600;color:var(--accent-warning);"></div>
-                            <button id="btn-dashboard-sort" class="btn-tertiary btn-small" style="font-size:0.75em;padding:2px 8px;" title="Sort food entries">⇅ Time ↓</button>
+                            <button id="btn-dashboard-sort" class="btn-chip" title="Sort food entries">⇅ Time ↓</button>
                         </div>
                     </div>
 <div class="recent-activity">
@@ -124,12 +124,12 @@
                         <button id="btn-scan-label" class="btn-secondary">🏷️ Scan Label</button>
                         <button id="btn-text-ai-macro" class="btn-secondary">🤖 AI from Text</button>
                     </div>
-                    <div style="margin: 12px 0; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-md); display:flex; align-items:center; justify-content:space-between;">
-                        <label class="checkbox-label" style="margin:0;">
+                    <div class="toolbar-row">
+                        <label class="checkbox-label">
                             <input type="checkbox" id="cheat-day-toggle">
                             <span>🎉 Cheat Day (Today)</span>
                         </label>
-                        <button id="btn-macro-sort" class="btn-tertiary btn-small" style="font-size:0.75em;padding:2px 8px;" title="Sort food entries">⇅ Time ↓</button>
+                        <button id="btn-macro-sort" class="btn-chip" title="Sort food entries">⇅ Time ↓</button>
                     </div>
                     <div id="macro-form-container" class="hidden"></div>
                     <div id="macro-progress-summary" style="margin: 0 0 12px;"></div>
@@ -147,13 +147,13 @@
                         <button id="btn-add-waist" class="btn-secondary">+ Add Waist</button>
                         <button id="btn-estimate-calipers" class="btn-secondary">+ Add Body Fat % (JP3)</button>
                     </div>
-                    <div class="action-buttons" style="margin-top:4px;">
+                    <div class="action-buttons">
                         <button id="btn-add-bodyfat" class="btn-tertiary btn-small">✏️ Enter Body Fat % Directly</button>
                         <button id="btn-estimate-navy" class="btn-tertiary btn-small">📐 Estimate (Navy)</button>
                     </div>
                     <div id="measurement-form-container" class="hidden"></div>
-                    <div id="measurement-history" style="margin-top:16px;">
-                        <h3 style="font-size:1em;color:var(--text-secondary);margin-bottom:8px;">History</h3>
+                    <div id="measurement-history">
+                        <h3 class="section-title">History</h3>
                         <div id="measurement-history-list"></div>
                     </div>
                     <div id="measurement-list">
@@ -233,7 +233,7 @@
 
                     <div class="settings-section">
                         <h3>Help &amp; Feedback</h3>
-                        <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div class="settings-stack">
                             <button id="btn-setup-wizard" class="btn-primary">🧮 Setup Wizard</button>
                             <button id="btn-quick-start-guide" class="btn-secondary">📖 Quick Start Guide</button>
                             <button id="btn-healthy-tips" class="btn-secondary">🥗 Healthy Tips</button>
@@ -242,7 +242,7 @@
                         <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-color);">
                             <p style="font-size:0.82em;color:var(--text-secondary);margin:0 0 8px;font-weight:600;">Native App (background GPS run tracking)</p>
                             <a id="btn-download-android" href="/app/android/fitness-pizza.apk" download
-                               class="btn-secondary" style="display:block;text-align:center;text-decoration:none;">
+                               class="btn-secondary btn-link">
                                 📱 Download Android APK
                             </a>
                         </div>
@@ -478,10 +478,12 @@
 
                     <div class="settings-section">
                         <h3>About</h3>
-                        <p><span id="secret-version">Fitness Pizza v2.9.54</span> <span id="secret-pizza">🍕</span></p>
+                        <div class="about-text">
+                        <p><span id="secret-version">Fitness Pizza v2.9.55</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>
+                        </div>
                         <button id="btn-check-updates" class="btn-secondary native-only" style="margin-top:12px;">🔄 Check for Updates</button>
                         <button id="btn-debug-log" class="btn-secondary" style="margin-top:8px;">📋 Debug Log</button>
                     </div>

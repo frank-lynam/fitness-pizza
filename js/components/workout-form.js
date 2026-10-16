@@ -530,7 +530,7 @@ export async function loadWorkouts() {
             } else if (workout.reps > 0) {
                 details.push(`${workout.reps} reps`);
             }
-            const detailsStr = details.length > 0 ? details.join(' | ') + ' | ' : '';
+            const detailsStr = details.length > 0 ? details.join(' · ') + ' · ' : '';
 
             return `
             <div class="entry-item ${isCompleted ? '' : 'entry-planned'}" data-id="${workout.id}">
@@ -550,7 +550,7 @@ export async function loadWorkouts() {
                 </div>
                 <div class="entry-item-content">
                     <span class="workout-type-badge">${workout.exercise_type || 'Workout'}</span>
-                    ${detailsStr}${workout.estimated_calories_burned} cal | ${formatDateTime(workout.timestamp)}
+                    ${detailsStr}${workout.estimated_calories_burned} cal · ${formatDateTime(workout.timestamp)}
                 </div>
             </div>
         `;

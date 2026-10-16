@@ -1382,19 +1382,14 @@ a.btn-link {
     accent-color: var(--accent-success);
 }
 
-/* Planned Entry Styling */
+/* Planned (not yet eaten/done) entries: full-contrast text, marked by an amber edge and tint */
 .entry-item.planned {
-    opacity: 0.7;
     border-left: 3px solid var(--accent-warning);
+    background-color: color-mix(in srgb, var(--accent-warning) 7%, var(--bg-card));
 }
 
 .entry-item.entry-planned {
     border-left: 3px solid var(--accent-warning);
-}
-
-.entry-item.planned .entry-item-title {
-    text-decoration: line-through;
-    color: var(--text-tertiary);
 }
 
 .entry-badge.planned {
@@ -1521,13 +1516,8 @@ a.btn-link {
 }
 
 .activity-item.planned {
-    opacity: 0.7;
     border-left: 3px solid var(--accent-warning);
-}
-
-.activity-item.planned .activity-title {
-    text-decoration: line-through;
-    color: var(--text-tertiary);
+    background-color: color-mix(in srgb, var(--accent-warning) 7%, var(--bg-card));
 }
 
 .btn-complete-activity,
@@ -1570,13 +1560,13 @@ a.btn-link {
 
 .activity-macros {
     font-size: 12px;
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     margin-top: 2px;
 }
 
 .activity-time {
     font-size: 12px;
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     margin-top: 2px;
 }
 

@@ -1,10 +1,10 @@
 /**
  * Fitness Pizza - Service Worker
  * Provides offline functionality and caching
- * Version 2.9.61
+ * Version 2.9.62
  */
 
-const CACHE_NAME = 'fitness-pizza-v2.9.61';
+const CACHE_NAME = 'fitness-pizza-v2.9.62';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

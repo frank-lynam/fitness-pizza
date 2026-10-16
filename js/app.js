@@ -21,7 +21,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.61';
+const APP_VERSION = '2.9.62';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater

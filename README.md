@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.61
+**Current**: v2.9.62
+- **Planned items are easy to read** — not-yet-eaten (planned) entries on the dashboard and the Macros tab were faded to 70%, greyed and struck through, so they were hard to read while checking them off. They now use full-contrast text and are marked by an amber left edge and a faint amber tint. The macro/time line under dashboard rows is also one shade darker.
+
+**v2.9.61**
 - **Target-weight mode tapers instead of switching on and off** — it used to run at the full max rate until the 7-day average was within 0.5 lb of the target, then jump to maintenance. Near the goal, water weight flipped it back and forth, so daily targets swung by ~140 kcal. Now the rate closes the remaining gap over about 6 weeks, never faster than your max rate, so it slows down as you get close (simulated day-to-day swings: ~36 kcal). The dashboard shows the current rate ("2.1 above, −0.34/wk"). The weight-trend correction uses the same rate.
 - **Bulk/cut works from day one** — until there's enough data to infer maintenance (2+ weeks), bulk/cut and deficit mode used to leave your manual carb goal in place. Now they use the formula from Body Stats: Mifflin-St Jeor × activity factor, minus your average logged workout burn (workouts are credited back on the days you do them). The dashboard badge and the Trends tab say when targets come from the formula. Once there's enough data, the inferred estimate takes over.
 - **Shows how old the maintenance estimate is** — if it can't be updated (say, a stretch without logging), targets keep using the last one. The dashboard now says "maintenance from Oct 3" once it's over a week old, and the Trends tab says which value the targets are using.

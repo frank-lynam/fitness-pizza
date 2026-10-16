@@ -10,6 +10,7 @@ import { calculateMacroCalories, applyWorkoutCredit } from './utils/calorie-calc
 import { computeGoalAdjustments } from './utils/pi-controller.js';
 import { GOAL_HISTORY_DAYS, KCAL_PER_LB_FAT } from './constants.js';
 import { computeInferredTDEE, learnKcalPerLb } from './utils/tdee-calc.js';
+import { baseMacroGoals, recordBaseGoals, cycleRate } from './utils/cycle-targets.js';
 import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
@@ -20,7 +21,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.60';
+const APP_VERSION = '2.9.61';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -353,6 +354,7 @@ class FitnessTrackerApp {
         const tdee = computeInferredTDEE(completed, allMeasurements, allWorkouts, kcalPerLb);
         if (tdee) {
             await db.setSetting('inferred_maintenance_cached', String(tdee));
+            await db.setSetting('inferred_maintenance_date', today);
             localStorage.setItem('fp_tdee_date', today);
         }
         if (cycleEnabled) {
@@ -425,15 +427,14 @@ class FitnessTrackerApp {
         }
     }
 
-    // Adjusts cycle_weight_correction_cal weekly so that actual weight rate of change
-    // tracks the target rate (bulk: +0.5 lb/wk, cut: -0.75 lb/wk). Moves at most 100 cal
-    // per weekly evaluation and is capped at ±600 cal to prevent runaway corrections.
+    // Adjusts cycle_weight_correction_cal once a day so that the actual weight rate of change
+    // (this week's average vs last week's) tracks the target rate. Moves at most 15 cal a day
+    // (~100 cal/week) and is capped at ±600 cal to prevent runaway corrections.
     async evaluateWeightTrendCorrection() {
         const lastEval = await db.getSetting('cycle_wtcorr_eval_date') || '';
         const today = getTodayDate();
         if (lastEval === today) return;
 
-        const phase = await db.getSetting('cycle_phase') || 'cut';
         const allMeasurements = await db.getAllMeasurements();
         const weightByDate = {};
         allMeasurements.filter(m => m.type === 'weight')
@@ -456,26 +457,9 @@ class FitnessTrackerApp {
         await db.setSetting('cycle_wtcorr_eval_date', today);
         if (currN < 3 || prevN < 3) return; // not enough data for a reliable signal
 
-        const maxRateLbs = parseFloat(
-            await db.getSetting('cycle_max_rate_lbs') ||
-            String(parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250) / 500)
-        );
-        const cycleMode = await db.getSetting('cycle_mode') || 'cycle';
-
-        let targetRate;
-        if (cycleMode === 'target') {
-            const targetWeight = parseFloat(await db.getSetting('cycle_target_weight') || '0');
-            if (targetWeight <= 0) return; // no target set
-            const avg = currSum / currN;
-            const dist = targetWeight - avg;
-            if (Math.abs(dist) < 0.5) {
-                targetRate = 0; // maintenance band — correct toward zero
-            } else {
-                targetRate = dist > 0 ? maxRateLbs : -maxRateLbs;
-            }
-        } else {
-            targetRate = phase === 'bulk' ? maxRateLbs : -maxRateLbs;
-        }
+        // Same target rate the goals use (bulk/cut by phase, target weight tapered)
+        const targetRate = await cycleRate(db, allMeasurements);
+        if (targetRate === null) return;
 
         const actualRate = (currSum / currN) - (prevSum / prevN); // lbs over ~1-week gap
         const rateError  = targetRate - actualRate;
@@ -518,76 +502,12 @@ class FitnessTrackerApp {
                      plannedWorkoutCreditCarbs_g: 0, plannedCaloriesCreditedFromPlanned: 0, piDebug: null };
         }
 
-        // Get base goals from settings
-        const baseFat = parseFloat(await db.getSetting('goal_fat') || 70);
-        const baseProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-        let baseCarbs = parseFloat(await db.getSetting('goal_carbs') || 200);
-
-        // Deficit/surplus mode: derive carbs from maintenance ± offset, lock workout credit at 100%
-        const cycleEnabled = (await db.getSetting('cycle_enabled')) === 'true';
-        const deficitMode  = cycleEnabled || (await db.getSetting('deficit_mode')) === 'true';
-        if (deficitMode) {
-            const restDayMaintenance = parseFloat(await db.getSetting('inferred_maintenance_cached') || 0);
-            if (restDayMaintenance > 0) {
-                let offsetCal;
-                if (cycleEnabled) {
-                    // Max rate in cal: read new unified setting, fall back to old per-phase settings
-                    const maxRateLbs = parseFloat(
-                        await db.getSetting('cycle_max_rate_lbs') ||
-                        String(parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250) / 500)
-                    );
-                    const maxRateCal = Math.round(maxRateLbs * (await this.getKcalPerLb()) / 7);
-
-                    const cycleMode = await db.getSetting('cycle_mode') || 'cycle';
-                    if (cycleMode === 'target') {
-                        const targetWeight = parseFloat(await db.getSetting('cycle_target_weight') || '0');
-                        if (targetWeight > 0) {
-                            // Compute 7-day avg weight to determine direction
-                            const allMeas = await db.getAllMeasurements();
-                            const wbd = {};
-                            allMeas.filter(m => m.type === 'weight')
-                                .forEach(r => { wbd[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
-                            const now = new Date();
-                            const _ds = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                            let wSum = 0, wN = 0;
-                            for (let back = 0; back < 7; back++) {
-                                const d = new Date(now); d.setDate(d.getDate() - back);
-                                const w = wbd[_ds(d)];
-                                if (w !== undefined) { wSum += w; wN++; }
-                            }
-                            if (wN > 0) {
-                                const avg = wSum / wN;
-                                const dist = targetWeight - avg; // positive = need to gain
-                                if (Math.abs(dist) < 0.5) {
-                                    offsetCal = 0; // within maintenance band
-                                } else {
-                                    offsetCal = dist > 0 ? -maxRateCal : maxRateCal; // bulk or cut
-                                }
-                            } else {
-                                offsetCal = 0; // no weight data → maintenance
-                            }
-                        } else {
-                            offsetCal = 0; // no target set → maintenance
-                        }
-                    } else {
-                        // Standard bulk/cut cycle
-                        const phase = await db.getSetting('cycle_phase') || 'cut';
-                        offsetCal = phase === 'bulk' ? -maxRateCal : maxRateCal;
-                    }
-                } else {
-                    offsetCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
-                }
-                // Weight-trend correction: closes the gap between actual and target gain/loss rate.
-                // Evaluated weekly; resets to 0 on phase switch.
-                const weightCorr = cycleEnabled
-                    ? parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0')
-                    : 0;
-                // rest-day baseline + surplus/deficit offset + weight-trend correction + workout credit = daily target
-                const targetCal = restDayMaintenance - offsetCal + weightCorr;
-                const derivedCarbs = (targetCal - baseProtein * 4 - baseFat * 9) / 4;
-                baseCarbs = Math.max(0, derivedCarbs);
-            }
-        }
+        // Base goals: the user's macros, with carbs derived from the calorie target in
+        // bulk/cut or deficit mode (utils/cycle-targets.js)
+        const [allMeasurementsForGoals, allWorkoutsForGoals] = await Promise.all([db.getAllMeasurements(), db.getAllWorkouts()]);
+        const base = await baseMacroGoals(db, allMeasurementsForGoals, allWorkoutsForGoals);
+        const { baseFat, baseProtein, baseCarbs, deficitMode } = base;
+        if (date === today) await recordBaseGoals(db, base);
 
         const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
 

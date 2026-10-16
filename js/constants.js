@@ -9,5 +9,7 @@ export const KCAL_PER_LB_FAT = 3500;
 // Physical limits for the learned value: lean tissue/glycogen (~1000) to pure fat (~4300)
 export const KCAL_PER_LB_MIN = 1000;
 export const KCAL_PER_LB_MAX = 4300;
+// Target-weight mode closes the remaining gap over this many weeks (never faster than the max rate)
+export const TARGET_CLOSE_WEEKS = 6;
 export const MACRO_INTENSITY_LOW_G = 5;
 export const MACRO_INTENSITY_HIGH_G = 10;

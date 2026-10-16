@@ -1727,8 +1727,9 @@ a.btn-link {
     z-index: 11;
 }
 
+/* Over target: the red overflow fill already says so; keep the text readable on it */
 .progress-value.over-target {
-    color: var(--accent-danger);
+    color: var(--bar-label-color);
     font-weight: 800;
 }
 

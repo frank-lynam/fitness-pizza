@@ -210,3 +210,21 @@ export function learnKcalPerLb(allCompletedMacros, allMeasurements, allWorkouts)
     const kcalPerLb = Math.round(Math.min(KCAL_PER_LB_MAX, Math.max(KCAL_PER_LB_MIN, raw)));
     return { kcalPerLb, raw: Math.round(raw), windows: n, spread };
 }
+
+/** Mifflin-St Jeor basal metabolic rate (kcal/day). */
+export function mifflinBmr(sex, weightLbs, heightIn, age) {
+    const kg = weightLbs * 0.453592, cm = heightIn * 2.54;
+    return 10 * kg + 6.25 * cm - 5 * age + (sex === 'female' ? -161 : 5);
+}
+
+/**
+ * Rest-day maintenance from the formula, for before there's enough data to infer it:
+ * BMR × activity factor is total maintenance including exercise, so the average logged
+ * workout burn is taken off (workouts are credited back on the days they happen).
+ * Never below BMR × 1.2 (sedentary).
+ */
+export function formulaRestDayMaintenance({ sex, age, heightIn, weightLbs, activityFactor, avgWorkoutCals = 0 }) {
+    if (!(age > 0 && heightIn > 0 && weightLbs > 0)) return null;
+    const bmr = mifflinBmr(sex, weightLbs, heightIn, age);
+    return Math.round(Math.max(bmr * 1.2, bmr * (activityFactor || 1.55) - avgWorkoutCals));
+}

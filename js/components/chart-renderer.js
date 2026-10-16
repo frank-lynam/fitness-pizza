@@ -7,6 +7,7 @@ import { db } from '../db.js';
 import { applyWorkoutCredit } from '../utils/calorie-calc.js';
 import { KCAL_PER_LB_FAT } from '../constants.js';
 import { buildTDEEEstimates, learnKcalPerLb, _toX, _linreg, MS_PER_DAY } from '../utils/tdee-calc.js';
+import { baseMacroGoals, maintenanceEstimate } from '../utils/cycle-targets.js';
 
 let charts = {};
 let _annotationCache = null;
@@ -949,20 +950,11 @@ async function renderMacroDelta(macros, workouts, days) {
 
     if (charts.macroDelta) charts.macroDelta.destroy();
 
-    const baseGoalFat     = parseFloat(await db.getSetting('goal_fat')     || 70);
-    const baseGoalProtein = parseFloat(await db.getSetting('goal_protein') || 150);
-    let   baseGoalCarbs   = parseFloat(await db.getSetting('goal_carbs')   || 200);
-
-    // Deficit mode: derive carbs the same way calculateEffectiveGoals() does
-    const deficitMode = (await db.getSetting('deficit_mode')) === 'true';
-    if (deficitMode) {
-        const inferredMaintenance = parseFloat(await db.getSetting('inferred_maintenance_cached') || 0);
-        const deficitCal          = parseFloat(await db.getSetting('deficit_cal_per_day')        || 0);
-        if (inferredMaintenance > 0) {
-            const derivedCarbs = (inferredMaintenance - deficitCal - baseGoalProtein * 4 - baseGoalFat * 9) / 4;
-            baseGoalCarbs = Math.max(0, derivedCarbs);
-        }
-    }
+    // Base goals exactly as calculateEffectiveGoals() builds them (bulk/cut and deficit modes
+    // included). Past days use the base goals recorded on that day when there are any.
+    const base = await baseMacroGoals(db, await db.getAllMeasurements(), await db.getAllWorkouts());
+    const deficitMode = base.deficitMode;
+    const baseGoalHistory = JSON.parse(await db.getSetting('base_goal_history') || '{}');
 
     // Read workout credit settings (must match calculateEffectiveGoals)
     // Deficit mode locks credit at 100% so net deficit stays constant on workout days
@@ -1021,8 +1013,9 @@ async function renderMacroDelta(macros, workouts, days) {
     // Per-day effective goals (base + workout credit using user-configured settings)
     const effectiveGoalsByDate = {};
     sortedDates.forEach(d => {
+        const g = baseGoalHistory[d] || { fat: base.baseFat, protein: base.baseProtein, carbs: base.baseCarbs };
         effectiveGoalsByDate[d] = applyWorkoutCredit(
-            baseGoalFat, baseGoalProtein, baseGoalCarbs,
+            g.fat, g.protein, g.carbs,
             caloriesBurnedByDate[d] || 0,
             workoutCreditFraction, workoutCreditMacros
         );
@@ -1106,8 +1099,15 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         .forEach(r => { weightByDate[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
     const weights = Object.keys(weightByDate).sort().map(d => ({ date: d, lbs: weightByDate[d] }));
 
+    // While there's no estimate, say what the calorie targets are using instead
+    const fallback = await maintenanceEstimate(db, allMeasurements, allWorkouts);
+    const fallbackNote = fallback.source === 'data'
+        ? ` Targets keep using the last estimate (${fallback.kcal.toLocaleString()} kcal${fallback.date ? `, from ${fallback.date}` : ''}).`
+        : fallback.source === 'formula'
+            ? ` Until then, targets use the formula from Body Stats (${fallback.kcal.toLocaleString()} kcal rest-day).`
+            : '';
     const noDataMsg = (msg) => {
-        if (statsEl) statsEl.innerHTML = `<p style="color:var(--text-secondary);font-size:13px;text-align:center;margin-top:8px;">${msg}</p>`;
+        if (statsEl) statsEl.innerHTML = `<p style="color:var(--text-secondary);font-size:13px;text-align:center;margin-top:8px;">${msg}${fallbackNote}</p>`;
         charts.inferredTDEE = new Chart(ctx, {
             type: 'line', data: { labels: [], datasets: [] },
             options: { responsive: true, maintainAspectRatio: true, aspectRatio: 1.25,
@@ -1153,6 +1153,7 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
 
     // Cache rest-day maintenance baseline for deficit mode (workout credit added daily)
     await db.setSetting('inferred_maintenance_cached', String(regressionMaintenance));
+    await db.setSetting('inferred_maintenance_date', localDateStr(new Date()));
 
     // Stdev of residuals around regression line
     const residuals = regPoints.map(p => p[1] - (reg.slope * p[0] + reg.intercept));

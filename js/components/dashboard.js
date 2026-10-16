@@ -6,6 +6,7 @@
 import { db } from '../db.js';
 import * as ui from '../ui.js';
 import { KCAL_PER_LB_FAT } from '../constants.js';
+import { avgWeight, targetModeRate, maintenanceEstimate } from '../utils/cycle-targets.js';
 
 /**
  * Load dashboard screen
@@ -415,31 +416,23 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                     let phase, isBulk, color, label;
                     if (cycleMode === 'target') {
                         const targetWeight = parseFloat(await db.getSetting('cycle_target_weight') || '0');
-                        // Determine effective direction from weight vs target
-                        const weightByDateT = {};
-                        measurements.filter(m => m.type === 'weight')
-                            .forEach(r => { weightByDateT[r.date] = r.unit === 'kg' ? r.value * 2.20462 : r.value; });
-                        const nowT = new Date();
-                        let tSum = 0, tN = 0;
-                        for (let back = 0; back < 7; back++) {
-                            const dd = new Date(nowT); dd.setDate(dd.getDate() - back);
-                            const ds2 = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
-                            if (weightByDateT[ds2] !== undefined) { tSum += weightByDateT[ds2]; tN++; }
-                        }
-                        if (targetWeight > 0 && tN > 0) {
-                            const avg = tSum / tN;
+                        const { avg } = avgWeight(measurements);
+                        if (targetWeight > 0 && avg !== null) {
+                            // Rate tapers toward the target (same as the goals use)
+                            const rate = targetModeRate(targetWeight, avg, maxRateLbs);
                             const dist = targetWeight - avg;
+                            const rateStr = Math.abs(rate) < 0.05 ? 'holding' : `${rate > 0 ? '+' : '−'}${Math.abs(rate).toFixed(2)}/wk`;
                             if (Math.abs(dist) < 0.5) {
                                 color = 'var(--text-secondary)';
-                                label = `Maintaining ${avg.toFixed(1)} lbs` + corrStr;
+                                label = `At target ${targetWeight} lbs` + corrStr;
                             } else if (dist > 0) {
                                 isBulk = true;
                                 color = 'var(--accent-success)';
-                                label = `Target ${targetWeight} lbs — ${dist.toFixed(1)} to go` + corrStr;
+                                label = `Target ${targetWeight} lbs — ${dist.toFixed(1)} to go, ${rateStr}` + corrStr;
                             } else {
                                 isBulk = false;
                                 color = 'var(--accent-primary)';
-                                label = `Target ${targetWeight} lbs — ${(-dist).toFixed(1)} above` + corrStr;
+                                label = `Target ${targetWeight} lbs — ${(-dist).toFixed(1)} above, ${rateStr}` + corrStr;
                             }
                         } else {
                             color = 'var(--text-secondary)';
@@ -501,7 +494,15 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                             progressBar = `<svg width="${W}" height="${H}" style="vertical-align:middle;margin-left:5px;border-radius:2px;" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="${W}" height="${H}" fill="var(--bg-tertiary)" rx="2"/><rect x="0" y="0" width="${fillW.toFixed(1)}" height="${H}" fill="var(--accent-primary)" rx="2"/>${spRect}<rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" fill="none" stroke="rgba(128,128,128,0.3)" stroke-width="1" rx="1.5"/></svg>`;
                         }
                     }
-                    deficitBadge = `<span style="font-size:0.78em;color:${color};margin-left:5px;">${label}${progressBar}</span>`;
+                    // Where the maintenance behind these targets comes from, when it's not fresh data
+                    const maint = await maintenanceEstimate(db, measurements);
+                    let maintNote = '';
+                    if (maint.source === 'formula') maintNote = ' · formula maintenance';
+                    else if (!maint.source) maintNote = ' · fill in Body Stats to start';
+                    else if (maint.date && (Date.now() - new Date(maint.date + 'T12:00:00')) / 86400000 > 7) {
+                        maintNote = ` · maintenance from ${new Date(maint.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                    }
+                    deficitBadge = `<span style="font-size:0.78em;color:${color};margin-left:5px;">${label}${progressBar}${maintNote ? `<span style="color:var(--text-tertiary);">${maintNote}</span>` : ''}</span>`;
                 } else {
                     const deficitCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
                     if (deficitCal !== 0) {

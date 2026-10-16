@@ -8,8 +8,8 @@ import * as ui from './ui.js';
 import { getTodayDate } from './utils/date-utils.js';
 import { calculateMacroCalories, applyWorkoutCredit } from './utils/calorie-calc.js';
 import { computeGoalAdjustments } from './utils/pi-controller.js';
-import { GOAL_HISTORY_DAYS } from './constants.js';
-import { computeInferredTDEE } from './utils/tdee-calc.js';
+import { GOAL_HISTORY_DAYS, KCAL_PER_LB_FAT } from './constants.js';
+import { computeInferredTDEE, learnKcalPerLb } from './utils/tdee-calc.js';
 import { initMacroForm, loadTodaysMacros, setDailyGoals } from './components/macro-form.js';
 import { initMeasurementForm, loadMeasurements as loadMeasurementsList } from './components/measurement-form.js';
 import { initWorkoutForm, loadWorkouts as loadWorkoutsList } from './components/workout-form.js';
@@ -20,7 +20,7 @@ import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.59';
+const APP_VERSION = '2.9.60';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -348,7 +348,9 @@ class FitnessTrackerApp {
             db.getAllMacros(), db.getAllMeasurements(), db.getAllWorkouts()
         ]);
         const completed = allMacros.filter(m => m.status === 'completed');
-        const tdee = computeInferredTDEE(completed, allMeasurements, allWorkouts);
+        // Calories per pound: learned from this person's bulk/cut history when there's enough
+        const kcalPerLb = await this.refreshKcalPerLb(completed, allMeasurements, allWorkouts);
+        const tdee = computeInferredTDEE(completed, allMeasurements, allWorkouts, kcalPerLb);
         if (tdee) {
             await db.setSetting('inferred_maintenance_cached', String(tdee));
             localStorage.setItem('fp_tdee_date', today);
@@ -357,6 +359,23 @@ class FitnessTrackerApp {
             await this.evaluateCyclePhase();
             await this.evaluateWeightTrendCorrection();
         }
+    }
+
+    /**
+     * Learn calories per pound of weight change from the user's own data and store it
+     * ('kcal_per_lb', plus 'kcal_per_lb_info' for display). Falls back to KCAL_PER_LB_FAT
+     * until there's enough varied history. Returns the value to use.
+     */
+    async refreshKcalPerLb(completedMacros, allMeasurements, allWorkouts) {
+        const learned = learnKcalPerLb(completedMacros, allMeasurements, allWorkouts);
+        await db.setSetting('kcal_per_lb', learned.kcalPerLb ? String(learned.kcalPerLb) : '');
+        await db.setSetting('kcal_per_lb_info', JSON.stringify({ ...learned, date: getTodayDate() }));
+        return learned.kcalPerLb || KCAL_PER_LB_FAT;
+    }
+
+    /** Calories per pound in use: the learned value, or the default until there is one */
+    async getKcalPerLb() {
+        return parseFloat(await db.getSetting('kcal_per_lb')) || KCAL_PER_LB_FAT;
     }
 
     async evaluateCyclePhase() {
@@ -462,8 +481,8 @@ class FitnessTrackerApp {
         const rateError  = targetRate - actualRate;
 
         const currentCorr = parseFloat(await db.getSetting('cycle_weight_correction_cal') || '0');
-        // 500 cal per lb/week; clamp daily step to ±15 cal (≈100 cal/wk max movement)
-        const desiredCorr = rateError * 500;
+        // 1 lb/week = kcalPerLb / 7 cal/day; clamp daily step to ±15 cal (≈100 cal/wk max movement)
+        const desiredCorr = rateError * (await this.getKcalPerLb()) / 7;
         const step        = Math.max(-15, Math.min(15, desiredCorr - currentCorr));
         const newCorr     = Math.max(-600, Math.min(600, Math.round(currentCorr + step)));
 
@@ -517,7 +536,7 @@ class FitnessTrackerApp {
                         await db.getSetting('cycle_max_rate_lbs') ||
                         String(parseFloat(await db.getSetting('cycle_bulk_surplus_cal') || 250) / 500)
                     );
-                    const maxRateCal = Math.round(maxRateLbs * 500);
+                    const maxRateCal = Math.round(maxRateLbs * (await this.getKcalPerLb()) / 7);
 
                     const cycleMode = await db.getSetting('cycle_mode') || 'cycle';
                     if (cycleMode === 'target') {

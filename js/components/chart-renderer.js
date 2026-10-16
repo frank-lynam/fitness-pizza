@@ -6,7 +6,7 @@
 import { db } from '../db.js';
 import { applyWorkoutCredit } from '../utils/calorie-calc.js';
 import { KCAL_PER_LB_FAT } from '../constants.js';
-import { buildTDEEEstimates, _toX, _linreg, MS_PER_DAY } from '../utils/tdee-calc.js';
+import { buildTDEEEstimates, learnKcalPerLb, _toX, _linreg, MS_PER_DAY } from '../utils/tdee-calc.js';
 
 let charts = {};
 let _annotationCache = null;
@@ -1120,7 +1120,12 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
         return;
     }
 
-    const estimates = buildTDEEEstimates(allCompletedMacros, allMeasurements, allWorkouts);
+    // Calories per pound: learned from the user's bulk/cut history when there's enough
+    const learned   = learnKcalPerLb(allCompletedMacros, allMeasurements, allWorkouts);
+    const kcalPerLb = learned.kcalPerLb || KCAL_PER_LB_FAT;
+    await db.setSetting('kcal_per_lb', learned.kcalPerLb ? String(learned.kcalPerLb) : '');
+    await db.setSetting('kcal_per_lb_info', JSON.stringify({ ...learned, date: localDateStr(new Date()) }));
+    const estimates = buildTDEEEstimates(allCompletedMacros, allMeasurements, allWorkouts, kcalPerLb);
 
     if (estimates.length === 0) {
         noDataMsg('No estimate yet — need weight on 2+ days ≥14 days apart with ≥40% of days with food logged.');
@@ -1300,6 +1305,11 @@ async function renderInferredTDEE(allCompletedMacros, allMeasurements, allWorkou
                     ${formulaCmp}
                 </div>
                 ${workoutRow}
+                <div style="color:var(--text-secondary);font-size:12px;margin-top:4px;">
+                    ${learned.kcalPerLb
+                        ? `Energy per lb of weight change: <strong>${learned.kcalPerLb.toLocaleString()} kcal</strong> (learned from ${learned.windows} periods${learned.raw !== learned.kcalPerLb ? `, fit ${learned.raw.toLocaleString()} capped to physical limits` : ''})`
+                        : `Energy per lb of weight change: ${KCAL_PER_LB_FAT.toLocaleString()} kcal (default — ${learned.reason}; learned once you have a bulk and a cut logged)`}
+                </div>
                 <div style="color:var(--text-secondary);font-size:11px;margin-top:4px;line-height:1.6;">
                     ${estimates.length} windows · ${avgGap}d avg window · ${avgLog}% days logged · ${rateStr} · ${span}
                 </div>

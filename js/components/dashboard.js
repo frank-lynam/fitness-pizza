@@ -5,6 +5,7 @@
 
 import { db } from '../db.js';
 import * as ui from '../ui.js';
+import { KCAL_PER_LB_FAT } from '../constants.js';
 
 /**
  * Load dashboard screen
@@ -504,7 +505,8 @@ export async function loadDashboard(date, getGoals, loadRecentActivity) {
                 } else {
                     const deficitCal = parseFloat(await db.getSetting('deficit_cal_per_day') || 0);
                     if (deficitCal !== 0) {
-                        const lbsWk = (deficitCal / 500).toFixed(1);
+                        const kcalPerLb = parseFloat(await db.getSetting('kcal_per_lb')) || KCAL_PER_LB_FAT;
+                        const lbsWk = (deficitCal * 7 / kcalPerLb).toFixed(1);
                         const sign = deficitCal > 0 ? '−' : '+';
                         deficitBadge = `<span style="font-size:0.78em;color:var(--text-secondary);margin-left:5px;">${sign}${Math.abs(parseFloat(lbsWk))} lb/wk</span>`;
                     }

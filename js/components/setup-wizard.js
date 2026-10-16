@@ -1,6 +1,10 @@
 import { db } from '../db.js';
 import { calculateMacroCalories } from '../utils/calorie-calc.js';
 import { getTodayDate } from '../utils/date-utils.js';
+import { KCAL_PER_LB_FAT } from '../constants.js';
+
+// Calories/day for 1 lb/week: from the learned calories-per-pound when there is one
+let kcalPerLbWeek = KCAL_PER_LB_FAT / 7;
 
 function mifflinBmr(sex, weightKg, heightCm, age) {
     return sex === 'female'
@@ -13,7 +17,7 @@ function calcRecs(sex, weightLbs, heightTotalIn, age, weeklyGoalLbs = 0) {
     const heightCm = heightTotalIn * 2.54;
     const bmr = mifflinBmr(sex, weightKg, heightCm, age);
     const tdee = Math.round(bmr * 1.2);
-    const goalCal = tdee + Math.round(weeklyGoalLbs * 500);
+    const goalCal = tdee + Math.round(weeklyGoalLbs * kcalPerLbWeek);
     const proteinG = Math.round(sex === 'female' ? weightLbs * 0.8 : weightLbs * 1.0);
     const fatG = Math.round(goalCal * (sex === 'female' ? 0.30 : 0.25) / 9);
     const remaining = Math.max(0, goalCal - proteinG * 4 - fatG * 9);
@@ -30,6 +34,7 @@ function goalLabel(v) {
 
 export function showSetupWizard() {
     if (document.getElementById('setup-wizard-modal')) return;
+    db.getSetting('kcal_per_lb').then(v => { kcalPerLbWeek = (parseFloat(v) || KCAL_PER_LB_FAT) / 7; }).catch(() => {});
 
     const STEPS = 5;
     let step = 1;
@@ -185,7 +190,7 @@ export function showSetupWizard() {
     }
 
     function renderStep4() {
-        const adj = Math.round(weeklyGoalLbs * 500);
+        const adj = Math.round(weeklyGoalLbs * kcalPerLbWeek);
         const previewCal = recTdee + adj;
         modal.innerHTML = `
             <div class="modal-content wizard-modal">
@@ -225,7 +230,7 @@ export function showSetupWizard() {
 
         slider.addEventListener('input', () => {
             const v = parseFloat(slider.value);
-            const a = Math.round(v * 500);
+            const a = Math.round(v * kcalPerLbWeek);
             const cal = recTdee + a;
             nameEl.textContent = goalLabel(v);
             calEl.textContent = a === 0
@@ -261,7 +266,7 @@ export function showSetupWizard() {
                 </div>
                 <p class="wizard-subtitle" style="margin-top:6px;margin-bottom:16px;">
                     ${hasGoal
-                        ? `${goalLabel(weeklyGoalLbs)} — TDEE ${recTdee} kcal${weeklyGoalLbs > 0 ? ' +' : ' −'}${Math.abs(Math.round(weeklyGoalLbs * 500))} kcal/day. Adjust activity in Settings → Body Stats.`
+                        ? `${goalLabel(weeklyGoalLbs)} — TDEE ${recTdee} kcal${weeklyGoalLbs > 0 ? ' +' : ' −'}${Math.abs(Math.round(weeklyGoalLbs * kcalPerLbWeek))} kcal/day. Adjust activity in Settings → Body Stats.`
                         : 'Sedentary (1.2× BMR). Adjust activity level in Settings → Body Stats.'
                     }
                 </p>

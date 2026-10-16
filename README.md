@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.59
+**Current**: v2.9.60
+- **Calories per pound learned from your own data** — turning weight change into calories used a fixed 3,500 kcal per lb. One period of eating can't tell maintenance and calories-per-pound apart, but periods of clearly different intake (a bulk and a cut) can. The app now fits both from the last year of logs. It splits the history into 2–6 week periods between weigh-ins and regresses weight change on intake minus workouts, letting maintenance drift over the year. Weight is the predicted side, so day-to-day water weight doesn't skew the result. The learned value replaces 3,500 in the maintenance estimate, the bulk/cut and target-weight calorie offsets, the weekly weight-trend correction, the deficit badge and the setup wizard. It's limited to physical bounds (1,000–4,300), and 3,500 stays until there are 6+ periods with intake varying by 150+ kcal/day. In simulations it lands within about ±8% after 6 months of cycling and ±4% after a year. Trends → Estimated Maintenance shows the value in use and where it came from.
+
+**v2.9.59**
 - **Bigger quantity box on Macros cards** — the servings/grams field on each entry is now full height (40px), with 16px bold text, so it's easy to tap and type in. 16px also stops phones zooming in when you tap it. The −, + and >> buttons beside it stay small.
 
 **v2.9.58**

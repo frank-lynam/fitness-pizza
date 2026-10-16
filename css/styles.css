@@ -2108,22 +2108,27 @@ textarea.error {
     margin-left: auto;
 }
 
+/* The quantity box is typed in a lot: full control height and 16px text (which also
+   stops phones zooming in on focus); the buttons around it stay small */
 .servings-stepper .servings-input {
-    width: 52px;
+    width: 68px;
     text-align: center;
-    padding: 2px 4px;
+    padding: 0 4px;
     background: var(--bg-input);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: 13px !important;
-    height: 28px;
+    font-size: 16px !important;
+    font-weight: 600;
+    height: 40px;
     font-family: var(--font-family);
+    font-variant-numeric: tabular-nums;
 }
 
 .servings-stepper .servings-input:focus {
     outline: none;
     border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 30%, transparent);
 }
 
 .servings-btn-minus,

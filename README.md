@@ -144,7 +144,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.58
+**Current**: v2.9.59
+- **Bigger quantity box on Macros cards** — the servings/grams field on each entry is now full height (40px), with 16px bold text, so it's easy to tap and type in. 16px also stops phones zooming in when you tap it. The −, + and >> buttons beside it stay small.
+
+**v2.9.58**
 - **Themes reworked, four new ones** — Light, Pink, Goth Rave, High Contrast (was "White on Black") and TRS-80 have new palettes. In each, the fat, carbs, protein and over-target colours are clearly distinct; TRS-80 marks "over" in amber, where it was the same green as everything else. TRS-80 also uses a monospace font. There are four new themes: **Midnight** (cool blue-grey), **Forest** (deep green, wheat), **Ember** (warm charcoal, coral) and **Sepia** (low-glare paper). Dark (the default) keeps its palette.
 - **Colour fixes in all themes** — text on buttons, badges and toggles now has proper contrast in every theme (`--on-accent` / `--on-color`). Desktop hover no longer turns buttons blue or purple. The progress bar labels have a stronger halo, so they read over bright fills. Native controls (selects, date picker, scrollbars) follow light or dark. The phone's status bar takes the theme's header colour. Charts take all their colours from the theme.
 - **Grams on the Macros tab** — entries from per-100g foods show their weight next to the name ("Edamame 123g", in place of the "per 100g" badge). It updates as you press −/+.

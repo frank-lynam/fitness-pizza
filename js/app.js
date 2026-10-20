@@ -19,9 +19,11 @@ import { initEasterEggs } from './easter-eggs.js';
 import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
+import { syncSleep, loadSleepSettings } from './components/sleep.js';
+import { sleepSummary } from './utils/sleep.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.9.62';
+const APP_VERSION = '2.10.0';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -139,6 +141,17 @@ class FitnessTrackerApp {
 
             // Load initial screen (dashboard)
             await this.loadScreen('dashboard');
+
+            // Sleep from Health Connect (Android app, once connected): on start and on coming back
+            if (window.Capacitor?.isNativePlatform?.()) {
+                const readSleep = async () => {
+                    if (await syncSleep() && this.currentScreen === 'dashboard') await this.loadDashboard();
+                };
+                readSleep();
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') readSleep();
+                });
+            }
 
             this.initialized = true;
             ui.hideLoading();
@@ -668,7 +681,8 @@ class FitnessTrackerApp {
             const todayMacros = await db.getMacrosByDate(today);
             const todayWorkouts = await db.getWorkoutsByDate(today);
             const allMeasurements = await db.getAllMeasurements();
-            const todayMeasurements = allMeasurements.filter(m => m.date === today);
+            const sleepOn = (await db.getSetting('sleep_tracking')) === 'true';
+            const todayMeasurements = allMeasurements.filter(m => m.date === today && (sleepOn || m.type !== 'sleep'));
 
             // Include all macros (both planned and completed)
             const allMacros = todayMacros;
@@ -807,6 +821,14 @@ class FitnessTrackerApp {
                             </div>
                         `;
                     case 'measurement':
+                        if (activity.data.type === 'sleep') return `
+                            <div class="activity-item">
+                                <span class="activity-icon">😴</span>
+                                <div class="activity-content">
+                                    <div class="activity-title">Sleep ${sleepSummary(activity.data)}</div>
+                                </div>
+                            </div>
+                        `;
                         return `
                             <div class="activity-item">
                                 <span class="activity-icon">📊</span>
@@ -1860,7 +1882,8 @@ class FitnessTrackerApp {
         // Flat measurement records
         const measurements = allMeasurements
             .sort((a, b) => a.timestamp - b.timestamp)
-            .map(m => ({ date: m.date, time: toTime(m.timestamp), type: m.type, value: m.value, unit: m.unit }));
+            .map(m => ({ date: m.date, time: toTime(m.timestamp), type: m.type, value: m.value, unit: m.unit,
+                         ...(m.type === 'sleep' ? { asleep: toTime(m.sleep_start), woke: toTime(m.sleep_end), stages_min: m.stages || null } : {}) }));
 
         return {
             meta: {
@@ -1883,6 +1906,7 @@ class FitnessTrackerApp {
      * Load settings screen
      */
     async loadSettings() {
+        loadSleepSettings();
         console.log('Loading settings screen...');
         this.initCollapsibleSettings();
 

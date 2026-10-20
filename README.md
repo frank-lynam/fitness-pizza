@@ -14,6 +14,7 @@ Track your macros like slices of pizza! A lightweight, privacy-focused Progressi
 
 ### 📈 Body Measurements
 - Track weight and waist measurements
+- Track sleep (Settings → Sleep): typed in, or read from Health Connect in the Android app (Google Health/Fitbit, Samsung Health, …)
 - Timestamp precision for trends
 - Visual charts for progress
 
@@ -144,7 +145,16 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.9.62
+**Current**: v2.10.0
+- **Sleep** — turn it on in Settings → Sleep. Off by default: nothing changes for anyone who doesn't.
+  - **From your watch:** in the Android app, "Read Sleep from Health Connect" reads nights written there by Google Health (Fitbit), Samsung Health and other apps. It reads the last 30 days once, then new nights whenever the app opens or comes back to the front (re-reading 3 days, so late syncs and corrected nights are picked up). Read only; nothing is written back. Needs this version's APK.
+  - **By hand:** Measurements → + Add Sleep (fell asleep, woke up, time awake).
+  - **Dashboard:** last night under today's entries ("Sleep 7h 12m · 23:40–07:05 · deep 1h 20m").
+  - **Trends → Sleep:** hours per night by stage (deep, light, REM) with a 7-night average, and the last week's average bedtime and wake-up.
+  - **Trends → What Sleep Lines Up With:** sleep against calories, carbs, bedtime, overnight weight change, workout calories, last food logged and deep sleep, one dot per night, strongest correlation first (needs 10+ nights). Tap one to plot it.
+  - A night is the longest sleep that ended that day, so naps and a second app reporting the same night don't count twice. Export for Analysis includes bedtime, wake-up and stages.
+
+**v2.9.62**
 - **Planned items are easy to read** — not-yet-eaten (planned) entries on the dashboard and the Macros tab were faded to 70%, greyed and struck through, so they were hard to read while checking them off. They now use full-contrast text and are marked by an amber left edge and a faint amber tint. The macro/time line under dashboard rows is also one shade darker.
 
 **v2.9.61**

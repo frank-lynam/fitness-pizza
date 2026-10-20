@@ -52,6 +52,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(HealthSleepPlugin.class);   // before super.onCreate, which starts the bridge
         super.onCreate(savedInstanceState);
 
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);

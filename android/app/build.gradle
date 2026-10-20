@@ -1,4 +1,5 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
 
 android {
     namespace "com.fitnesspizza.app"
@@ -7,8 +8,8 @@ android {
         applicationId "com.fitnesspizza.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 27
-        versionName "2.9.41"
+        versionCode 28
+        versionName "2.10.0"
         manifestPlaceholders = [appLabel: "Fitness Pizza"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -40,6 +41,8 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    implementation "androidx.health.connect:connect-client:1.1.0"     // sleep from Health Connect
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
@@ -47,6 +50,10 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+kotlin {
+    jvmToolchain(21)    // matches capacitor.build.gradle's Java 21
+}
 
 try {
     def servicesJSON = file('google-services.json')

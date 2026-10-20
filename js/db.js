@@ -2,7 +2,7 @@
  * Fitness Tracker PWA - IndexedDB Wrapper
  * Manages all database operations with 5 object stores:
  * - macros: Macro tracking entries
- * - measurements: Weight and waist measurements
+ * - measurements: Weight, waist, body fat and sleep
  * - workouts: Workout sessions
  * - named_foods: Reusable food items with flexible formats
  * - settings: User preferences
@@ -455,11 +455,17 @@ class DatabaseManager {
         const entry = {
             date,
             timestamp,
-            type: data.type, // 'weight' or 'waist'
+            type: data.type, // 'weight', 'waist', 'body_fat' or 'sleep'
             value: data.value,
             unit: data.unit || 'lbs',
             notes: data.notes || ''
         };
+        if (data.type === 'sleep') {
+            // Hours asleep in value; the night itself (see js/utils/sleep.js)
+            for (const k of ['sleep_start', 'sleep_end', 'stages', 'source', 'hc_id']) {
+                if (data[k] != null) entry[k] = data[k];
+            }
+        }
         return this.add('measurements', entry);
     }
 

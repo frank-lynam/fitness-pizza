@@ -83,7 +83,7 @@ only breakpoint tweaks, `css/charts.css` the charts.
 3. **APK** — **Required on every minor version bump** (middle number: e.g. 2.9.x → 2.10.x). Also required when native code changed: MainActivity.java, plugins, permissions, build.gradle:
    - Bump `versionCode` (+1) and `versionName` in `android/app/build.gradle` FIRST
    - Sync assets: `cp -r www/* android/app/src/main/assets/public/`
-   - Build: `cd android && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 ./gradlew assembleDebug`
+   - Build: `cd android && JAVA_HOME=$HOME/jdks/jdk-21.0.5+11 ./gradlew assembleDebug` (the Capacitor plugins and `capacitor.build.gradle` need Java 21; JDK 17 fails)
    - Replace APK: `rm -f app/android/*.apk && cp android/app/build/outputs/apk/debug/app-debug.apk app/android/fitness-pizza.apk`
    - Re-run bundle now that build.gradle matches: `bash scripts/bundle.sh VERSION`
    - Clean Gradle output: `rm -rf android/app/build/ android/.gradle/ android/build/`

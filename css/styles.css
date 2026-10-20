@@ -2059,6 +2059,9 @@ textarea.error {
     gap: var(--spacing-sm);
 }
 
+/* Save buttons sit at the top of a form, within thumb reach */
+.form-actions:first-child { margin-bottom: var(--spacing-sm); }
+
 .form-actions button {
     flex: 1;
 }

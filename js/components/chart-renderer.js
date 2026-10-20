@@ -8,6 +8,7 @@ import { applyWorkoutCredit } from '../utils/calorie-calc.js';
 import { KCAL_PER_LB_FAT } from '../constants.js';
 import { buildTDEEEstimates, learnKcalPerLb, _toX, _linreg, MS_PER_DAY } from '../utils/tdee-calc.js';
 import { baseMacroGoals, maintenanceEstimate } from '../utils/cycle-targets.js';
+import { nightsByDate, shiftDate, bedtimeHour, formatBedtimeHour, formatSleepHours, correlate, describeLink, MIN_NIGHTS } from '../utils/sleep.js';
 
 let charts = {};
 let _annotationCache = null;
@@ -123,6 +124,7 @@ async function renderCharts(days) {
         // Render individual charts
         await renderBodyComposition(measurements, days); // full measurements for rolling avg
         await renderWaistTrend(measurements, days);
+        await renderSleep(measurements, macros.filter(m => m.status === 'completed'), workouts, days);
         await renderMacrosRaw(macros.filter(m => m.status === 'completed'), measurements, days);
         await renderCalorieBalance(filteredMacros, filteredWorkouts, days);
         await renderMacroDelta(filteredMacros, filteredWorkouts, days);
@@ -624,6 +626,226 @@ async function renderWaistTrend(allMeasurements, days) {
             }
         }
     });
+}
+
+// ---- Sleep: nights over time, and what they line up with
+
+let _sleepLinkKey = null;   // the comparison picked in the list (kept across re-renders)
+
+/**
+ * Sleep chart (hours per night, by stage where known, with a 7-night average) and the
+ * comparisons below it. Shown only while sleep tracking is on and there are nights to show.
+ */
+async function renderSleep(allMeasurements, completedMacros, allWorkouts, days) {
+    const section = document.getElementById('sleep-trend-section');
+    const linksSection = document.getElementById('sleep-links-section');
+    if (!section || !linksSection) return;
+    if (charts.sleepTrend) charts.sleepTrend.destroy();
+    if (charts.sleepLink) charts.sleepLink.destroy();
+
+    const tracked = (await db.getSetting('sleep_tracking')) === 'true';
+    const nights = nightsByDate(allMeasurements);
+    const todayStr = localDateStr(new Date());
+    const minDateStr = days
+        ? localDateStr(new Date(Date.now() - (days - 1) * 86400000))
+        : (Object.keys(nights).sort()[0] || todayStr);
+    const shown = Object.keys(nights).filter(d => d >= minDateStr).sort();
+    section.classList.toggle('hidden', !tracked || shown.length === 0);
+    linksSection.classList.toggle('hidden', !tracked || shown.length === 0);
+    if (!tracked || shown.length === 0) return;
+
+    renderSleepTrend(nights, shown, minDateStr, todayStr);
+    renderSleepLinks(nights, shown, completedMacros, allWorkouts, allMeasurements, todayStr);
+}
+
+function renderSleepTrend(nights, shown, minDateStr, todayStr) {
+    const colors = getThemeColors();
+    const labels = [], deep = [], light = [], rem = [], other = [], avg = [];
+    const hrs = (min) => Math.round((min || 0) / 60 * 100) / 100;
+    for (let d = shown[0] > minDateStr ? shown[0] : minDateStr; d <= todayStr; d = shiftDate(d, 1)) {
+        labels.push(d);
+        const n = nights[d];
+        const staged = n?.stages && (n.stages.deep || n.stages.light || n.stages.rem);
+        deep.push(staged ? hrs(n.stages.deep) : null);
+        light.push(staged ? hrs(n.stages.light) : null);
+        rem.push(staged ? hrs(n.stages.rem) : null);
+        other.push(n ? Math.max(0, Math.round((n.value - (staged ? hrs(n.stages.deep) + hrs(n.stages.light) + hrs(n.stages.rem) : 0)) * 100) / 100) : null);
+        const week = [];
+        for (let back = 0; back < 7; back++) {
+            const w = nights[shiftDate(d, -back)];
+            if (w) week.push(w.value);
+        }
+        avg.push(week.length ? Math.round(week.reduce((s, v) => s + v, 0) / week.length * 100) / 100 : null);
+    }
+    const anyStages = deep.some(v => v !== null);
+
+    // Stats: the last 7 nights
+    const statsEl = document.getElementById('sleep-stats');
+    if (statsEl) {
+        const recent = Object.keys(nights).sort().slice(-7).map(d => nights[d]);
+        const mean = (xs) => xs.reduce((s, v) => s + v, 0) / xs.length;
+        const timed = recent.filter(n => n.sleep_start && n.sleep_end);
+        const parts = [`last ${recent.length} night${recent.length === 1 ? '' : 's'}: ${formatSleepHours(mean(recent.map(n => n.value)))} a night`];
+        if (timed.length) {
+            parts.push(`asleep ${formatBedtimeHour(mean(timed.map(n => bedtimeHour(n.sleep_start))))}`);
+            parts.push(`up ${formatBedtimeHour(mean(timed.map(n => { const t = new Date(n.sleep_end); return t.getHours() + t.getMinutes() / 60; })))}`);
+        }
+        statsEl.textContent = parts.join(' · ');
+    }
+
+    const bar = (label, data, color) => ({ type: 'bar', label, data, backgroundColor: color, stack: 'night', order: 2 });
+    const datasets = anyStages
+        ? [bar('Deep', deep, colors.primary), bar('Light', light, colors.secondary), bar('REM', rem, colors.success),
+           bar('Other', other, colors.textSecondary + '80')]
+        : [bar('Asleep', other, colors.primary)];
+    datasets.push({
+        type: 'line', label: '7-night avg', data: avg, borderColor: colors.warning, backgroundColor: 'transparent',
+        borderWidth: 2, pointRadius: 0, tension: 0, spanGaps: true, order: 1
+    });
+
+    charts.sleepTrend = new Chart(document.getElementById('sleep-trend-chart'), {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: 1.4,
+            plugins: {
+                legend: { labels: { color: colors.text } },
+                tooltip: { callbacks: { label: c => c.parsed.y == null ? null : `${c.dataset.label}: ${formatSleepHours(c.parsed.y)}` } }
+            },
+            scales: {
+                x: { stacked: true, ticks: { color: colors.textSecondary, maxTicksLimit: 10 }, grid: { color: colors.border + '40' } },
+                y: { stacked: true, beginAtZero: true, ticks: { color: colors.textSecondary, callback: v => `${v}h` },
+                     grid: { color: colors.border + '40' } }
+            }
+        }
+    });
+}
+
+/**
+ * Sleep set against food, workouts and weight, one dot per night (D = the day she woke up).
+ * Each comparison gets Pearson's r; the list puts the strongest first, since the point is to
+ * find links nobody thought to look for.
+ */
+function renderSleepLinks(nights, shown, completedMacros, allWorkouts, allMeasurements, todayStr) {
+    const colors = getThemeColors();
+    const sum = (rows, f) => rows.reduce((s, r) => s + (parseFloat(f(r)) || 0), 0);
+
+    // Daily totals (all time; a day only counts as logged if it has food entries)
+    const byDay = {};
+    const day = (d) => (byDay[d] ||= { food: [], burn: 0 });
+    completedMacros.forEach(m => day(m.date).food.push(m));
+    allWorkouts.filter(w => w.status !== 'planned').forEach(w => { day(w.date).burn += parseFloat(w.estimated_calories_burned) || 0; });
+    const logged = (d) => byDay[d]?.food.length > 0 && d < todayStr;     // today isn't over yet
+    const kcal = (d) => sum(byDay[d].food, m => m.calories);
+    const carbs = (d) => sum(byDay[d].food, m => m.carbs);
+    const burn = (d) => byDay[d]?.burn || 0;
+    const lastMeal = (d) => {
+        const ts = byDay[d].food.map(m => m.timestamp).filter(Boolean);
+        if (!ts.length) return null;
+        const t = new Date(Math.max(...ts));
+        const h = t.getHours() + t.getMinutes() / 60;
+        return h < 4 ? h + 24 : h;
+    };
+    const weight = {};
+    allMeasurements.filter(m => m.type === 'weight').sort((a, b) => a.timestamp - b.timestamp)
+        .forEach(m => { weight[m.date] = m.unit === 'kg' ? m.value * 2.20462 : m.value; });
+
+    const fmt = {
+        hours: formatSleepHours,
+        clock: formatBedtimeHour,
+        kcal: v => `${Math.round(v)} kcal`,
+        grams: v => `${Math.round(v)} g`,
+        lbs: v => `${v >= 0 ? '+' : ''}${+v.toFixed(1)} lbs`,
+        min: v => `${Math.round(v)} min`
+    };
+    const prev = (d) => shiftDate(d, -1);
+    const links = [
+        { key: 'sleep-kcal', label: 'Sleep → calories eaten that day', x: ['Hours asleep', 'hours'], y: ['Calories eaten', 'kcal'],
+          point: (d, n) => logged(d) ? [n.value, kcal(d)] : null },
+        { key: 'sleep-carbs', label: 'Sleep → carbs eaten that day', x: ['Hours asleep', 'hours'], y: ['Carbs eaten', 'grams'],
+          point: (d, n) => logged(d) ? [n.value, carbs(d)] : null },
+        { key: 'bed-kcal', label: 'Bedtime → calories eaten next day', x: ['Fell asleep', 'clock'], y: ['Calories eaten', 'kcal'],
+          point: (d, n) => logged(d) && n.sleep_start ? [bedtimeHour(n.sleep_start), kcal(d)] : null },
+        { key: 'sleep-weight', label: 'Sleep → overnight weight change', x: ['Hours asleep', 'hours'], y: ['Weight vs the morning before', 'lbs'],
+          point: (d, n) => weight[d] != null && weight[prev(d)] != null ? [n.value, weight[d] - weight[prev(d)]] : null },
+        { key: 'burn-sleep', label: 'Workout calories → sleep that night', x: ['Workout calories', 'kcal'], y: ['Hours asleep', 'hours'],
+          point: (d, n) => logged(prev(d)) ? [burn(prev(d)), n.value] : null },
+        { key: 'sleep-burn', label: 'Sleep → workout calories next day', x: ['Hours asleep', 'hours'], y: ['Workout calories', 'kcal'],
+          point: (d, n) => logged(d) ? [n.value, burn(d)] : null },
+        { key: 'kcal-sleep', label: 'Calories eaten → sleep that night', x: ['Calories eaten', 'kcal'], y: ['Hours asleep', 'hours'],
+          point: (d, n) => logged(prev(d)) ? [kcal(prev(d)), n.value] : null },
+        { key: 'meal-sleep', label: 'Last food logged → sleep that night', x: ['Last food logged', 'clock'], y: ['Hours asleep', 'hours'],
+          point: (d, n) => logged(prev(d)) && lastMeal(prev(d)) != null ? [lastMeal(prev(d)), n.value] : null },
+        { key: 'burn-deep', label: 'Workout calories → deep sleep that night', x: ['Workout calories', 'kcal'], y: ['Deep sleep', 'min'],
+          point: (d, n) => logged(prev(d)) && n.stages?.deep ? [burn(prev(d)), n.stages.deep] : null }
+    ];
+    for (const l of links) {
+        l.pts = shown.map(d => { const p = l.point(d, nights[d]); return p && { x: p[0], y: p[1], date: d }; }).filter(Boolean);
+        Object.assign(l, correlate(l.pts));
+        l.ready = l.r !== null && l.n >= MIN_NIGHTS;
+    }
+    // Deep sleep only means something with a tracker; hide comparisons with nothing at all
+    const usable = links.filter(l => l.pts.length > 0)
+        .sort((a, b) => (b.ready - a.ready) || (Math.abs(b.r || 0) - Math.abs(a.r || 0)) || (b.n - a.n));
+
+    const list = document.getElementById('sleep-link-list');
+    if (!usable.length) {
+        list.innerHTML = '<p class="help-text">Log food, workouts or weight on days around your nights and the comparisons show up here.</p>';
+        return;
+    }
+    if (!usable.some(l => l.key === _sleepLinkKey)) _sleepLinkKey = usable[0].key;
+    list.innerHTML = `<div class="sleep-link-list">${usable.map(l => `
+        <button class="sleep-link${l.key === _sleepLinkKey ? ' active' : ''}" data-key="${l.key}">
+            <span class="sleep-link-name">${l.label}</span>
+            <span class="sleep-link-r">${l.ready ? `r ${l.r >= 0 ? '+' : '−'}${Math.abs(l.r).toFixed(2)} · ` : ''}${describeLink(l.r, l.n)}</span>
+        </button>`).join('')}</div>`;
+    list.querySelectorAll('.sleep-link').forEach(btn => {
+        btn.onclick = () => {
+            _sleepLinkKey = btn.dataset.key;
+            list.querySelectorAll('.sleep-link').forEach(b => b.classList.toggle('active', b === btn));
+            plot(usable.find(l => l.key === _sleepLinkKey));
+        };
+    });
+
+    function plot(l) {
+        if (charts.sleepLink) charts.sleepLink.destroy();
+        const fx = fmt[l.x[1]], fy = fmt[l.y[1]];
+        const xs = l.pts.map(p => p.x);
+        const lo = Math.min(...xs), hi = Math.max(...xs);
+        const datasets = [{
+            label: `${l.n} night${l.n === 1 ? '' : 's'}`, data: l.pts, backgroundColor: colors.primary,
+            pointRadius: 4, pointHoverRadius: 6
+        }];
+        if (l.ready && hi > lo) {
+            datasets.push({
+                label: 'Trend', data: [{ x: lo, y: l.slope * lo + l.intercept }, { x: hi, y: l.slope * hi + l.intercept }],
+                type: 'line', borderColor: colors.warning, borderDash: [5, 3], borderWidth: 2, pointRadius: 0, fill: false
+            });
+        }
+        charts.sleepLink = new Chart(document.getElementById('sleep-link-chart'), {
+            type: 'scatter',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.25,
+                plugins: {
+                    legend: { labels: { color: colors.text } },
+                    tooltip: { callbacks: { label: c => c.raw.date
+                        ? `${c.raw.date}: ${fx(c.raw.x)} · ${fy(c.raw.y)}` : null } }
+                },
+                scales: {
+                    x: { ticks: { color: colors.textSecondary, callback: v => fx(v) }, grid: { color: colors.border + '40' },
+                         title: { display: true, text: l.x[0], color: colors.textSecondary } },
+                    y: { ticks: { color: colors.textSecondary, callback: v => fy(v) }, grid: { color: colors.border + '40' },
+                         title: { display: true, text: l.y[0], color: colors.textSecondary } }
+                }
+            }
+        });
+    }
+    plot(usable.find(l => l.key === _sleepLinkKey));
 }
 
 /**

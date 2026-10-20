@@ -146,6 +146,7 @@
                         <button id="btn-add-weight" class="btn-primary">+ Add Weight</button>
                         <button id="btn-add-waist" class="btn-secondary">+ Add Waist</button>
                         <button id="btn-estimate-calipers" class="btn-secondary">+ Add Body Fat % (JP3)</button>
+                        <button id="btn-add-sleep" class="btn-secondary hidden">+ Add Sleep</button>
                     </div>
                     <div class="action-buttons">
                         <button id="btn-add-bodyfat" class="btn-tertiary btn-small">✏️ Enter Body Fat % Directly</button>
@@ -200,6 +201,17 @@
                         <h3>Waist Trend</h3>
                         <p class="waist-stats" style="font-size:0.82em;color:var(--text-secondary);margin:0 0 6px;"></p>
                         <canvas id="waist-trend-chart"></canvas>
+                    </div>
+                    <div id="sleep-trend-section" class="chart-container hidden">
+                        <h3>Sleep</h3>
+                        <p id="sleep-stats" class="chart-stats"></p>
+                        <canvas id="sleep-trend-chart"></canvas>
+                    </div>
+                    <div id="sleep-links-section" class="chart-container hidden">
+                        <h3>What Sleep Lines Up With</h3>
+                        <p class="chart-stats">Each dot is one night. Strongest link first; tap one to plot it. A link isn't a cause, but it's a good question to ask.</p>
+                        <canvas id="sleep-link-chart"></canvas>
+                        <div id="sleep-link-list"></div>
                     </div>
                     <div class="chart-container">
                         <h3>Macros &amp; Calories (7-day avg)</h3>
@@ -435,6 +447,25 @@
                     </div>
 
                     <div class="settings-section">
+                        <h3>Sleep</h3>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="sleep-tracking">
+                                <span>Track sleep</span>
+                            </label>
+                            <p class="help-text">Adds + Add Sleep under Measurements, last night on the dashboard, and sleep charts in Trends, including what your sleep lines up with.</p>
+                        </div>
+                        <div id="sleep-hc" class="hidden">
+                            <p id="sleep-hc-status" class="help-text"></p>
+                            <div class="settings-stack">
+                                <button id="btn-sleep-hc-connect" class="btn-secondary">Read Sleep from Health Connect</button>
+                                <button id="btn-sleep-hc-read" class="btn-secondary hidden">Read Now</button>
+                                <button id="btn-sleep-hc-disconnect" class="btn-tertiary hidden">Stop Reading</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-section">
                         <h3>Data Management</h3>
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                             <button id="btn-export-data" class="btn-secondary" style="flex: 1; min-width: 120px;">Export</button>
@@ -483,7 +514,7 @@
                     <div class="settings-section">
                         <h3>About</h3>
                         <div class="about-text">
-                        <p><span id="secret-version">Fitness Pizza v2.9.62</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.10.0</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>

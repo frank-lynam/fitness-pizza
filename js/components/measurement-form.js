@@ -7,6 +7,7 @@ import { db } from '../db.js';
 import { validateWeight, validateWaist, showFieldError, clearFieldError, clearFormErrors } from '../utils/validation.js';
 import * as ui from '../ui.js';
 import { formatDate, formatDateTime, getTodayDate } from '../utils/date-utils.js';
+import { sleepSummary, shiftDate } from '../utils/sleep.js';
 
 /**
  * Initialize the measurement form component
@@ -17,6 +18,7 @@ export function initMeasurementForm() {
     const btnAddBodyFat = document.getElementById('btn-add-bodyfat');
     const btnEstimateNavy = document.getElementById('btn-estimate-navy');
     const btnEstimateCalipers = document.getElementById('btn-estimate-calipers');
+    const btnAddSleep = document.getElementById('btn-add-sleep');
 
     if (btnAddWeight) {
         btnAddWeight.addEventListener('click', () => showMeasurementForm('weight'));
@@ -32,6 +34,9 @@ export function initMeasurementForm() {
     }
     if (btnEstimateCalipers) {
         btnEstimateCalipers.addEventListener('click', () => showCaliperEstimatorForm());
+    }
+    if (btnAddSleep) {
+        btnAddSleep.addEventListener('click', () => showSleepForm());
     }
 
 }
@@ -108,6 +113,103 @@ export function showMeasurementForm(type, existingEntry = null) {
     setupMeasurementFormListeners(type, isEdit, existingEntry);
 
     // Scroll to form
+    formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Show the manual sleep form: when she fell asleep and woke up, and any time awake in between.
+ * (Nights from Health Connect arrive on their own; see components/sleep.js.)
+ */
+export function showSleepForm() {
+    const formContainer = document.getElementById('measurement-form-container');
+    if (!formContainer) return;
+
+    formContainer.innerHTML = `
+        <div class="measurement-form-card">
+            <div class="form-header">
+                <h3>Add Sleep</h3>
+                <button id="btn-cancel-measurement" class="btn-secondary btn-small">Cancel</button>
+            </div>
+            <form id="sleep-entry-form">
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Save Sleep</button>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sleep-start">Fell asleep</label>
+                        <input type="time" id="sleep-start" value="23:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sleep-end">Woke up</label>
+                        <input type="time" id="sleep-end" value="07:00" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sleep-date">Date woke up</label>
+                        <input type="date" id="sleep-date" value="${getTodayDate()}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sleep-awake">Awake (min)</label>
+                        <input type="number" id="sleep-awake" min="0" step="1" placeholder="0">
+                    </div>
+                </div>
+                <p id="sleep-total" class="help-text"></p>
+                <div class="form-group">
+                    <label for="sleep-notes">Notes (optional)</label>
+                    <textarea id="sleep-notes" placeholder="e.g., coffee at 4pm, woke at 3"></textarea>
+                </div>
+            </form>
+        </div>
+    `;
+    formContainer.classList.remove('hidden');
+
+    const read = () => {
+        const date = document.getElementById('sleep-date').value;
+        const startClock = document.getElementById('sleep-start').value;
+        const endClock = document.getElementById('sleep-end').value;
+        const awake = parseInt(document.getElementById('sleep-awake').value) || 0;
+        if (!date || !startClock || !endClock) return null;
+        const end = new Date(`${date}T${endClock}:00`).getTime();
+        // Fell asleep after the wake-up clock time means the evening before
+        const startDate = startClock > endClock ? shiftDate(date, -1) : date;
+        const start = new Date(`${startDate}T${startClock}:00`).getTime();
+        const hours = Math.round(((end - start) / 3600000 - awake / 60) * 100) / 100;
+        return { date, start, end, awake, hours };
+    };
+    const showTotal = () => {
+        const r = read();
+        const el = document.getElementById('sleep-total');
+        if (el) el.textContent = r && r.hours > 0 ? `Asleep ${sleepSummary({ value: r.hours, sleep_start: r.start, sleep_end: r.end })}` : '';
+    };
+    formContainer.querySelectorAll('input').forEach(i => i.addEventListener('input', showTotal));
+    showTotal();
+
+    document.getElementById('btn-cancel-measurement').addEventListener('click', (e) => {
+        e.preventDefault();
+        hideMeasurementForm();
+    });
+    document.getElementById('sleep-entry-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const r = read();
+        if (!r || !(r.hours >= 0.5 && r.hours <= 16)) {
+            showFieldError(document.getElementById('sleep-end'), 'That comes to less than 30 minutes or more than 16 hours');
+            return;
+        }
+        try {
+            await db.addMeasurement({
+                type: 'sleep', value: r.hours, unit: 'h', date: r.date, timestamp: r.end,
+                sleep_start: r.start, sleep_end: r.end,
+                stages: r.awake ? { awake: r.awake } : null, source: 'manual',
+                notes: document.getElementById('sleep-notes').value.trim()
+            });
+            hideMeasurementForm();
+            await loadMeasurements();
+        } catch (error) {
+            console.error('Error saving sleep:', error);
+            ui.showError('Failed to save sleep: ' + error.message);
+        }
+    });
     formContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -233,6 +335,8 @@ export async function loadMeasurements() {
     try {
         const measurements = await db.getAllMeasurements();
 
+        document.getElementById('btn-add-sleep')?.classList.toggle('hidden', (await db.getSetting('sleep_tracking')) !== 'true');
+
         const measurementEntries = document.getElementById('measurement-entries');
         const historyList = document.getElementById('measurement-history-list');
 
@@ -256,10 +360,13 @@ export async function loadMeasurements() {
                     html += `<div class="history-date-header">${date}</div>`;
                     for (const m of byDate[date]) {
                         const time = new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                        const title = m.type === 'sleep'
+                            ? `😴 sleep: ${sleepSummary(m)}${m.source === 'health_connect' ? '' : ' (manual)'}`
+                            : `${m.type}: ${m.value} ${m.unit}`;
                         html += `
                             <div class="entry-item" data-id="${m.id}">
                                 <div class="entry-item-header">
-                                    <span class="entry-item-title">${m.type}: ${m.value} ${m.unit}</span>
+                                    <span class="entry-item-title">${title}</span>
                                     <div class="entry-item-actions">
                                         <span class="history-time">${time}</span>
                                         <button class="btn-delete btn-danger btn-small history-delete-btn" data-id="${m.id}">×</button>

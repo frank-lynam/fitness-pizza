@@ -455,13 +455,24 @@
                             </label>
                             <p class="help-text">Adds + Add Sleep under Measurements, last night on the dashboard, and sleep charts in Trends, including what your sleep lines up with.</p>
                         </div>
-                        <div id="sleep-hc" class="hidden">
-                            <p id="sleep-hc-status" class="help-text"></p>
-                            <div class="settings-stack">
-                                <button id="btn-sleep-hc-connect" class="btn-secondary">Read Sleep from Health Connect</button>
-                                <button id="btn-sleep-hc-read" class="btn-secondary hidden">Read Now</button>
-                                <button id="btn-sleep-hc-disconnect" class="btn-tertiary hidden">Stop Reading</button>
-                            </div>
+                    </div>
+
+                    <div id="health-connect-settings" class="settings-section hidden">
+                        <h3>Health Connect</h3>
+                        <p id="hc-status" class="help-text"></p>
+                        <div id="hc-kinds" class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="hc-sleep">
+                                <span>Read sleep</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="hc-workouts">
+                                <span>Read workouts</span>
+                            </label>
+                        </div>
+                        <div class="settings-stack">
+                            <button id="btn-hc-read" class="btn-secondary hidden">Read Now</button>
+                            <button id="btn-hc-settings" class="btn-tertiary hidden">Health Connect Settings</button>
                         </div>
                     </div>
 
@@ -514,7 +525,7 @@
                     <div class="settings-section">
                         <h3>About</h3>
                         <div class="about-text">
-                        <p><span id="secret-version">Fitness Pizza v2.10.0</span> <span id="secret-pizza">🍕</span></p>
+                        <p><span id="secret-version">Fitness Pizza v2.11.0</span> <span id="secret-pizza">🍕</span></p>
                         <p>Track your macros like slices of pizza</p>
                         <p>Entirely vibe-coded with Claude Code</p>
                         <p>Built with vanilla JavaScript, IndexedDB, and AI-powered macro estimation</p>

@@ -537,6 +537,10 @@ class DatabaseManager {
             exercise_id: data.exercise_id || null,
             template_id: data.template_id || null
         };
+        if (data.hc_id) {          // read from Health Connect (js/components/health-connect.js)
+            entry.source = data.source || 'health_connect';
+            entry.hc_id = data.hc_id;
+        }
         return this.add('workouts', entry);
     }
 

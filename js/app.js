@@ -19,11 +19,12 @@ import { initEasterEggs } from './easter-eggs.js';
 import { initRunTracker } from './components/run-tracker.js';
 import { showSetupWizard } from './components/setup-wizard.js';
 import { logDebug, getDebugLog, clearDebugLog } from './utils/debug-log.js';
-import { syncSleep, loadSleepSettings } from './components/sleep.js';
+import { loadSleepSettings } from './components/sleep.js';
+import { syncHealthConnect, loadHealthConnectSettings } from './components/health-connect.js';
 import { sleepSummary } from './utils/sleep.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.10.0';
+const APP_VERSION = '2.11.0';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -142,14 +143,12 @@ class FitnessTrackerApp {
             // Load initial screen (dashboard)
             await this.loadScreen('dashboard');
 
-            // Sleep from Health Connect (Android app, once connected): on start and on coming back
+            // Sleep and workouts from Health Connect (Android app, once switched on): on start and
+            // on coming back to the app; screens refresh through fp:data-changed when anything's new
             if (window.Capacitor?.isNativePlatform?.()) {
-                const readSleep = async () => {
-                    if (await syncSleep() && this.currentScreen === 'dashboard') await this.loadDashboard();
-                };
-                readSleep();
+                syncHealthConnect();
                 document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') readSleep();
+                    if (document.visibilityState === 'visible') syncHealthConnect();
                 });
             }
 
@@ -1907,6 +1906,7 @@ class FitnessTrackerApp {
      */
     async loadSettings() {
         loadSleepSettings();
+        loadHealthConnectSettings();
         console.log('Loading settings screen...');
         this.initCollapsibleSettings();
 
@@ -2232,7 +2232,7 @@ class FitnessTrackerApp {
                 await db.setSetting('running_average_mode', runningAvgCheckbox.checked ? 'true' : 'false');
                 updatePiGainsVisibility(runningAvgCheckbox.checked);
                 if (this.currentScreen === 'dashboard') await this.loadDashboard();
-                ui.showSuccess(runningAvgCheckbox.checked ?
+                ui.showToast(runningAvgCheckbox.checked ?
                     'Auto-adjust enabled' : 'Auto-adjust disabled');
             });
         }

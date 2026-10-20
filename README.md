@@ -14,7 +14,7 @@ Track your macros like slices of pizza! A lightweight, privacy-focused Progressi
 
 ### 📈 Body Measurements
 - Track weight and waist measurements
-- Track sleep (Settings → Sleep): typed in, or read from Health Connect in the Android app (Google Health/Fitbit, Samsung Health, …)
+- Track sleep (Settings → Sleep): typed in, or read from Health Connect in the Android app (Google Health/Fitbit, Samsung Health, …), which can also bring in workouts (Settings → Health Connect)
 - Timestamp precision for trends
 - Visual charts for progress
 
@@ -145,7 +145,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.10.0
+**Current**: v2.11.0
+- **Workouts from Health Connect** — Settings → Health Connect (Android app) now has two switches, "Read sleep" and "Read workouts". Workouts recorded by Google Health (Fitbit), Samsung Health and others arrive on their own: the last 30 days when switched on, then new ones whenever the app opens or comes back to the front. Each gets its name (Treadmill, Walk, Outdoor Run, Strength Training, …), duration, distance and pace, and the calories the watch recorded during it (total, like the app's own estimates; else active; with neither, the app estimates them). They count toward workout credit like any other workout. Starring or unticking one sticks when it's re-read. Needs this version's APK.
+- **Fix: toggles that saved but then showed "An unexpected error occurred"** — Track sleep, Auto-adjust daily targets, and saving a Navy or JP3 body fat estimate called a notification helper that doesn't exist. The setting was saved; the error was the confirmation failing. They now show the confirmation.
+
+**v2.10.0**
 - **Sleep** — turn it on in Settings → Sleep. Off by default: nothing changes for anyone who doesn't.
   - **From your watch:** in the Android app, "Read Sleep from Health Connect" reads nights written there by Google Health (Fitbit), Samsung Health and other apps. It reads the last 30 days once, then new nights whenever the app opens or comes back to the front (re-reading 3 days, so late syncs and corrected nights are picked up). Read only; nothing is written back. Needs this version's APK.
   - **By hand:** Measurements → + Add Sleep (fell asleep, woke up, time awake).

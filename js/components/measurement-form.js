@@ -603,7 +603,7 @@ async function showNavyEstimatorForm() {
         formContainer.classList.add('hidden');
         formContainer.innerHTML = '';
         await loadMeasurements();
-        ui.showSuccess(`Body fat ${estimatedBF}% saved`);
+        ui.showToast(`Body fat ${estimatedBF}% saved`);
     });
 }
 
@@ -767,6 +767,6 @@ async function showCaliperEstimatorForm() {
         formContainer.classList.add('hidden');
         formContainer.innerHTML = '';
         await loadMeasurements();
-        ui.showSuccess(`Body fat ${estimatedBF}% saved`);
+        ui.showToast(`Body fat ${estimatedBF}% saved`);
     });
 }

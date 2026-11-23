@@ -2212,6 +2212,16 @@ textarea.error {
 }
 
 /* Measurement Form */
+/* JP3 caliper estimator: live result under the Save button */
+.caliper-result {
+    margin-bottom: var(--spacing-sm);
+    font-weight: 600;
+    min-height: 1.5em;
+}
+.caliper-result.is-hint { color: var(--text-secondary); font-weight: normal; }
+.caliper-result.is-error { color: var(--accent-danger); }
+.caliper-result.is-result { color: var(--accent-primary); font-size: 1.1em; }
+
 .measurement-form-card {
     background-color: var(--bg-card);
     border: none;

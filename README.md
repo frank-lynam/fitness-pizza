@@ -145,7 +145,13 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.11.0
+**Current**: v2.11.1
+- **Fix: a cheat day could only be undone on the day itself** — the Cheat Day switch on the Macros tab stayed on the day the app was opened, so after midnight, or after going back a day with ◀, it showed and changed the wrong day. It now follows the day on screen: go to Macros, ◀ to the day, untick it.
+- **Dashboard: ✓ and × swapped** — on planned items, remove (×) is now on the left and complete (✓) on the right.
+- **JP3 caliper estimator calculates as you type** — no Calculate button: the result appears once your age and all three skinfolds are in (saying how many are left until then), and Save sits at the top, above the inputs.
+- **Fix: red and green that never showed** — "check inputs" messages on the Navy estimator and the Trends correlation numbers used colour names the themes don't define; they now use the theme's red and green.
+
+**v2.11.0**
 - **Workouts from Health Connect** — Settings → Health Connect (Android app) now has two switches, "Read sleep" and "Read workouts". Workouts recorded by Google Health (Fitbit), Samsung Health and others arrive on their own: the last 30 days when switched on, then new ones whenever the app opens or comes back to the front. Each gets its name (Treadmill, Walk, Outdoor Run, Strength Training, …), duration, distance and pace, and the calories the watch recorded during it (total, like the app's own estimates; else active; with neither, the app estimates them). They count toward workout credit like any other workout. Starring or unticking one sticks when it's re-read. Needs this version's APK.
 - **Fix: toggles that saved but then showed "An unexpected error occurred"** — Track sleep, Auto-adjust daily targets, and saving a Navy or JP3 body fat estimate called a notification helper that doesn't exist. The setting was saved; the error was the confirmation failing. They now show the confirmation.
 

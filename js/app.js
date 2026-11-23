@@ -24,7 +24,7 @@ import { syncHealthConnect, loadHealthConnectSettings } from './components/healt
 import { sleepSummary } from './utils/sleep.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.11.0';
+const APP_VERSION = '2.11.1';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -777,7 +777,7 @@ class FitnessTrackerApp {
                         return `
                             <div class="activity-item ${itemClass}">
                                 ${!isCompleted ? `
-                                    <button class="btn-complete-activity" data-id="${activity.data.id}" title="Complete">✓</button>
+                                    <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="macro" title="Remove">×</button>
                                 ` : ''}
                                 <span class="activity-icon">🍽️</span>
                                 <div class="activity-content">
@@ -785,7 +785,7 @@ class FitnessTrackerApp {
                                     <div class="activity-macros">${macroSummary} · ${g(activity.data.calories)} cal</div>
                                 </div>
                                 ${!isCompleted ? `
-                                    <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="macro" title="Remove">×</button>
+                                    <button class="btn-complete-activity" data-id="${activity.data.id}" title="Complete">✓</button>
                                 ` : ''}
                             </div>
                         `;
@@ -807,7 +807,7 @@ class FitnessTrackerApp {
                         return `
                             <div class="activity-item ${workoutDone ? '' : 'planned'}">
                                 ${!workoutDone ? `
-                                    <button class="btn-complete-workout" data-id="${activity.data.id}" title="Complete">✓</button>
+                                    <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="workout" title="Remove">×</button>
                                 ` : ''}
                                 <span class="activity-icon">💪</span>
                                 <div class="activity-content">
@@ -815,7 +815,7 @@ class FitnessTrackerApp {
                                     <div class="activity-time">${workoutSubtitle}${time}</div>
                                 </div>
                                 ${!workoutDone ? `
-                                    <button class="btn-remove-activity" data-id="${activity.data.id}" data-type="workout" title="Remove">×</button>
+                                    <button class="btn-complete-workout" data-id="${activity.data.id}" title="Complete">✓</button>
                                 ` : ''}
                             </div>
                         `;
@@ -1081,8 +1081,8 @@ class FitnessTrackerApp {
                 <tr>
                     <td style="padding:4px 8px;font-weight:600;">${label}</td>
                     <td style="padding:4px 8px;text-align:right;">${base.toFixed(0)}g</td>
-                    <td style="padding:4px 8px;text-align:right;color:${pCorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmt(pCorr)}</td>
-                    <td style="padding:4px 8px;text-align:right;color:${iCorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmt(iCorr)}</td>
+                    <td style="padding:4px 8px;text-align:right;color:${pCorr >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};">${fmt(pCorr)}</td>
+                    <td style="padding:4px 8px;text-align:right;color:${iCorr >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};">${fmt(iCorr)}</td>
                     <td style="padding:4px 8px;text-align:right;">${fmtAdj(d.final_adj)}${clampNote}</td>
                     <td style="padding:4px 8px;text-align:right;">${workoutCell}</td>
                     <td style="padding:4px 8px;text-align:right;font-weight:600;">${goal.toFixed(0)}g</td>
@@ -1105,8 +1105,8 @@ class FitnessTrackerApp {
                 <tr style="border-top:1px solid var(--border-color);">
                     <td style="padding:4px 8px;font-weight:600;font-style:italic;">Calories</td>
                     <td style="padding:4px 8px;text-align:right;font-style:italic;">${Math.round(calBase)}cal</td>
-                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calPCorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmtCal(calPCorr)}</td>
-                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calICorr >= 0 ? 'var(--success-color)' : 'var(--danger-color)'};">${fmtCal(calICorr)}</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calPCorr >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};">${fmtCal(calPCorr)}</td>
+                    <td style="padding:4px 8px;text-align:right;font-style:italic;color:${calICorr >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'};">${fmtCal(calICorr)}</td>
                     <td style="padding:4px 8px;text-align:right;font-style:italic;">${calAdj === 0 ? '0cal' : fmtCal(-calAdj)}${calClampNote}</td>
                     <td style="padding:4px 8px;text-align:right;font-style:italic;">${calWorkoutCell}</td>
                     <td style="padding:4px 8px;text-align:right;font-weight:600;font-style:italic;">${Math.round(goals.calories)}cal</td>
@@ -1114,7 +1114,7 @@ class FitnessTrackerApp {
 
         // Per-day breakdown
         const dayRows = piDebug.dayData.map(d => {
-            const errFmt = (e) => `<span style="color:${e >= 0 ? 'var(--danger-color)' : 'var(--success-color)'};">${fmt(e)}</span>`;
+            const errFmt = (e) => `<span style="color:${e >= 0 ? 'var(--accent-danger)' : 'var(--accent-success)'};">${fmt(e)}</span>`;
             // ● = I-err vs stored displayed goal; ○ = fallback to base+workout (no history yet)
             const refDot = d.hasStoredGoal
                 ? `<span style="color:var(--accent-color);font-size:10px;" title="I-error vs stored displayed goal">●</span>`
@@ -2869,6 +2869,7 @@ class FitnessTrackerApp {
      */
     async setDate(date) {
         this.currentDate = date;
+        document.dispatchEvent(new CustomEvent('fp:datechange', { detail: { date } }));   // e.g. the cheat-day toggle
 
         // Update date picker
         const datePicker = document.getElementById('current-date');

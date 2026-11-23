@@ -76,34 +76,39 @@ export function initMacroForm() {
     // Reschedule date check if app was backgrounded past midnight
     document.addEventListener('visibilitychange', async () => {
         if (document.visibilityState !== 'visible' || !window.fitnessApp) return;
-        const toggle = document.getElementById('cheat-day-toggle');
-        if (!toggle) return;
-        const newDate = window.fitnessApp.getCurrentDate();
-        const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
-        toggle.checked = cheatDayDates[newDate] === true;
-        updateCheatDayLabel(toggle, newDate);
+        await refreshCheatDayToggle();
         scheduleCheatDayAtMidnight();
     });
+    // The toggle is for the day on screen: follow the date picker and the ◀ ▶ buttons
+    document.addEventListener('fp:datechange', () => refreshCheatDayToggle());
+}
+
+/**
+ * Show the selected day's cheat-day state on the toggle (the day the app is showing, not the day it started on)
+ */
+async function refreshCheatDayToggle() {
+    const toggle = document.getElementById('cheat-day-toggle');
+    if (!toggle) return;
+    const date = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
+    const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
+    toggle.checked = cheatDayDates[date] === true;
+    updateCheatDayLabel(toggle, date);
 }
 
 /**
  * Setup cheat day toggle for current day
  */
 async function setupCheatDayToggle(toggle) {
-    const currentDate = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
-
-    // Load current state from settings (stored per date)
-    const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
-    toggle.checked = cheatDayDates[currentDate] === true;
-    updateCheatDayLabel(toggle, currentDate);
+    await refreshCheatDayToggle();
 
     toggle.addEventListener('change', async () => {
-        // Update state for this date
+        // The day on screen now, not the day the app started on: past midnight, or after ◀, that was the wrong day
+        const date = window.fitnessApp ? window.fitnessApp.getCurrentDate() : getTodayDate();
         const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
         if (toggle.checked) {
-            cheatDayDates[currentDate] = true;
+            cheatDayDates[date] = true;
         } else {
-            delete cheatDayDates[currentDate];
+            delete cheatDayDates[date];
         }
         await db.setSetting('cheat_day_dates', JSON.stringify(cheatDayDates));
 
@@ -125,13 +130,7 @@ function scheduleCheatDayAtMidnight() {
     const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     _cheatDayTimeoutId = setTimeout(async () => {
         _cheatDayTimeoutId = null;
-        const toggle = document.getElementById('cheat-day-toggle');
-        if (toggle && window.fitnessApp) {
-            const newDate = window.fitnessApp.getCurrentDate();
-            const cheatDayDates = JSON.parse(await db.getSetting('cheat_day_dates') || '{}');
-            toggle.checked = cheatDayDates[newDate] === true;
-            updateCheatDayLabel(toggle, newDate);
-        }
+        if (window.fitnessApp) await refreshCheatDayToggle();
         scheduleCheatDayAtMidnight();
     }, tomorrow - now);
 }

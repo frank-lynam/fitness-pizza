@@ -569,7 +569,7 @@ async function showNavyEstimatorForm() {
 
         if (!height || !neck || !waist || (sex === 'female' && !hip)) {
             result.textContent = 'Please fill in all required fields.';
-            result.style.color = 'var(--danger-color)';
+            result.style.color = 'var(--accent-danger)';
             saveBtn.disabled = true;
             return;
         }
@@ -583,7 +583,7 @@ async function showNavyEstimatorForm() {
 
         if (isNaN(bf) || bf <= 0 || bf >= 70) {
             result.textContent = 'Invalid inputs — check measurements and try again.';
-            result.style.color = 'var(--danger-color)';
+            result.style.color = 'var(--accent-danger)';
             saveBtn.disabled = true;
             return;
         }
@@ -634,6 +634,10 @@ async function showCaliperEstimatorForm() {
                 <h3>Caliper Estimator (Jackson-Pollock 3-site)</h3>
                 <button id="btn-cancel-caliper" class="btn-secondary btn-small">Cancel</button>
             </div>
+            <div class="form-actions">
+                <button id="btn-caliper-save" class="btn-primary" disabled>Save Result</button>
+            </div>
+            <div id="caliper-result" class="caliper-result is-hint">Fill in your age and all three skinfolds</div>
             <div class="form-group">
                 <label>Sex</label>
                 <div style="display:flex;gap:12px;">
@@ -689,11 +693,6 @@ async function showCaliperEstimatorForm() {
                     </div>
                 </div>
             </div>
-            <div id="caliper-result" style="margin:8px 0;font-size:1.1em;font-weight:600;color:var(--accent-primary);min-height:1.5em;"></div>
-            <div class="form-actions">
-                <button id="btn-caliper-calculate" class="btn-secondary">Calculate</button>
-                <button id="btn-caliper-save" class="btn-primary" disabled>Save Result</button>
-            </div>
         </div>
     `;
     formContainer.classList.remove('hidden');
@@ -709,54 +708,51 @@ async function showCaliperEstimatorForm() {
         document.getElementById('caliper-sites-male').style.display = isFemale ? 'none' : '';
         document.getElementById('caliper-sites-female').style.display = isFemale ? '' : 'none';
     };
-    document.querySelectorAll('input[name="caliper-sex"]').forEach(r => {
-        r.addEventListener('change', applyCaliperSexVisibility);
-    });
-    applyCaliperSexVisibility();
-
     let estimatedBF = null;
 
-    document.getElementById('btn-caliper-calculate').addEventListener('click', () => {
+    // Recalculates on every keystroke: the result appears once age and the three sites are all filled in
+    const recalculate = () => {
         const sex = document.querySelector('input[name="caliper-sex"]:checked').value;
-        const age = parseFloat(document.getElementById('caliper-age').value);
+        const num = id => parseFloat(document.getElementById(id).value);
+        const age = num('caliper-age');
+        const sites = sex === 'male' ? ['caliper-chest', 'caliper-abdomen', 'caliper-thigh-m']
+                                     : ['caliper-tricep', 'caliper-suprailiac', 'caliper-thigh-f'];
+        const values = sites.map(num);
         const result  = document.getElementById('caliper-result');
         const saveBtn = document.getElementById('btn-caliper-save');
+        const show = (text, state) => {
+            result.textContent = text;
+            result.className = `caliper-result ${state}`;
+        };
+        estimatedBF = null;
+        saveBtn.disabled = true;
 
-        let S, density;
-        if (sex === 'male') {
-            const chest   = parseFloat(document.getElementById('caliper-chest').value);
-            const abdomen = parseFloat(document.getElementById('caliper-abdomen').value);
-            const thigh   = parseFloat(document.getElementById('caliper-thigh-m').value);
-            S = chest + abdomen + thigh;
-            density = 1.10938 - 0.0008267 * S + 0.0000016 * S * S - 0.0002574 * age;
-        } else {
-            const tricep     = parseFloat(document.getElementById('caliper-tricep').value);
-            const suprailiac = parseFloat(document.getElementById('caliper-suprailiac').value);
-            const thigh      = parseFloat(document.getElementById('caliper-thigh-f').value);
-            S = tricep + suprailiac + thigh;
-            density = 1.0994921 - 0.0009929 * S + 0.0000023 * S * S - 0.0001392 * age;
-        }
-
-        if (isNaN(S) || isNaN(age) || density <= 0) {
-            result.textContent = 'Please fill in all fields.';
-            result.style.color = 'var(--danger-color)';
-            saveBtn.disabled = true;
+        if (isNaN(age) || values.some(v => isNaN(v) || v <= 0)) {
+            const missing = values.filter(v => isNaN(v) || v <= 0).length;
+            show(isNaN(age) ? 'Fill in your age and all three skinfolds'
+                            : `${missing} more skinfold${missing === 1 ? '' : 's'} to go`, 'is-hint');
             return;
         }
-
+        const S = values.reduce((a, v) => a + v, 0);
+        const density = sex === 'male'
+            ? 1.10938 - 0.0008267 * S + 0.0000016 * S * S - 0.0002574 * age
+            : 1.0994921 - 0.0009929 * S + 0.0000023 * S * S - 0.0001392 * age;
         const bf = (495 / density) - 450;
-        if (isNaN(bf) || bf <= 0 || bf >= 70) {
-            result.textContent = 'Invalid result — check inputs.';
-            result.style.color = 'var(--danger-color)';
-            saveBtn.disabled = true;
+        if (!(density > 0) || isNaN(bf) || bf <= 0 || bf >= 70) {
+            show('Out of range — check the numbers', 'is-error');
             return;
         }
-
         estimatedBF = Math.round(bf * 10) / 10;
-        result.textContent = `Estimated body fat: ${estimatedBF}%  (sum of skinfolds: ${S.toFixed(1)} mm)`;
-        result.style.color = 'var(--accent-primary)';
+        show(`Estimated body fat: ${estimatedBF}%  (skinfolds total ${S.toFixed(1)} mm)`, 'is-result');
         saveBtn.disabled = false;
+    };
+
+    document.querySelectorAll('input[name="caliper-sex"]').forEach(r => {
+        r.addEventListener('change', () => { applyCaliperSexVisibility(); recalculate(); });
     });
+    applyCaliperSexVisibility();
+    formContainer.querySelectorAll('input[type="number"]').forEach(i => i.addEventListener('input', recalculate));
+    recalculate();
 
     document.getElementById('btn-caliper-save').addEventListener('click', async () => {
         if (estimatedBF === null) return;

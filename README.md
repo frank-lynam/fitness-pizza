@@ -145,7 +145,10 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.11.1
+**Current**: v2.11.2
+- **Fix: Import couldn't open an export** — Settings → Import Data only offered `.json` files, but Export has saved `.json.gz` since v2.4.4, so Android's picker greyed the backup out (and on some phones greys out `.json` too). Import also never unzipped, so a `.json.gz` that got through failed as "Invalid JSON". The picker now takes any file, and a gzipped export is unzipped before it's read.
+
+**v2.11.1**
 - **Fix: a cheat day could only be undone on the day itself** — the Cheat Day switch on the Macros tab stayed on the day the app was opened, so after midnight, or after going back a day with ◀, it showed and changed the wrong day. It now follows the day on screen: go to Macros, ◀ to the day, untick it.
 - **Dashboard: ✓ and × swapped** — on planned items, remove (×) is now on the left and complete (✓) on the right.
 - **JP3 caliper estimator calculates as you type** — no Calculate button: the result appears once your age and all three skinfolds are in (saying how many are left until then), and Save sits at the top, above the inputs.

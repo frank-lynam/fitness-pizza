@@ -24,7 +24,7 @@ import { syncHealthConnect, loadHealthConnectSettings } from './components/healt
 import { sleepSummary } from './utils/sleep.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.11.1';
+const APP_VERSION = '2.11.2';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -2562,7 +2562,14 @@ class FitnessTrackerApp {
 
                 ui.showLoading('Reading file…');
                 try {
-                    const text = await file.text();
+                    // No type filter on the picker (Android greys out .json.gz, and often .json too):
+                    // a gzipped export (what Export saves) is recognised by its first two bytes, not its name
+                    let bytes = new Uint8Array(await file.arrayBuffer());
+                    if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+                        const ds = new DecompressionStream('gzip');
+                        bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer());
+                    }
+                    const text = new TextDecoder().decode(bytes);
                     let data;
                     try {
                         data = JSON.parse(text);

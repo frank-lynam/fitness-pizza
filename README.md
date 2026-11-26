@@ -145,7 +145,11 @@ The result? A fully-featured fitness PWA built entirely through natural language
 
 ## 📝 Version
 
-**Current**: v2.11.2
+**Current**: v2.11.3
+- **Fix: Import skipped sleep** — Import's checks only knew weight, waist and body fat, so every sleep night in a backup (entered by hand or from Health Connect) was skipped as invalid. Sleep now imports. Re-import the same backup to get it back: Import replaces what's there, so nothing doubles.
+- **Chart notes are in backups** — the notes pinned to dates on Trends charts were never exported, imported or cleared by a restore. They are now.
+
+**v2.11.2**
 - **Fix: Import couldn't open an export** — Settings → Import Data only offered `.json` files, but Export has saved `.json.gz` since v2.4.4, so Android's picker greyed the backup out (and on some phones greys out `.json` too). Import also never unzipped, so a `.json.gz` that got through failed as "Invalid JSON". The picker now takes any file, and a gzipped export is unzipped before it's read.
 
 **v2.11.1**

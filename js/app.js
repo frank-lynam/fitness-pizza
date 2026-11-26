@@ -24,7 +24,7 @@ import { syncHealthConnect, loadHealthConnectSettings } from './components/healt
 import { sleepSummary } from './utils/sleep.js';
 
 // Authoritative running version — baked in at build time
-const APP_VERSION = '2.11.2';
+const APP_VERSION = '2.11.3';
 
 /**
  * Tell the native updater this bundle's JS started executing. CapacitorUpdater
@@ -2587,9 +2587,9 @@ class FitnessTrackerApp {
                         return;
                     }
 
-                    const knownStores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings', 'exercise_library', 'workout_templates'];
+                    const knownStores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings', 'exercise_library', 'workout_templates', 'annotations'];
                     const errors = [];
-                    const validEntries = { macros: [], measurements: [], workouts: [], named_foods: [], settings: [], exercise_library: [], workout_templates: [] };
+                    const validEntries = { macros: [], measurements: [], workouts: [], named_foods: [], settings: [], exercise_library: [], workout_templates: [], annotations: [] };
 
                     // Validate each known store
                     for (const store of knownStores) {
@@ -2611,10 +2611,15 @@ class FitnessTrackerApp {
                                 if (typeof entry.fat !== 'number' || isNaN(entry.fat))
                                     entryErrors.push('fat must be a number');
                             } else if (store === 'measurements') {
-                                if (!['weight', 'waist', 'body_fat'].includes(entry.type))
-                                    entryErrors.push('type must be "weight", "waist", or "body_fat"');
+                                if (!['weight', 'waist', 'body_fat', 'sleep'].includes(entry.type))
+                                    entryErrors.push('type must be "weight", "waist", "body_fat" or "sleep"');
                                 if (typeof entry.value !== 'number' || isNaN(entry.value))
                                     entryErrors.push('value must be a number');
+                            } else if (store === 'annotations') {
+                                if (!entry.date || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date))
+                                    entryErrors.push('missing or invalid date');
+                                if (typeof entry.label !== 'string' || !entry.label.trim())
+                                    entryErrors.push('label is required');
                             } else if (store === 'workouts') {
                                 if (!entry.date || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date))
                                     entryErrors.push('missing or invalid date');

@@ -859,7 +859,7 @@ class DatabaseManager {
     async deleteAnnotation(id) { return this.delete('annotations', id); }
 
     async clearAllData() {
-        const stores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings', 'exercise_library', 'workout_templates'];
+        const stores = ['macros', 'measurements', 'workouts', 'named_foods', 'settings', 'exercise_library', 'workout_templates', 'annotations'];
         const promises = stores.map(storeName => {
             return new Promise((resolve, reject) => {
                 const transaction = this.db.transaction([storeName], 'readwrite');
@@ -887,7 +887,8 @@ class DatabaseManager {
             named_foods: await this.getAllNamedFoods(),
             settings: await this.getAllSettings(),
             exercise_library: await this.getAllExercises(),
-            workout_templates: await this.getAllWorkoutTemplates()
+            workout_templates: await this.getAllWorkoutTemplates(),
+            annotations: await this.getAllAnnotations()     // chart notes
         };
         return data;
     }
@@ -960,6 +961,12 @@ class DatabaseManager {
                 for (const entry of data.workout_templates) {
                     delete entry.id;
                     await this.addWorkoutTemplate(entry);
+                }
+            }
+
+            if (data.annotations) {          // chart notes: one per date
+                for (const entry of data.annotations) {
+                    await this.upsertAnnotation(entry.date, entry.label);
                 }
             }
 
